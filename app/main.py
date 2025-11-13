@@ -11,6 +11,10 @@ from loguru import logger
 from app.api.users import auth_router
 from app.api.users import router as users_router
 from app.core.lifespan import lifespan
+from app.middleware.logging import LoggingMiddleware, setup_logging
+
+# 设置日志
+setup_logging()
 
 # 创建 FastAPI 应用
 app = FastAPI(
@@ -21,6 +25,9 @@ app = FastAPI(
     redoc_url="/redoc",
     lifespan=lifespan,
 )
+
+# 添加日志中间件
+app.add_middleware(LoggingMiddleware)
 
 # 配置 CORS
 app.add_middleware(
