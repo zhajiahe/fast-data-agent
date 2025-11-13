@@ -19,6 +19,7 @@ dependencies = [
     "pytest>=9.0.1",
     "ruff>=0.14.4",
     "sqlalchemy>=2.0.44",
+    "uvicorn>=0.38.0",
 ]
 
 [tool.ruff]
