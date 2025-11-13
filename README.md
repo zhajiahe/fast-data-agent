@@ -1,6 +1,6 @@
 # FastAPI后端开发实践（0-1）
 > 友情提示：本文含大量AI生成内容
-
+[https://github.com/zhajiahe/fastapi-template](项目地址)
 ## 基础概念
 
 ### 核心依赖
@@ -95,7 +95,7 @@ ACCESS_TOKEN_EXPIRE_MINUTES=30
 REFRESH_TOKEN_EXPIRE_DAYS=7
 
 # 应用配置
-APP_NAME=FastAPI Template
+APP_NAME=FastAPI-Template
 DEBUG=true
 ```
 
