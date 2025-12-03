@@ -1,26 +1,44 @@
 [project]
-name = "fastapi-template"
+name = "fast-data-agent"
 version = "0.1.0"
 description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
-    "aiosqlite>=0.21.0",
+    # Database
+    "asyncpg>=0.30.0",
+    "psycopg2-binary>=2.9.10",
+    "sqlalchemy>=2.0.44",
     "alembic>=1.17.1",
-    "bcrypt>=5.0.0",
-    "email-validator>=2.3.0",
+    # Object Storage
+    "miniopy-async>=1.21.1",
+    # AI/LLM
+    "langgraph>=0.2.0",
+    "langchain>=0.3.0",
+    "langchain-openai>=0.2.0",
+    # Data Processing
+    "pandas>=2.2.0",
+    "openpyxl>=3.1.0",
+    "pyarrow>=18.0.0",
+    # Web Framework
     "fastapi[uvicorn]>=0.121.1",
+    "uvicorn>=0.38.0",
     "httpx>=0.28.1",
-    "loguru>=0.7.3",
-    "mypy>=1.18.2",
-    "pre-commit>=4.4.0",
+    "python-multipart>=0.0.18",
+    # Validation & Config
     "pydantic>=2.12.4",
     "pydantic-settings>=2.12.0",
-    "pytest>=9.0.1",
+    "email-validator>=2.3.0",
+    # Security
+    "bcrypt>=5.0.0",
     "python-jose[cryptography]>=3.5.0",
+    # Logging
+    "loguru>=0.7.3",
+    # Dev Tools
+    "mypy>=1.18.2",
+    "pre-commit>=4.4.0",
+    "pytest>=9.0.1",
     "ruff>=0.14.4",
-    "sqlalchemy>=2.0.44",
-    "uvicorn>=0.38.0",
 ]
 
 [tool.ruff]

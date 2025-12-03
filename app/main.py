@@ -8,6 +8,10 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from loguru import logger
 
+from app.api.chat import router as chat_router
+from app.api.data_sources import router as data_sources_router
+from app.api.files import router as files_router
+from app.api.sessions import router as sessions_router
 from app.api.users import auth_router
 from app.api.users import router as users_router
 from app.core.config import settings
@@ -20,8 +24,8 @@ setup_logging()
 
 # 创建 FastAPI 应用
 app = FastAPI(
-    title="FastAPI Template",
-    description="基于 SQLAlchemy 2.0+ 的 FastAPI 项目模板",
+    title="Fast Data Agent",
+    description="基于 LangGraph 的 AI 数据分析平台",
     version="1.0.0",
     docs_url="/docs",
     redoc_url="/redoc",
@@ -50,7 +54,7 @@ async def root():
     """根路径，健康检查"""
     return {
         "status": "ok",
-        "message": "FastAPI Template is running!",
+        "message": "Fast Data Agent is running!",
         "docs": "/docs",
         "redoc": "/redoc",
     }
@@ -67,6 +71,18 @@ app.include_router(auth_router, prefix="/api/v1")
 
 # 注册用户路由
 app.include_router(users_router, prefix="/api/v1")
+
+# 注册数据源路由
+app.include_router(data_sources_router, prefix="/api/v1")
+
+# 注册文件路由
+app.include_router(files_router, prefix="/api/v1")
+
+# 注册会话路由
+app.include_router(sessions_router, prefix="/api/v1")
+
+# 注册对话路由
+app.include_router(chat_router, prefix="/api/v1")
 
 
 if __name__ == "__main__":

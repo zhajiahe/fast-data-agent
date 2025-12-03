@@ -12,8 +12,20 @@ from app.models.base import Base
 # access to the values within the .ini file in use.
 config = context.config
 
-# Set database URL from settings
-config.set_main_option("sqlalchemy.url", settings.DATABASE_URL)
+
+def get_sync_database_url(url: str) -> str:
+    """将异步数据库 URL 转换为同步 URL（Alembic 需要同步驱动）"""
+    # postgresql+asyncpg -> postgresql+psycopg2
+    if "+asyncpg" in url:
+        return url.replace("+asyncpg", "+psycopg2")
+    # sqlite+aiosqlite -> sqlite (兼容旧配置)
+    if "+aiosqlite" in url:
+        return url.replace("+aiosqlite", "")
+    return url
+
+
+# Set database URL from settings (convert async to sync for alembic)
+config.set_main_option("sqlalchemy.url", get_sync_database_url(settings.DATABASE_URL))
 
 # Interpret the config file for Python logging.
 # This line sets up loggers basically.

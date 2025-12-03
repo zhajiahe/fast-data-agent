@@ -30,7 +30,17 @@ class Settings(BaseSettings):
     REFRESH_TOKEN_EXPIRE_DAYS: int = 7  # 刷新令牌过期时间（天）
 
     # 数据库配置
-    DATABASE_URL: str = "sqlite+aiosqlite:///./test.db"
+    DATABASE_URL: str = "postgresql+asyncpg://postgres:postgres123@localhost:5432/data_agent"
+
+    # MinIO 对象存储配置
+    MINIO_ENDPOINT: str = "localhost:9000"
+    MINIO_ACCESS_KEY: str = "admin"
+    MINIO_SECRET_KEY: str = "admin123"
+    MINIO_BUCKET: str = "data-agent"
+    MINIO_SECURE: bool = False  # 是否使用 HTTPS
+
+    # 文件上传配置
+    MAX_UPLOAD_SIZE: int = 100 * 1024 * 1024  # 100MB
 
     # 应用配置
     APP_NAME: str = "FastAPI Template"
@@ -38,6 +48,16 @@ class Settings(BaseSettings):
 
     # CORS 配置
     ALLOWED_ORIGINS: list[str] = ["*"]
+
+    # AI/LLM 配置
+    OPENAI_API_KEY: str = ""
+    OPENAI_BASE_URL: str = "https://api.openai.com/v1"
+    OPENAI_MODEL: str = "gpt-4o"
+
+    # Python 沙箱配置
+    SANDBOX_ENABLED: bool = True
+    SANDBOX_TIMEOUT: int = 60  # 执行超时（秒）
+    SANDBOX_MEMORY_LIMIT: str = "512m"  # 内存限制
 
     # 服务器配置
     HOST: str = "0.0.0.0"
