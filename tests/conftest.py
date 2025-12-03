@@ -3,15 +3,23 @@ pytest 全局配置文件
 定义全局 fixtures 和配置
 """
 
+import asyncio
 import os
-from collections.abc import AsyncGenerator, Generator
+from collections.abc import Generator
+
+# 必须在导入任何 app 模块之前设置环境变量
+os.environ["TESTING"] = "1"
+os.environ["DATABASE_URL"] = os.getenv(
+    "TEST_DATABASE_URL",
+    "postgresql+asyncpg://postgres:postgres123@localhost:5432/data_agent_test",
+)
 
 import pytest
 from fastapi.testclient import TestClient
-from httpx import AsyncClient
+from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
-from sqlalchemy.pool import StaticPool
 
+# 现在可以安全导入 app 模块
 from app.core.database import get_db
 from app.models.base import Base
 
@@ -25,144 +33,119 @@ except (ImportError, AttributeError):
 # ============ 数据库配置 ============
 
 # 使用 PostgreSQL 进行测试（模型使用了 PostgreSQL 特定类型如 ARRAY, JSONB）
-# 测试数据库应与生产数据库分开
-SQLALCHEMY_DATABASE_URL = os.getenv(
-    "TEST_DATABASE_URL",
-    "postgresql+asyncpg://postgres:postgres123@localhost:5432/data_agent_test",
-)
+SQLALCHEMY_DATABASE_URL = os.environ["DATABASE_URL"]
 
-engine = create_async_engine(
+# 创建测试引擎
+test_engine = create_async_engine(
     SQLALCHEMY_DATABASE_URL,
-    echo=False,  # 关闭SQL日志以提高测试速度
+    echo=False,
 )
 
-# 注意：由于异步测试配置复杂，建议使用 scripts/test_api.py 进行 API 测试
+TestingSessionLocal = async_sessionmaker(
+    bind=test_engine,
+    class_=AsyncSession,
+    expire_on_commit=False,
+    autocommit=False,
+    autoflush=False,
+)
+
 
 # ============ Pytest 配置 ============
-
-# 配置 pytest-asyncio
-pytest_plugins = ("pytest_asyncio",)
 
 
 def pytest_configure(config):
     """pytest 启动时的配置"""
-    # 设置测试环境变量
-    os.environ["TESTING"] = "1"
-    os.environ["DATABASE_URL"] = SQLALCHEMY_DATABASE_URL
-
     # 禁用loguru日志以提高测试速度
     from loguru import logger
 
     logger.disable("")
 
 
-# ============ 数据库 Fixtures ============
+# ============ 事件循环 Fixture ============
 
 
 @pytest.fixture(scope="session")
 def event_loop():
     """创建一个事件循环用于整个测试会话"""
-    import asyncio
-
-    loop = asyncio.get_event_loop_policy().new_event_loop()
+    policy = asyncio.get_event_loop_policy()
+    loop = policy.new_event_loop()
     yield loop
     loop.close()
 
 
+# ============ 数据库 Fixtures ============
+
+
 @pytest.fixture(scope="session")
-def db_engine():
+def _setup_db(event_loop):
     """
-    创建测试数据库引擎（整个测试会话共享）
+    在测试会话开始时创建数据库表
     """
-    return engine
 
+    async def _create_tables():
+        async with test_engine.begin() as conn:
+            await conn.run_sync(Base.metadata.drop_all)
+            await conn.run_sync(Base.metadata.create_all)
 
-@pytest.fixture(scope="session", autouse=True)
-async def setup_db(db_engine):
-    """
-    在测试会话开始时创建数据库表，结束时清理
-    """
-    async with db_engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
+    event_loop.run_until_complete(_create_tables())
     yield
-    async with db_engine.begin() as conn:
-        await conn.run_sync(Base.metadata.drop_all)
-    await db_engine.dispose()
+
+    async def _drop_tables():
+        async with test_engine.begin() as conn:
+            await conn.run_sync(Base.metadata.drop_all)
+        await test_engine.dispose()
+
+    event_loop.run_until_complete(_drop_tables())
 
 
-@pytest.fixture(scope="class")
-async def db(db_engine):
+@pytest.fixture(scope="function")
+def db_session(_setup_db, event_loop) -> Generator[AsyncSession, None, None]:
     """
-    创建数据库会话（类级别共享，每个测试后清理数据）
-    性能优化：使用TRUNCATE代替重建表
+    创建数据库会话（每个测试函数独立）
     """
-    AsyncSessionLocal = async_sessionmaker(
-        bind=db_engine,
-        class_=AsyncSession,
-        expire_on_commit=False,
-    )
 
-    async with AsyncSessionLocal() as session:
-        yield session
+    async def _get_session():
+        async with TestingSessionLocal() as session:
+            return session
 
-        # 测试后清理数据（保留表结构）
+    session = event_loop.run_until_complete(_get_session())
+    yield session
+
+    # 清理数据
+    async def _cleanup():
         try:
-            from sqlalchemy import text
-
-            # 按照外键依赖顺序删除
-            await session.execute(text("DELETE FROM task_recommendations"))
-            await session.execute(text("DELETE FROM chat_messages"))
-            await session.execute(text("DELETE FROM analysis_sessions"))
-            await session.execute(text("DELETE FROM data_sources"))
-            await session.execute(text("DELETE FROM uploaded_files"))
-            await session.execute(text("DELETE FROM users"))
+            # 使用 TRUNCATE CASCADE 更高效地清理数据
+            await session.execute(text("TRUNCATE task_recommendations CASCADE"))
+            await session.execute(text("TRUNCATE chat_messages CASCADE"))
+            await session.execute(text("TRUNCATE analysis_session_data_source_link CASCADE"))
+            await session.execute(text("TRUNCATE analysis_sessions CASCADE"))
+            await session.execute(text("TRUNCATE data_sources CASCADE"))
+            await session.execute(text("TRUNCATE uploaded_files CASCADE"))
+            await session.execute(text("TRUNCATE users CASCADE"))
             await session.commit()
         except Exception:
             await session.rollback()
-
-
-@pytest.fixture(scope="class", autouse=True)
-async def override_get_db(db: AsyncSession):
-    """
-    覆盖应用的数据库依赖（类级别自动应用）
-    """
-
-    async def _override_get_db():
-        try:
-            yield db
         finally:
-            pass
+            await session.close()
 
-    app.dependency_overrides[get_db] = _override_get_db
-    yield
-    app.dependency_overrides.clear()
+    event_loop.run_until_complete(_cleanup())
 
 
 # ============ 客户端 Fixtures ============
 
 
-@pytest.fixture(scope="class")
-def client(override_get_db) -> Generator[TestClient, None, None]:
+@pytest.fixture(scope="function")
+def client(_setup_db) -> Generator[TestClient, None, None]:
     """
-    同步测试客户端（类级别共享）
+    同步测试客户端 - 使用应用程序自己的数据库连接
     """
-    with TestClient(app) as test_client:
+    with TestClient(app, raise_server_exceptions=False) as test_client:
         yield test_client
-
-
-@pytest.fixture(scope="class")
-async def async_client(override_get_db) -> AsyncGenerator[AsyncClient, None]:
-    """
-    异步测试客户端（类级别共享）
-    """
-    async with AsyncClient(app=app, base_url="http://test") as ac:
-        yield ac
 
 
 # ============ 认证 Fixtures ============
 
-# 缓存superuser token以加速测试
-_cached_superuser_token: str | None = None
+# 缓存密码哈希以加速测试
 _cached_hashed_password: str | None = None
 
 
@@ -177,48 +160,57 @@ def cached_admin_password_hash():
     return _cached_hashed_password
 
 
-@pytest.fixture(scope="class")
-async def superuser_token(client: TestClient, db: AsyncSession, cached_admin_password_hash: str) -> str:
+@pytest.fixture(scope="function")
+def superuser_token(
+    client: TestClient,
+    cached_admin_password_hash: str,
+    event_loop,
+) -> str:
     """
-    创建超级管理员并返回其访问令牌（类级别共享，使用缓存的密码哈希）
+    创建超级管理员并返回其访问令牌
     """
     from sqlalchemy import select
 
     from app.models.user import User
 
-    # 检查是否已存在admin用户
-    result = await db.execute(select(User).where(User.username == "admin", User.deleted == 0))
-    existing_user = result.scalar_one_or_none()
+    async def _create_admin():
+        async with TestingSessionLocal() as session:
+            # 检查是否已存在admin用户
+            result = await session.execute(
+                select(User).where(User.username == "admin", User.deleted == 0)
+            )
+            existing_user = result.scalar_one_or_none()
 
-    if not existing_user:
-        # 创建超级管理员用户（使用缓存的密码哈希）
-        superuser = User(
-            username="admin",
-            email="admin@example.com",
-            nickname="Admin",
-            hashed_password=cached_admin_password_hash,
-            is_active=True,
-            is_superuser=True,
+            if not existing_user:
+                superuser = User(
+                    username="admin",
+                    email="admin@example.com",
+                    nickname="Admin",
+                    hashed_password=cached_admin_password_hash,
+                    is_active=True,
+                    is_superuser=True,
+                )
+                session.add(superuser)
+                await session.commit()
+
+    event_loop.run_until_complete(_create_admin())
+
+    # 登录获取token
+    response = client.post(
+        "/api/v1/auth/login",
+        json={"username": "admin", "password": "admin123"},
+    )
+    json_data = response.json()
+    if not json_data.get("success") or not json_data.get("data"):
+        raise RuntimeError(
+            f"Login failed: status={response.status_code}, response={json_data}"
         )
-        db.add(superuser)
-        await db.commit()
-        await db.refresh(superuser)
-
-    # 登录获取token（使用全局缓存）
-    global _cached_superuser_token
-    if _cached_superuser_token is None:
-        response = client.post(
-            "/api/v1/auth/login",
-            json={"username": "admin", "password": "admin123"},
-        )
-        _cached_superuser_token = response.json()["data"]["access_token"]
-
-    return _cached_superuser_token
+    return json_data["data"]["access_token"]
 
 
-@pytest.fixture(scope="class")
+@pytest.fixture(scope="function")
 def auth_headers(superuser_token: str) -> dict[str, str]:
     """
-    返回包含认证token的headers（类级别共享）
+    返回包含认证token的headers
     """
     return {"Authorization": f"Bearer {superuser_token}"}
