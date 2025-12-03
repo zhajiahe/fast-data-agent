@@ -24,15 +24,19 @@ except (ImportError, AttributeError):
 
 # ============ 数据库配置 ============
 
-# 使用内存数据库进行测试 (使用 aiosqlite 支持异步)
-SQLALCHEMY_DATABASE_URL = "sqlite+aiosqlite:///:memory:"
+# 使用 PostgreSQL 进行测试（模型使用了 PostgreSQL 特定类型如 ARRAY, JSONB）
+# 测试数据库应与生产数据库分开
+SQLALCHEMY_DATABASE_URL = os.getenv(
+    "TEST_DATABASE_URL",
+    "postgresql+asyncpg://postgres:postgres123@localhost:5432/data_agent_test",
+)
 
 engine = create_async_engine(
     SQLALCHEMY_DATABASE_URL,
-    connect_args={"check_same_thread": False},
-    poolclass=StaticPool,  # 使用静态连接池，确保所有测试使用同一个内存数据库
     echo=False,  # 关闭SQL日志以提高测试速度
 )
+
+# 注意：由于异步测试配置复杂，建议使用 scripts/test_api.py 进行 API 测试
 
 # ============ Pytest 配置 ============
 
@@ -105,6 +109,12 @@ async def db(db_engine):
         try:
             from sqlalchemy import text
 
+            # 按照外键依赖顺序删除
+            await session.execute(text("DELETE FROM task_recommendations"))
+            await session.execute(text("DELETE FROM chat_messages"))
+            await session.execute(text("DELETE FROM analysis_sessions"))
+            await session.execute(text("DELETE FROM data_sources"))
+            await session.execute(text("DELETE FROM uploaded_files"))
             await session.execute(text("DELETE FROM users"))
             await session.commit()
         except Exception:
