@@ -71,29 +71,45 @@ class TestChatAPI:
         assert "items" in data["data"]
 
     def test_get_recommendations(self, client: TestClient, auth_headers: dict):
-        """测试获取任务推荐"""
+        """测试获取任务推荐（空列表）"""
         session_id = self._create_session(client, auth_headers)
 
         response = client.get(f"/api/v1/sessions/{session_id}/recommendations", headers=auth_headers)
         assert response.status_code == 200
         data = response.json()
         assert data["success"] is True
-        assert isinstance(data["data"], list)
-        assert len(data["data"]) > 0
+        # 返回分页格式
+        assert "items" in data["data"]
+        assert "total" in data["data"]
+        assert isinstance(data["data"]["items"], list)
 
-        recommendation = data["data"][0]
-        assert "title" in recommendation
-        assert "category" in recommendation
-
-    def test_select_recommendation(self, client: TestClient, auth_headers: dict):
-        """测试选择推荐任务"""
+    def test_update_recommendation_status(self, client: TestClient, auth_headers: dict):
+        """测试更新推荐状态"""
         session_id = self._create_session(client, auth_headers)
 
-        response = client.post(f"/api/v1/sessions/{session_id}/recommendations/1/select", headers=auth_headers)
-        assert response.status_code == 200
-        data = response.json()
-        assert data["success"] is True
-        assert data["data"]["role"] == "user"
+        # 先生成推荐
+        gen_response = client.post(
+            f"/api/v1/sessions/{session_id}/recommendations",
+            headers=auth_headers,
+        )
+        assert gen_response.status_code == 201
+        gen_data = gen_response.json()
+        assert gen_data["success"] is True
+        assert len(gen_data["data"]) > 0
+
+        # 获取第一个推荐的 ID
+        recommendation_id = gen_data["data"][0]["id"]
+
+        # 更新状态为 selected
+        update_response = client.put(
+            f"/api/v1/sessions/{session_id}/recommendations/{recommendation_id}",
+            json={"status": "selected"},
+            headers=auth_headers,
+        )
+        assert update_response.status_code == 200
+        update_data = update_response.json()
+        assert update_data["success"] is True
+        assert update_data["data"]["status"] == "selected"
 
     def test_chat_without_auth(self, client: TestClient):
         """测试未认证访问"""
