@@ -9,12 +9,14 @@
 5. generate_chart: 生成图表，基于 plotly 实现
 """
 
+import warnings
 from collections.abc import AsyncGenerator
 from typing import Any
 
 from langchain.agents import create_agent
 from langchain_core.messages import BaseMessage, HumanMessage
 from langchain_openai import ChatOpenAI
+from loguru import logger
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
@@ -23,8 +25,16 @@ from app.models.chat_message import ChatMessage
 from app.models.data_source import DataSource
 from app.repositories.chat_message import ChatMessageRepository
 from app.repositories.data_source import DataSourceRepository
-from app.utils.tools import list_local_files, quick_analysis
-from app.utils.tools import ChatContext, DataSourceContext
+from app.utils.tools import ChatContext, DataSourceContext, list_local_files, quick_analysis
+
+# 过滤 LangGraph 内部序列化时的 Pydantic 警告
+# 这是由于 context_schema 在序列化时与内部状态模式不完全匹配导致的，不影响功能
+warnings.filterwarnings(
+    "ignore",
+    message="Pydantic serializer warnings",
+    category=UserWarning,
+    module="pydantic.main",
+)
 
 # ==================== 聊天服务 ====================
 
@@ -114,27 +124,28 @@ class ChatService:
         """将 DataSource 模型转换为 DataSourceContext"""
         contexts = []
         for ds in data_sources:
-            ctx = DataSourceContext(
-                id=ds.id,
-                name=ds.name,
-                source_type=ds.source_type,
-            )
+            # 构建基础参数
+            ctx_data: dict[str, Any] = {
+                "id": ds.id,
+                "name": ds.name,
+                "source_type": ds.source_type,
+            }
 
             if ds.source_type == "file" and ds.uploaded_file:
                 # 文件类型数据源
-                ctx.file_type = ds.uploaded_file.file_type
-                ctx.object_key = ds.uploaded_file.object_key
-                ctx.bucket_name = ds.uploaded_file.bucket_name
+                ctx_data["file_type"] = ds.uploaded_file.file_type
+                ctx_data["object_key"] = ds.uploaded_file.object_key
+                ctx_data["bucket_name"] = ds.uploaded_file.bucket_name
             elif ds.source_type == "database":
                 # 数据库类型数据源
-                ctx.db_type = ds.db_type
-                ctx.host = ds.host
-                ctx.port = ds.port
-                ctx.database = ds.database
-                ctx.username = ds.username
-                ctx.password = ds.password
+                ctx_data["db_type"] = ds.db_type
+                ctx_data["host"] = ds.host
+                ctx_data["port"] = ds.port
+                ctx_data["database"] = ds.database
+                ctx_data["username"] = ds.username
+                ctx_data["password"] = ds.password
 
-            contexts.append(ctx)
+            contexts.append(DataSourceContext(**ctx_data))
 
         return contexts
 
@@ -203,9 +214,7 @@ class ChatService:
         data_source_ids = session.data_source_ids or []
         data_sources: list[DataSource] = []
         if data_source_ids:
-            data_sources = await self.data_source_repo.get_by_ids(
-                data_source_ids, session.user_id
-            )
+            data_sources = await self.data_source_repo.get_by_ids(data_source_ids, session.user_id)
 
         # 创建 Agent
         agent = self._create_agent(data_sources)
@@ -219,6 +228,7 @@ class ChatService:
             thread_id=session.id,
             data_sources=ds_contexts,
         )
+        logger.debug(f"上下文: {context}")
 
         # 获取历史消息
         history = await self.get_history_as_langchain(session.id, limit=50)
@@ -226,17 +236,15 @@ class ChatService:
         # 保存用户消息
         user_message = HumanMessage(content=content)
         if save_messages:
-            await self.message_repo.save_langchain_message(
-                session.id, user_message, session.user_id
-            )
+            await self.message_repo.save_langchain_message(session.id, user_message, session.user_id)
 
         # 初始状态，包含历史消息
         initial_state = {
             "messages": [*history, user_message],
         }
 
-        # 最后一个 chunk 用于保存消息
-        last_chunk: dict[str, Any] | None = None
+        # 收集流式消息用于保存（按消息ID聚合内容）
+        message_contents: dict[str, str] = {}
 
         try:
             # 流式执行 Agent，context 直接作为参数传递
@@ -245,20 +253,36 @@ class ChatService:
                 context=context,
                 stream_mode=stream_mode,
             ):
-                last_chunk = chunk
                 yield chunk
 
-            # 保存 AI 响应消息（只保存新增的消息）
-            if save_messages and last_chunk and "messages" in last_chunk:
-                final_messages = last_chunk["messages"]
-                if isinstance(final_messages, list):
-                    # 计算新增的消息（排除历史和用户消息）
-                    new_count = len(final_messages) - len(history) - 1
-                    if new_count > 0:
-                        new_messages = final_messages[-new_count:]
-                        await self.message_repo.save_langchain_messages(
-                            session.id, new_messages, session.user_id
-                        )
+                # stream_mode="messages" 返回 (message, metadata) tuple
+                # 流式模式下收到的是 AIMessageChunk，需要聚合内容
+                if isinstance(chunk, tuple) and len(chunk) >= 2:
+                    message, _metadata = chunk
+                    # 只保存非用户消息的内容
+                    if not isinstance(message, HumanMessage):
+                        content = getattr(message, "content", "")
+                        if content:
+                            msg_id = getattr(message, "id", None)
+                            if msg_id:
+                                # 聚合同一ID的所有内容片段
+                                if msg_id not in message_contents:
+                                    message_contents[msg_id] = ""
+                                message_contents[msg_id] += content
+
+            # 保存 AI 响应消息
+            if save_messages and message_contents:
+                from langchain_core.messages import AIMessage
+
+                # 根据聚合的内容构建完整消息
+                messages_to_save: list[BaseMessage] = [
+                    AIMessage(content=content, id=msg_id)
+                    for msg_id, content in message_contents.items()
+                    if content.strip()  # 只保存有实际内容的消息
+                ]
+                if messages_to_save:
+                    logger.debug(f"保存 {len(messages_to_save)} 条AI消息")
+                    await self.message_repo.save_langchain_messages(session.id, messages_to_save, session.user_id)
 
         except Exception as e:
             yield {

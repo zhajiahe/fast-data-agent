@@ -1,14 +1,13 @@
-from dataclasses import dataclass, field
 from typing import Any
 
 import httpx
 from langchain.tools import ToolRuntime, tool
+from pydantic import BaseModel, Field
 
 from app.core.config import settings
 
 
-@dataclass
-class DataSourceContext:
+class DataSourceContext(BaseModel):
     """数据源上下文信息"""
 
     id: int
@@ -29,13 +28,12 @@ class DataSourceContext:
     password: str | None = None
 
 
-@dataclass
-class ChatContext:
+class ChatContext(BaseModel):
     """聊天上下文 - 包含运行时配置和数据源信息"""
 
     user_id: int
     thread_id: int
-    data_sources: list[DataSourceContext] = field(default_factory=list)
+    data_sources: list[DataSourceContext] = Field(default_factory=list)
 
 
 # ==================== 工具定义 ====================
@@ -95,20 +93,24 @@ async def quick_analysis(
     }
 
     if ds_ctx.source_type == "file":
-        data_source_info.update({
-            "file_type": ds_ctx.file_type,
-            "object_key": ds_ctx.object_key,
-            "bucket_name": ds_ctx.bucket_name,
-        })
+        data_source_info.update(
+            {
+                "file_type": ds_ctx.file_type,
+                "object_key": ds_ctx.object_key,
+                "bucket_name": ds_ctx.bucket_name,
+            }
+        )
     elif ds_ctx.source_type == "database":
-        data_source_info.update({
-            "db_type": ds_ctx.db_type,
-            "host": ds_ctx.host,
-            "port": ds_ctx.port,
-            "database": ds_ctx.database,
-            "username": ds_ctx.username,
-            "password": ds_ctx.password,
-        })
+        data_source_info.update(
+            {
+                "db_type": ds_ctx.db_type,
+                "host": ds_ctx.host,
+                "port": ds_ctx.port,
+                "database": ds_ctx.database,
+                "username": ds_ctx.username,
+                "password": ds_ctx.password,
+            }
+        )
 
     async with httpx.AsyncClient(timeout=120) as client:
         response = await client.post(
