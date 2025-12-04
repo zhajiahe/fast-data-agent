@@ -26,7 +26,7 @@ app/
 
 ### DataSource（数据源）
 - 类型：`database`（数据库连接）或 `file`（文件引用）
-- 数据库支持：MySQL, PostgreSQL, SQLite, MSSQL, Oracle, ClickHouse, Doris, StarRocks
+- 数据库支持：MySQL, PostgreSQL, SQLite
 - 包含：连接配置、Schema 缓存
 
 ### UploadedFile（上传文件）

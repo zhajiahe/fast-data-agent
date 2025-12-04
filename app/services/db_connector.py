@@ -29,11 +29,6 @@ class DBConnectorService:
         DatabaseType.MYSQL: "mysql+pymysql",
         DatabaseType.POSTGRESQL: "postgresql+psycopg2",
         DatabaseType.SQLITE: "sqlite",
-        DatabaseType.MSSQL: "mssql+pymssql",
-        DatabaseType.ORACLE: "oracle+cx_oracle",
-        DatabaseType.CLICKHOUSE: "clickhouse+native",
-        DatabaseType.DORIS: "mysql+pymysql",  # Doris 兼容 MySQL 协议
-        DatabaseType.STARROCKS: "mysql+pymysql",  # StarRocks 兼容 MySQL 协议
     }
 
     def _build_connection_url(self, data_source: DataSource) -> str:
