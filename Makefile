@@ -83,6 +83,10 @@ clean: ## 清理临时文件
 	@rm -rf htmlcov/ .coverage 2>/dev/null || true
 	@echo "✅ 清理完成"
 
+reset: ## 重置所有资源（数据库、MinIO、沙盒）
+	@echo "🔄 重置所有资源..."
+	@echo "yes" | uv run python scripts/reset_resources.py
+
 # ==================== Sandbox 相关 ====================
 
 SANDBOX_IMAGE := data-agent-sandbox
