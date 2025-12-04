@@ -174,9 +174,11 @@ async def quick_analysis(
 description="""使用 DuckDB SQL 方言查询数据。
 
 重要提示：
-1. 表名规则：通常是文件名（不含扩展名）或数据库中的实际表名。如果不确定，请先查看 `quick_analysis` 的结果。
+1. 表名规则：使用数据源名称（如 "电商订单数据"）或数据源ID（如 "ds_19"）作为表名。
 2. 语法：支持标准 SQL 及 DuckDB 特有语法。
-3. 限制：仅用于查询 (SELECT)，不要执行修改操作。""",
+3. 限制：仅用于查询 (SELECT)，不要执行修改操作。
+4. 示例：SELECT * FROM "电商订单数据" LIMIT 1000
+5. 结果自动保存：查询结果会自动保存为 parquet 文件（返回 result_file 字段），后续的 execute_sql、generate_chart 或 execute_python 可以直接读取这个文件。""",
 )
 async def execute_sql(
     sql: str,
@@ -184,13 +186,29 @@ async def execute_sql(
 ) -> Any:
     """
     执行 DuckDB SQL 查询。
-    支持对已加载的数据源进行 SQL 查询分析。
+    支持对会话中所有数据源进行 SQL 查询分析。
 
     Args:
-        sql: duckdb sql query
+        sql: duckdb sql query，表名使用数据源名称或 ds_{id} 格式
     """
     runtime.stream_writer("正在执行 SQL 查询...")
     ctx: ChatContext = runtime.context  # type: ignore[assignment]
+
+    # 构建数据源信息列表传递给沙盒
+    data_sources_info = []
+    for ds in ctx.data_sources:
+        ds_info: dict[str, Any] = {
+            "id": ds.id,
+            "name": ds.name,
+            "source_type": ds.source_type,
+        }
+        if ds.source_type == "file":
+            ds_info.update({
+                "file_type": ds.file_type,
+                "object_key": ds.object_key,
+                "bucket_name": ds.bucket_name,
+            })
+        data_sources_info.append(ds_info)
 
     client = get_sandbox_client()
     response = await client.post(
@@ -199,7 +217,10 @@ async def execute_sql(
             "user_id": ctx.user_id,
             "thread_id": ctx.thread_id,
         },
-        json={"sql": sql},
+        json={
+            "sql": sql,
+            "data_sources": data_sources_info,
+        },
     )
     return response.json()
 
@@ -243,14 +264,20 @@ response_format="content_and_artifact",
 description="""使用 Python Plotly 绘制图表。
 
 **关键策略 - 数据复用**：
-不要在此工具中进行复杂的数据处理。请直接读取上一步（execute_sql 或 execute_python）生成的中间文件。
-推荐使用 `pd.read_parquet()` 读取数据，因为它能保留正确的数据类型。
+直接读取 execute_sql 自动保存的结果文件（result_file 字段中的文件名）。
 
 **代码编写规范**：
-1. **加载数据**：必须包含读取文件的代码。
-例如：`df = pd.read_parquet('sql_result.parquet')` 或 `df = pd.read_json('data.json')`
-2. **定义对象**：必须创建一个名为 `fig` 的 Plotly Figure 对象。
-3. **禁止显示**：不要调用 `fig.show()`。""",
+1. **加载数据**：使用 `pd.read_parquet('sql_result_xxx.parquet')` 读取 SQL 结果文件
+2. **定义对象**：必须创建一个名为 `fig` 的 Plotly Figure 对象
+3. **禁止显示**：不要调用 `fig.show()`
+
+**示例**：
+```python
+import pandas as pd
+import plotly.express as px
+df = pd.read_parquet('sql_result_1234567890.parquet')  # 使用 execute_sql 返回的 result_file
+fig = px.bar(df, x='category', y='total_sales', title='销售额分布')
+```""",
 )
 async def generate_chart(
     code: str,

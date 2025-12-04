@@ -130,10 +130,22 @@ class CodeRequest(BaseModel):
     code: str
 
 
+class DataSourceInfoForSql(BaseModel):
+    """SQL 执行时的数据源信息"""
+
+    id: int
+    name: str
+    source_type: str
+    file_type: str | None = None
+    object_key: str | None = None
+    bucket_name: str | None = None
+
+
 class SqlRequest(BaseModel):
     """Request model for SQL execution."""
 
     sql: str
+    data_sources: list[DataSourceInfoForSql] | None = None  # 可选的数据源列表
 
 
 class ChartRequest(BaseModel):
@@ -573,37 +585,91 @@ async def execute_sql(
 ):
     """
     使用 DuckDB 执行 SQL 查询。
-    支持对会话目录中的 CSV、Parquet 文件进行查询。
+    支持对会话中的数据源进行查询（自动创建 VIEW）。
     """
     session_dir = ensure_session_dir(user_id, thread_id)
 
     try:
-        import duckdb
-
-        # 创建 DuckDB 连接，数据库文件存储在会话目录
-        db_path = session_dir / "session.duckdb"
-        conn = duckdb.connect(str(db_path))
+        # 使用连接管理器获取配置好 S3 的连接
+        conn = duckdb_manager.get_connection(with_s3=True)
 
         # 切换工作目录以便相对路径访问文件
         original_cwd = os.getcwd()
         os.chdir(session_dir)
 
         try:
+            # 自动为每个数据源创建 VIEW
+            if request.data_sources:
+                for ds in request.data_sources:
+                    if ds.source_type != "file" or not ds.object_key or not ds.bucket_name:
+                        continue
+
+                    s3_url = f"s3://{ds.bucket_name}/{ds.object_key}"
+                    # 创建两个别名：按名称和按 ID
+                    view_names = [ds.name, f"ds_{ds.id}"]
+
+                    for view_name in view_names:
+                        try:
+                            if ds.file_type == "csv":
+                                conn.execute(f'CREATE OR REPLACE VIEW "{view_name}" AS SELECT * FROM read_csv_auto(\'{s3_url}\', header=True)')
+                            elif ds.file_type == "parquet":
+                                conn.execute(f'CREATE OR REPLACE VIEW "{view_name}" AS SELECT * FROM parquet_scan(\'{s3_url}\')')
+                            elif ds.file_type == "json":
+                                conn.execute(f'CREATE OR REPLACE VIEW "{view_name}" AS SELECT * FROM read_json_auto(\'{s3_url}\')')
+                            elif ds.file_type == "sqlite":
+                                # SQLite 需要先下载到本地
+                                sqlite_path = session_dir / f"sqlite_{ds.object_key.replace('/', '_')}"
+                                if not sqlite_path.exists():
+                                    # 下载 SQLite 文件
+                                    from minio import Minio
+                                    client = Minio(
+                                        MINIO_ENDPOINT,
+                                        access_key=MINIO_ACCESS_KEY,
+                                        secret_key=MINIO_SECRET_KEY,
+                                        secure=MINIO_SECURE,
+                                    )
+                                    client.fget_object(ds.bucket_name, ds.object_key, str(sqlite_path))
+                                
+                                conn.execute(f"ATTACH '{sqlite_path}' AS sqlite_{ds.id} (TYPE SQLITE, READ_ONLY);")
+                                # 获取 SQLite 中的表并创建 VIEW
+                                tables = conn.execute(f"SHOW TABLES FROM sqlite_{ds.id}").fetchall()
+                                for (table_name,) in tables:
+                                    conn.execute(f'CREATE OR REPLACE VIEW "{view_name}_{table_name}" AS SELECT * FROM sqlite_{ds.id}.{table_name}')
+                        except Exception as e:
+                            logger.warning(f"Failed to create view for {ds.name}: {e}")
+
+            # 执行 SQL
             result = conn.execute(request.sql)
             columns = [desc[0] for desc in result.description] if result.description else []
             rows = result.fetchall()
+
+            # 自动保存结果到 parquet 文件（供后续工具使用）
+            result_file = None
+            if rows and columns:
+                import time
+                import pandas as pd
+                
+                try:
+                    df = pd.DataFrame(rows, columns=columns)
+                    result_file = f"sql_result_{int(time.time())}.parquet"
+                    df.to_parquet(session_dir / result_file, index=False)
+                    logger.info(f"SQL result saved to {result_file}")
+                except Exception as e:
+                    logger.warning(f"Failed to save SQL result: {e}")
 
             return {
                 "success": True,
                 "columns": columns,
                 "rows": [list(row) for row in rows],
                 "row_count": len(rows),
+                "result_file": result_file,  # 结果文件路径
             }
         finally:
             os.chdir(original_cwd)
             conn.close()
 
     except Exception as e:
+        logger.exception("SQL execution failed")
         return {"success": False, "error": str(e)}
 
 

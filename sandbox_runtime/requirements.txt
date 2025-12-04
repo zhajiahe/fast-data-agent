@@ -8,6 +8,7 @@ pandas
 duckdb
 numpy
 plotly
+pyarrow  # For parquet file support
 
 # For S3/MinIO access
 minio

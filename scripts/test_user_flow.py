@@ -18,64 +18,300 @@
 import asyncio
 import io
 import json
+import random
 import sqlite3
 import tempfile
+from datetime import datetime, timedelta
 from pathlib import Path
 
 import httpx
+import numpy as np
 import pandas as pd
 
 # API 基础地址
 BASE_URL = "http://localhost:8000/api/v1"
 
+# 随机种子确保可重复性
+random.seed(42)
+np.random.seed(42)
 
-def create_sample_dataframe() -> pd.DataFrame:
-    """创建示例数据"""
-    return pd.DataFrame({
-        "id": range(1, 51),
-        "product": [f"产品_{i}" for i in range(1, 51)],
-        "category": ["电子", "服装", "食品", "家居", "运动"] * 10,
-        "price": [100 + i * 10 for i in range(50)],
-        "quantity": [10 + (i % 20) for i in range(50)],
-        "revenue": [(100 + i * 10) * (10 + (i % 20)) for i in range(50)],
-    })
+
+# ==================== 真实模拟数据生成 ====================
+
+
+def generate_dates(n: int, start_date: str = "2024-01-01") -> list[str]:
+    """生成日期序列"""
+    start = datetime.strptime(start_date, "%Y-%m-%d")
+    return [(start + timedelta(days=random.randint(0, 365))).strftime("%Y-%m-%d") for _ in range(n)]
+
+
+def generate_timestamps(n: int) -> list[str]:
+    """生成时间戳序列"""
+    base = datetime(2024, 1, 1)
+    return [(base + timedelta(seconds=random.randint(0, 365*24*3600))).isoformat() for _ in range(n)]
 
 
 def create_csv_data() -> tuple[bytes, str]:
-    """创建 CSV 数据"""
-    df = create_sample_dataframe()
+    """
+    创建电商订单数据 (CSV)
+    包含：订单ID、客户ID、商品名称、类别、单价、数量、折扣、总金额、支付方式、订单状态、下单日期
+    """
+    n = 500  # 500条订单记录
+    
+    products = [
+        ("iPhone 15 Pro", "电子产品", 7999),
+        ("MacBook Air M3", "电子产品", 8999),
+        ("AirPods Pro", "电子产品", 1899),
+        ("Nike Air Max", "运动鞋服", 899),
+        ("Adidas 运动裤", "运动鞋服", 399),
+        ("优衣库 T恤", "服装", 99),
+        ("星巴克咖啡豆", "食品饮料", 128),
+        ("三只松鼠坚果", "食品饮料", 68),
+        ("科沃斯扫地机", "家电", 2999),
+        ("小米空气净化器", "家电", 899),
+        ("《深度学习》书籍", "图书", 108),
+        ("机械键盘", "电子产品", 599),
+        ("显示器支架", "办公用品", 199),
+        ("人体工学椅", "办公用品", 1299),
+        ("瑜伽垫", "运动鞋服", 89),
+    ]
+    
+    payment_methods = ["支付宝", "微信支付", "银行卡", "信用卡", "花呗"]
+    statuses = ["已完成", "已完成", "已完成", "待发货", "运输中", "已取消"]  # 大多数已完成
+    
+    data = []
+    for i in range(n):
+        product = random.choice(products)
+        quantity = random.randint(1, 5)
+        discount = random.choice([0, 0, 0, 0.05, 0.1, 0.15, 0.2])  # 大多数无折扣
+        total = round(product[2] * quantity * (1 - discount), 2)
+        
+        data.append({
+            "order_id": f"ORD{2024001000 + i}",
+            "customer_id": f"C{random.randint(10001, 10500)}",
+            "product_name": product[0],
+            "category": product[1],
+            "unit_price": product[2],
+            "quantity": quantity,
+            "discount_rate": discount,
+            "total_amount": total,
+            "payment_method": random.choice(payment_methods),
+            "order_status": random.choice(statuses),
+            "order_date": generate_dates(1)[0],
+        })
+    
+    df = pd.DataFrame(data)
     buffer = io.StringIO()
     df.to_csv(buffer, index=False)
-    return buffer.getvalue().encode("utf-8"), "sales_data.csv"
+    return buffer.getvalue().encode("utf-8"), "ecommerce_orders.csv"
 
 
 def create_json_data() -> tuple[bytes, str]:
-    """创建 JSON 数据"""
-    df = create_sample_dataframe()
-    # 添加一些额外的字段
-    df["region"] = ["华北", "华东", "华南", "西南", "西北"] * 10
-    return df.to_json(orient="records", force_ascii=False).encode("utf-8"), "regional_sales.json"
+    """
+    创建用户行为日志 (JSON)
+    嵌套结构：用户属性、行为事件、设备信息、地理位置
+    """
+    n = 300  # 300条用户行为记录
+    
+    event_types = ["page_view", "click", "add_to_cart", "purchase", "search", "login", "logout"]
+    pages = ["/home", "/product/123", "/category/electronics", "/cart", "/checkout", "/search", "/user/profile"]
+    devices = ["iPhone", "Android", "iPad", "Windows PC", "MacBook"]
+    browsers = ["Safari", "Chrome", "Firefox", "Edge"]
+    cities = ["北京", "上海", "广州", "深圳", "杭州", "成都", "武汉", "南京", "西安", "重庆"]
+    
+    records = []
+    for i in range(n):
+        event = random.choice(event_types)
+        
+        record = {
+            "event_id": f"EVT{1000000 + i}",
+            "timestamp": generate_timestamps(1)[0],
+            "user": {
+                "user_id": f"U{random.randint(1001, 1200)}",
+                "is_vip": random.choice([True, False, False, False]),  # 25% VIP
+                "registration_days": random.randint(1, 1000),
+            },
+            "event": {
+                "type": event,
+                "page": random.choice(pages),
+                "duration_seconds": random.randint(1, 300) if event == "page_view" else None,
+                "search_query": f"关键词{random.randint(1,100)}" if event == "search" else None,
+            },
+            "device": {
+                "type": random.choice(devices),
+                "browser": random.choice(browsers),
+                "os_version": f"{random.randint(10, 17)}.{random.randint(0, 5)}",
+            },
+            "location": {
+                "city": random.choice(cities),
+                "ip": f"192.168.{random.randint(1,255)}.{random.randint(1,255)}",
+            },
+        }
+        records.append(record)
+    
+    return json.dumps(records, ensure_ascii=False, indent=2).encode("utf-8"), "user_behavior_logs.json"
+
+
+def create_parquet_data() -> tuple[bytes, str]:
+    """
+    创建金融交易数据 (Parquet)
+    包含：交易ID、账户、交易类型、金额、余额、汇率、手续费等数值密集型数据
+    """
+    n = 1000  # 1000条交易记录
+    
+    transaction_types = ["转账", "消费", "充值", "提现", "理财申购", "理财赎回"]
+    currencies = ["CNY", "USD", "EUR", "JPY", "GBP"]
+    channels = ["APP", "网银", "ATM", "柜台", "API"]
+    
+    # 生成数据
+    data = {
+        "transaction_id": [f"TXN{2024000000 + i}" for i in range(n)],
+        "account_id": [f"ACC{random.randint(100001, 100500)}" for _ in range(n)],
+        "transaction_type": [random.choice(transaction_types) for _ in range(n)],
+        "amount": np.round(np.random.exponential(1000, n), 2),  # 指数分布金额
+        "currency": [random.choice(currencies) for _ in range(n)],
+        "exchange_rate": np.round(np.where(
+            np.random.choice(currencies, n) == "CNY", 
+            1.0, 
+            np.random.uniform(0.1, 10, n)
+        ), 4),
+        "fee": np.round(np.random.uniform(0, 50, n), 2),
+        "balance_before": np.round(np.random.uniform(1000, 100000, n), 2),
+        "channel": [random.choice(channels) for _ in range(n)],
+        "is_successful": np.random.choice([True, True, True, True, False], n),  # 80% 成功
+        "risk_score": np.round(np.random.uniform(0, 100, n), 1),
+        "transaction_time": generate_timestamps(n),
+    }
+    
+    # 计算交易后余额
+    data["balance_after"] = np.round(
+        data["balance_before"] + np.where(
+            np.isin(data["transaction_type"], ["充值", "理财赎回"]),
+            data["amount"],
+            -data["amount"]
+        ) - data["fee"],
+        2
+    )
+    
+    df = pd.DataFrame(data)
+    
+    # 写入 Parquet
+    buffer = io.BytesIO()
+    df.to_parquet(buffer, index=False, engine="pyarrow")
+    return buffer.getvalue(), "financial_transactions.parquet"
 
 
 def create_sqlite_data() -> tuple[bytes, str]:
-    """创建 SQLite 数据"""
-    df = create_sample_dataframe()
-    df["month"] = ["1月", "2月", "3月", "4月", "5月"] * 10
-    
-    # 创建临时 SQLite 文件
+    """
+    创建关系型数据库 (SQLite)
+    多表结构：用户表、商品表、订单表、订单明细表
+    """
     temp_file = tempfile.NamedTemporaryFile(suffix=".db", delete=False)
     db_path = temp_file.name
     temp_file.close()
     
     conn = sqlite3.connect(db_path)
-    df.to_sql("monthly_sales", conn, index=False, if_exists="replace")
+    
+    # 1. 用户表
+    users = pd.DataFrame({
+        "user_id": range(1, 201),
+        "username": [f"user_{i}" for i in range(1, 201)],
+        "email": [f"user_{i}@example.com" for i in range(1, 201)],
+        "gender": [random.choice(["M", "F"]) for _ in range(200)],
+        "age": [random.randint(18, 65) for _ in range(200)],
+        "city": [random.choice(["北京", "上海", "广州", "深圳", "杭州"]) for _ in range(200)],
+        "vip_level": [random.choice([0, 0, 0, 1, 1, 2, 3]) for _ in range(200)],
+        "created_at": generate_dates(200, "2020-01-01"),
+    })
+    users.to_sql("users", conn, index=False, if_exists="replace")
+    
+    # 2. 商品表
+    products = pd.DataFrame({
+        "product_id": range(1, 51),
+        "product_name": [
+            "智能手机", "笔记本电脑", "无线耳机", "智能手表", "平板电脑",
+            "机械键盘", "游戏鼠标", "显示器", "摄像头", "麦克风",
+            "运动鞋", "休闲裤", "T恤", "连衣裙", "外套",
+            "咖啡", "茶叶", "零食", "水果", "牛奶",
+            "书籍", "文具", "背包", "水杯", "雨伞",
+            "面膜", "洗面奶", "口红", "香水", "护手霜",
+            "床品", "枕头", "毛巾", "拖鞋", "收纳盒",
+            "锅具", "餐具", "刀具", "保温杯", "饭盒",
+            "玩具", "积木", "拼图", "娃娃", "遥控车",
+            "健身器材", "瑜伽垫", "跳绳", "哑铃", "护具",
+        ],
+        "category": [
+            "电子", "电子", "电子", "电子", "电子",
+            "电子", "电子", "电子", "电子", "电子",
+            "服装", "服装", "服装", "服装", "服装",
+            "食品", "食品", "食品", "食品", "食品",
+            "文具", "文具", "文具", "文具", "文具",
+            "美妆", "美妆", "美妆", "美妆", "美妆",
+            "家居", "家居", "家居", "家居", "家居",
+            "厨具", "厨具", "厨具", "厨具", "厨具",
+            "玩具", "玩具", "玩具", "玩具", "玩具",
+            "运动", "运动", "运动", "运动", "运动",
+        ],
+        "price": [
+            4999, 6999, 999, 1999, 3999,
+            599, 299, 1999, 399, 599,
+            599, 199, 99, 299, 499,
+            68, 128, 39, 59, 29,
+            49, 19, 199, 49, 39,
+            89, 69, 199, 399, 49,
+            299, 99, 39, 29, 49,
+            199, 89, 129, 69, 39,
+            99, 149, 79, 59, 199,
+            299, 89, 29, 99, 59,
+        ],
+        "stock": [random.randint(10, 500) for _ in range(50)],
+        "rating": [round(random.uniform(3.5, 5.0), 1) for _ in range(50)],
+    })
+    products.to_sql("products", conn, index=False, if_exists="replace")
+    
+    # 3. 订单表
+    n_orders = 800
+    orders = pd.DataFrame({
+        "order_id": range(1, n_orders + 1),
+        "user_id": [random.randint(1, 200) for _ in range(n_orders)],
+        "order_status": [random.choice(["completed", "completed", "completed", "pending", "cancelled"]) for _ in range(n_orders)],
+        "total_amount": [0.0] * n_orders,  # 稍后计算
+        "order_date": generate_dates(n_orders),
+        "payment_method": [random.choice(["alipay", "wechat", "card"]) for _ in range(n_orders)],
+    })
+    
+    # 4. 订单明细表
+    order_items = []
+    for order_id in range(1, n_orders + 1):
+        n_items = random.randint(1, 5)
+        product_ids = random.sample(range(1, 51), n_items)
+        order_total = 0
+        for product_id in product_ids:
+            quantity = random.randint(1, 3)
+            price = products.loc[products["product_id"] == product_id, "price"].values[0]
+            subtotal = price * quantity
+            order_total += subtotal
+            order_items.append({
+                "order_id": order_id,
+                "product_id": product_id,
+                "quantity": quantity,
+                "unit_price": price,
+                "subtotal": subtotal,
+            })
+        orders.loc[orders["order_id"] == order_id, "total_amount"] = order_total
+    
+    order_items_df = pd.DataFrame(order_items)
+    
+    orders.to_sql("orders", conn, index=False, if_exists="replace")
+    order_items_df.to_sql("order_items", conn, index=False, if_exists="replace")
+    
     conn.close()
     
     with open(db_path, "rb") as f:
         content = f.read()
     
     Path(db_path).unlink(missing_ok=True)
-    return content, "monthly_sales.db"
+    return content, "ecommerce_database.db"
 
 
 class UserFlowTest:
@@ -170,9 +406,10 @@ class UserFlowTest:
         print("=" * 60)
         
         files_to_upload = [
-            ("CSV", *create_csv_data(), "text/csv"),
-            ("JSON", *create_json_data(), "application/json"),
-            ("SQLite", *create_sqlite_data(), "application/x-sqlite3"),
+            ("CSV (电商订单)", *create_csv_data(), "text/csv"),
+            ("JSON (用户行为)", *create_json_data(), "application/json"),
+            ("Parquet (金融交易)", *create_parquet_data(), "application/octet-stream"),
+            ("SQLite (电商数据库)", *create_sqlite_data(), "application/x-sqlite3"),
         ]
         
         success_count = 0
@@ -213,9 +450,10 @@ class UserFlowTest:
         print("=" * 60)
         
         data_source_configs = [
-            ("销售数据(CSV)", "CSV格式的销售数据"),
-            ("区域销售(JSON)", "JSON格式的区域销售数据"),
-            ("月度销售(SQLite)", "SQLite数据库格式的月度销售数据"),
+            ("电商订单数据", "500条电商订单记录，包含商品、金额、支付方式、订单状态等"),
+            ("用户行为日志", "300条用户行为数据，嵌套结构包含用户属性、事件、设备、位置"),
+            ("金融交易数据", "1000条金融交易记录，数值密集型数据，适合统计分析"),
+            ("电商数据库", "SQLite关系数据库，包含用户表(200)、商品表(50)、订单表(800)、订单明细表"),
         ]
         
         success_count = 0
@@ -292,9 +530,16 @@ class UserFlowTest:
         print("🤖 步骤 5: AI 分析对话")
         print("=" * 60)
         
+        # 设计多样化的分析问题，覆盖不同场景
         messages = [
-            "请分析一下这三个数据源的数据概况",
-            # "生成一个柱状图，展示各数据源的数据特点",
+            # 测试 SQL 查询功能
+            # "电商订单数据中，各类别的销售额排名如何？",
+            
+            # 更多测试用例（可按需启用）：
+            # "请分析一下这四个数据源的数据概况，有哪些有趣的发现？",
+            "用金融交易数据生成一个图表，展示交易金额的分布情况",
+            # "在电商数据库中，分析VIP用户（vip_level >= 2）的订单情况",
+            # "分析用户行为日志，哪些城市的用户最活跃？",
         ]
         
         for msg in messages:
