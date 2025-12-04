@@ -178,6 +178,140 @@ async def health_check():
     return {"status": "ok", "message": "Sandbox Runtime is active."}
 
 
+# ==================== 重置操作 ====================
+
+
+@app.post("/reset/session", summary="Reset session files")
+async def reset_session(
+    user_id: int = Query(..., description="User ID"),
+    thread_id: int = Query(..., description="Thread/Session ID"),
+):
+    """
+    重置指定会话的文件。
+    删除该会话目录下的所有文件。
+    """
+    import shutil
+
+    session_dir = get_session_dir(user_id, thread_id)
+
+    if not session_dir.exists():
+        return {
+            "success": True,
+            "message": "Session directory does not exist, nothing to clean",
+            "deleted_count": 0,
+        }
+
+    try:
+        # 统计文件数量
+        files = list_files_in_dir(session_dir)
+        deleted_count = len(files)
+
+        # 删除目录内容
+        shutil.rmtree(session_dir)
+        session_dir.mkdir(parents=True, exist_ok=True)
+
+        logger.info(f"Reset session: user_id={user_id}, thread_id={thread_id}, deleted={deleted_count} files")
+
+        return {
+            "success": True,
+            "message": f"Session reset successfully",
+            "deleted_count": deleted_count,
+        }
+    except Exception as e:
+        logger.exception(f"Failed to reset session: {e}")
+        return {"success": False, "error": str(e)}
+
+
+@app.post("/reset/user", summary="Reset all user sessions")
+async def reset_user(
+    user_id: int = Query(..., description="User ID"),
+):
+    """
+    重置指定用户的所有会话文件。
+    删除该用户目录下的所有文件。
+    """
+    import shutil
+
+    user_dir = SANDBOX_ROOT / "sessions" / str(user_id)
+
+    if not user_dir.exists():
+        return {
+            "success": True,
+            "message": "User directory does not exist, nothing to clean",
+            "deleted_count": 0,
+            "session_count": 0,
+        }
+
+    try:
+        # 统计会话和文件数量
+        session_count = len([d for d in user_dir.iterdir() if d.is_dir()])
+        file_count = 0
+        for session_dir in user_dir.iterdir():
+            if session_dir.is_dir():
+                file_count += len(list_files_in_dir(session_dir))
+
+        # 删除用户目录
+        shutil.rmtree(user_dir)
+
+        logger.info(f"Reset user: user_id={user_id}, deleted={file_count} files in {session_count} sessions")
+
+        return {
+            "success": True,
+            "message": f"User data reset successfully",
+            "deleted_count": file_count,
+            "session_count": session_count,
+        }
+    except Exception as e:
+        logger.exception(f"Failed to reset user: {e}")
+        return {"success": False, "error": str(e)}
+
+
+@app.post("/reset/all", summary="Reset all sandbox data")
+async def reset_all():
+    """
+    重置所有沙盒数据。
+    删除 sessions 目录下的所有文件。
+    仅用于管理目的，谨慎使用。
+    """
+    import shutil
+
+    sessions_dir = SANDBOX_ROOT / "sessions"
+
+    if not sessions_dir.exists():
+        return {
+            "success": True,
+            "message": "Sessions directory does not exist, nothing to clean",
+            "deleted_count": 0,
+            "user_count": 0,
+        }
+
+    try:
+        # 统计用户和文件数量
+        user_count = len([d for d in sessions_dir.iterdir() if d.is_dir()])
+        file_count = 0
+        for user_dir in sessions_dir.iterdir():
+            if user_dir.is_dir():
+                for session_dir in user_dir.iterdir():
+                    if session_dir.is_dir():
+                        file_count += len(list_files_in_dir(session_dir))
+
+        # 删除整个 sessions 目录并重建
+        shutil.rmtree(sessions_dir)
+        sessions_dir.mkdir(parents=True, exist_ok=True)
+
+        logger.info(f"Reset all: deleted={file_count} files from {user_count} users")
+
+        return {
+            "success": True,
+            "message": "All sandbox data reset successfully",
+            "deleted_count": file_count,
+            "user_count": user_count,
+        }
+    except Exception as e:
+        logger.exception(f"Failed to reset all: {e}")
+        return {"success": False, "error": str(e)}
+
+
 # ==================== 文件管理 ====================
 
 

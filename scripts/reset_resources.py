@@ -98,18 +98,16 @@ async def reset_sandbox():
 
     try:
         async with httpx.AsyncClient(timeout=30) as client:
-            # 通过执行命令清理 sessions 目录
-            response = await client.post(
-                f"{sandbox_url}/execute",
-                params={"user_id": 0, "thread_id": 0},
-                json={"command": "rm -rf /app/sessions/* 2>/dev/null; echo 'cleaned'"},
-            )
+            # 调用沙盒的全局重置 API
+            response = await client.post(f"{sandbox_url}/reset/all")
             if response.status_code == 200:
                 result = response.json()
-                if result.get("exit_code", 0) == 0:
-                    logger.info("  ✅ 沙盒 sessions 目录已清理")
+                if result.get("success"):
+                    deleted = result.get("deleted_count", 0)
+                    users = result.get("user_count", 0)
+                    logger.info(f"  ✅ 清理了 {users} 个用户的 {deleted} 个文件")
                 else:
-                    logger.warning(f"  ⚠️ 清理命令执行失败: {result.get('stderr', '')}")
+                    logger.warning(f"  ⚠️ 清理失败: {result.get('error', 'Unknown error')}")
             else:
                 logger.warning(f"  ⚠️ 沙盒响应: {response.status_code}")
     except httpx.ConnectError:
