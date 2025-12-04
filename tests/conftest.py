@@ -20,7 +20,6 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 # 现在可以安全导入 app 模块
-from app.core.database import get_db
 from app.models.base import Base
 
 try:
@@ -117,7 +116,6 @@ def db_session(_setup_db, event_loop) -> Generator[AsyncSession, None, None]:
             # 使用 TRUNCATE CASCADE 更高效地清理数据
             await session.execute(text("TRUNCATE task_recommendations CASCADE"))
             await session.execute(text("TRUNCATE chat_messages CASCADE"))
-            await session.execute(text("TRUNCATE analysis_session_data_source_link CASCADE"))
             await session.execute(text("TRUNCATE analysis_sessions CASCADE"))
             await session.execute(text("TRUNCATE data_sources CASCADE"))
             await session.execute(text("TRUNCATE uploaded_files CASCADE"))

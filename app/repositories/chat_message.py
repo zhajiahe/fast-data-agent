@@ -98,8 +98,8 @@ class ChatMessageRepository(BaseRepository[ChatMessage]):
             "name": getattr(message, "name", None),
             "additional_kwargs": getattr(message, "additional_kwargs", None) or None,
             "response_metadata": getattr(message, "response_metadata", None) or None,
-            "create_by": user_id,
-            "update_by": user_id,
+            "create_by": str(user_id),
+            "update_by": str(user_id),
         }
 
         # AIMessage 特有字段

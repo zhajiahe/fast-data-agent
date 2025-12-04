@@ -141,7 +141,7 @@ class TaskRecommendationRepository(BaseRepository[TaskRecommendation]):
             query = query.where(TaskRecommendation.source_type == source_type)
 
         result = await self.db.execute(query)
-        await self.db.commit()
+        await self.db.flush()
         cursor = cast(CursorResult[Any], result)
         return cursor.rowcount if cursor.rowcount else 0
 
@@ -175,7 +175,7 @@ class TaskRecommendationRepository(BaseRepository[TaskRecommendation]):
             query = query.where(TaskRecommendation.source_type == source_type)
 
         result = await self.db.execute(query)
-        await self.db.commit()
+        await self.db.flush()
         cursor = cast(CursorResult[Any], result)
         return cursor.rowcount if cursor.rowcount else 0
 
@@ -209,8 +209,8 @@ class TaskRecommendationRepository(BaseRepository[TaskRecommendation]):
                 "priority": item.get("priority", 0),
                 "status": RecommendationStatus.PENDING.value,
                 "trigger_message_id": trigger_message_id,
-                "create_by": user_id,
-                "update_by": user_id,
+                "create_by": str(user_id),
+                "update_by": str(user_id),
             }
             recommendation = await self.create(data)
             created.append(recommendation)
