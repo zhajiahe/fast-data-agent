@@ -243,9 +243,10 @@ class ChatService:
             "messages": [*history, user_message],
         }
         logger.info(f"初始状态: {initial_state}")
-        # 收集流式消息用于保存（按消息ID聚合内容和类型）
-        message_contents: dict[str, str] = {}
-        message_types: dict[str, type] = {}  # 记录每个消息ID对应的类型
+        # 收集流式消息用于保存
+        message_contents: dict[str, str] = {}  # 消息内容
+        message_types: dict[str, type] = {}  # 消息类型
+        message_artifacts: dict[str, Any] = {}  # 工具消息的 artifact
 
         try:
             # 流式执行 Agent，context 直接作为参数传递
@@ -263,15 +264,22 @@ class ChatService:
                     # 只保存非用户消息的内容
                     if not isinstance(message, HumanMessage):
                         content = getattr(message, "content", "")
-                        if content:
-                            msg_id = getattr(message, "id", None)
-                            if msg_id:
-                                # 聚合同一ID的所有内容片段
-                                if msg_id not in message_contents:
-                                    message_contents[msg_id] = ""
-                                    # 记录消息类型（取第一个 chunk 的类型）
-                                    message_types[msg_id] = type(message)
+                        msg_id = getattr(message, "id", None)
+
+                        if msg_id:
+                            # 记录消息类型（取第一个 chunk 的类型）
+                            if msg_id not in message_types:
+                                message_types[msg_id] = type(message)
+                                message_contents[msg_id] = ""
+
+                            # 聚合内容
+                            if content:
                                 message_contents[msg_id] += content
+
+                            # 收集 artifact（如果有）
+                            artifact = getattr(message, "artifact", None)
+                            if artifact and msg_id not in message_artifacts:
+                                message_artifacts[msg_id] = artifact
 
             # 保存响应消息
             if save_messages and message_contents:
@@ -287,8 +295,9 @@ class ChatService:
 
                     # 根据消息类型创建对应的消息对象
                     if msg_type and "ToolMessage" in msg_type_name:
-                        # ToolMessage 需要 tool_call_id，从原始 ID 提取或使用默认值
-                        messages_to_save.append(ToolMessage(content=content, tool_call_id=msg_id))
+                        # ToolMessage 包含 artifact（如果有）
+                        artifact = message_artifacts.get(msg_id)
+                        messages_to_save.append(ToolMessage(content=content, tool_call_id=msg_id, artifact=artifact))
                     else:
                         # AIMessage 或其他类型
                         messages_to_save.append(AIMessage(content=content, id=msg_id))

@@ -185,16 +185,21 @@ async def execute_python(
         return response.json()
 
 
-@tool
+@tool(response_format="content_and_artifact")
 async def generate_chart(
     code: str,
     runtime: ToolRuntime,
-) -> Any:
+) -> tuple[str, dict[str, Any]]:
     """
     生成 Plotly 图表。
-    使用 Plotly 生成图表，并返回图表的 HTML 代码。
+    使用 Plotly 生成图表，代码需要创建名为 'fig' 的 Plotly figure 对象。
+
     Args:
-        code: 使用 Plotly 生成图表的 Python 代码
+        code: 使用 Plotly 生成图表的 Python 代码，必须创建 fig 变量
+
+    Returns:
+        content: 给 LLM 看的简短描述
+        artifact: 包含完整图表数据的字典（不发送给 LLM）
     """
     runtime.stream_writer("正在生成图表...")
     ctx: ChatContext = runtime.context  # type: ignore[assignment]
@@ -210,4 +215,19 @@ async def generate_chart(
                 "code": code,
             },
         )
-        return response.json()
+        result = response.json()
+
+    if result.get("success"):
+        # content: 给 LLM 的简短描述
+        content = f"图表已生成并保存为 {result.get('chart_file', 'chart.html')}"
+
+        # artifact: 完整图表数据，不发送给 LLM
+        artifact = {
+            "type": "chart",
+            "chart_file": result.get("chart_file"),
+            "chart_json": result.get("chart_json"),  # 完整的 Plotly JSON
+        }
+        return content, artifact
+    else:
+        error_msg = f"图表生成失败: {result.get('error', '未知错误')}"
+        return error_msg, {"type": "error", "error": result.get("error")}
