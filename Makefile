@@ -1,6 +1,7 @@
 .PHONY: help install dev test test-unit test-integration test-cov lint lint-fix format type-check check \
        db-migrate db-upgrade db-downgrade db-history db-current \
-       docker-build docker-run docker-stop docker-dev clean pre-commit-install pre-commit-run
+       docker-build docker-run docker-stop docker-dev clean pre-commit-install pre-commit-run \
+       sandbox-build sandbox-start sandbox-stop sandbox-restart sandbox-status sandbox-logs
 
 # 默认目标
 .DEFAULT_GOAL := help
@@ -81,3 +82,56 @@ clean: ## 清理临时文件
 	@find . -type f -name "*.pyc" -delete 2>/dev/null || true
 	@rm -rf htmlcov/ .coverage 2>/dev/null || true
 	@echo "✅ 清理完成"
+
+# ==================== Sandbox 相关 ====================
+
+SANDBOX_IMAGE := data-agent-sandbox
+SANDBOX_CONTAINER := data-agent-sandbox
+SANDBOX_PORT := 8080
+
+sandbox-build: ## 构建 Sandbox Docker 镜像
+	@echo "🔨 构建 Sandbox Docker 镜像..."
+	docker build -t $(SANDBOX_IMAGE) sandbox_runtime/
+	@echo "✅ 镜像构建完成: $(SANDBOX_IMAGE)"
+
+sandbox-start: ## 启动 Sandbox 容器
+	@echo "🚀 启动 Sandbox 容器..."
+	@if docker ps -q -f name=$(SANDBOX_CONTAINER) | grep -q .; then \
+		echo "⚠️  容器已在运行"; \
+	else \
+		docker run -d --name $(SANDBOX_CONTAINER) \
+			-p $(SANDBOX_PORT):8888 \
+			-e MINIO_ENDPOINT=host.docker.internal:9000 \
+			-e MINIO_ACCESS_KEY=admin \
+			-e MINIO_SECRET_KEY=admin123 \
+			-e MINIO_SECURE=false \
+			--add-host=host.docker.internal:host-gateway \
+			$(SANDBOX_IMAGE); \
+		echo "✅ Sandbox 已启动: http://localhost:$(SANDBOX_PORT)"; \
+	fi
+
+sandbox-stop: ## 停止 Sandbox 容器
+	@echo "🛑 停止 Sandbox 容器..."
+	@docker stop $(SANDBOX_CONTAINER) 2>/dev/null || true
+	@docker rm $(SANDBOX_CONTAINER) 2>/dev/null || true
+	@echo "✅ Sandbox 已停止"
+
+sandbox-restart: sandbox-stop sandbox-start ## 重启 Sandbox 容器
+
+sandbox-status: ## 查看 Sandbox 状态
+	@echo "📊 Sandbox 状态:"
+	@echo ""
+	@if docker ps -q -f name=$(SANDBOX_CONTAINER) | grep -q .; then \
+		echo "  状态: ✅ 运行中"; \
+		echo "  地址: http://localhost:$(SANDBOX_PORT)"; \
+		echo ""; \
+		docker ps --filter name=$(SANDBOX_CONTAINER) --format "table {{.ID}}\t{{.Status}}\t{{.Ports}}"; \
+	else \
+		echo "  状态: ❌ 未运行"; \
+		echo ""; \
+		echo "  使用 'make sandbox-start' 启动"; \
+	fi
+
+sandbox-logs: ## 查看 Sandbox 日志
+	@echo "📜 Sandbox 日志 (Ctrl+C 退出):"
+	docker logs -f $(SANDBOX_CONTAINER)

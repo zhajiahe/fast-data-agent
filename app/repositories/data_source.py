@@ -6,6 +6,7 @@
 
 from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from app.models.data_source import DataSource, DataSourceType
 from app.repositories.base import BaseRepository
@@ -92,7 +93,7 @@ class DataSourceRepository(BaseRepository[DataSource]):
 
     async def get_by_ids(self, ids: list[int], user_id: int) -> list[DataSource]:
         """
-        根据 ID 列表获取数据源
+        根据 ID 列表获取数据源（包含关联的 uploaded_file）
 
         Args:
             ids: ID 列表
@@ -101,10 +102,14 @@ class DataSourceRepository(BaseRepository[DataSource]):
         Returns:
             数据源列表
         """
-        query = select(DataSource).where(
-            DataSource.id.in_(ids),
-            DataSource.user_id == user_id,
-            DataSource.deleted == 0,
+        query = (
+            select(DataSource)
+            .options(selectinload(DataSource.uploaded_file))  # 预加载文件关系
+            .where(
+                DataSource.id.in_(ids),
+                DataSource.user_id == user_id,
+                DataSource.deleted == 0,
+            )
         )
         result = await self.db.execute(query)
         return list(result.scalars().all())

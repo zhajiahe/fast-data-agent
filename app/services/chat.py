@@ -26,155 +26,8 @@ from app.models.chat_message import ChatMessage
 from app.models.data_source import DataSource
 from app.repositories.chat_message import ChatMessageRepository
 from app.repositories.data_source import DataSourceRepository
-
-# ==================== 上下文和状态定义 ====================
-
-
-@dataclass
-class ChatContext:
-    """聊天上下文 - 不可变的运行时配置"""
-
-    user_id: int
-    thread_id: int
-
-
-# ==================== 工具定义 ====================
-
-
-@tool
-async def list_local_files(runtime: ToolRuntime) -> Any:
-    """
-    列出沙盒中的文件。
-    用于查看分析过程中生成的中间文件、图表、报告等。
-    """
-    runtime.stream_writer("正在获取文件列表...")
-    ctx: ChatContext = runtime.context  # type: ignore[assignment]
-
-    async with httpx.AsyncClient(timeout=30) as client:
-        response = await client.get(
-            f"{settings.SANDBOX_URL}/files",
-            params={
-                "user_id": ctx.user_id,
-                "thread_id": ctx.thread_id,
-            },
-        )
-        return response.json()
-
-
-@tool
-async def quick_analysis(
-    data_source_id: int,
-    runtime: ToolRuntime,
-) -> Any:
-    """
-    快速分析数据源，返回数据概览。
-    包括：行数、列数、缺失值统计、数据类型、统计摘要（均值、中位数、标准差等）。
-
-    Args:
-        data_source_id: 数据源 ID，从可用数据源列表中选择
-    """
-    runtime.stream_writer(f"正在分析数据源 {data_source_id}...")
-    ctx: ChatContext = runtime.context  # type: ignore[assignment]
-
-    async with httpx.AsyncClient(timeout=60) as client:
-        response = await client.post(
-            f"{settings.SANDBOX_URL}/quick_analysis",
-            params={
-                "user_id": ctx.user_id,
-                "thread_id": ctx.thread_id,
-                "data_source_id": data_source_id,
-            },
-        )
-        return response.json()
-
-
-@tool
-async def execute_sql(
-    sql: str,
-    runtime: ToolRuntime,
-) -> Any:
-    """
-    执行 DuckDB SQL 查询。
-    支持对已加载的数据源进行 SQL 查询分析。
-
-    Args:
-        sql: 要执行的 SQL 查询语句
-    """
-    runtime.stream_writer("正在执行 SQL 查询...")
-    ctx: ChatContext = runtime.context  # type: ignore[assignment]
-
-    async with httpx.AsyncClient(timeout=120) as client:
-        response = await client.post(
-            f"{settings.SANDBOX_URL}/execute_sql",
-            params={
-                "user_id": ctx.user_id,
-                "thread_id": ctx.thread_id,
-            },
-            json={"sql": sql},
-        )
-        return response.json()
-
-
-@tool
-async def execute_python(
-    code: str,
-    runtime: ToolRuntime,
-) -> Any:
-    """
-    在沙盒中执行 Python 代码，用于复杂数据处理和分析。
-    可以使用 pandas、numpy 等数据分析库。
-
-    Args:
-        code: 要执行的 Python 代码
-    """
-    runtime.stream_writer("正在执行 Python 代码...")
-    ctx: ChatContext = runtime.context  # type: ignore[assignment]
-
-    async with httpx.AsyncClient(timeout=settings.SANDBOX_TIMEOUT) as client:
-        response = await client.post(
-            f"{settings.SANDBOX_URL}/execute_python",
-            params={
-                "user_id": ctx.user_id,
-                "thread_id": ctx.thread_id,
-            },
-            json={"code": code},
-        )
-        return response.json()
-
-
-@tool
-async def generate_chart(
-    chart_type: str,
-    data_config: dict,
-    title: str,
-    runtime: ToolRuntime,
-) -> Any:
-    """
-    生成 Plotly 图表。
-
-    Args:
-        chart_type: 图表类型，如 'bar', 'line', 'scatter', 'pie', 'histogram'
-        data_config: 图表数据配置，包含 x, y, labels 等
-        title: 图表标题
-    """
-    runtime.stream_writer(f"正在生成 {chart_type} 图表...")
-    ctx: ChatContext = runtime.context  # type: ignore[assignment]
-
-    async with httpx.AsyncClient(timeout=60) as client:
-        response = await client.post(
-            f"{settings.SANDBOX_URL}/generate_chart",
-            params={
-                "user_id": ctx.user_id,
-                "thread_id": ctx.thread_id,
-            },
-            json={
-                "chart_type": chart_type,
-                "data_config": data_config,
-                "title": title,
-            },
-        )
-        return response.json()
-
+from app.utils.tools import list_local_files, quick_analysis
+from app.utils.tools import ChatContext, DataSourceContext
 
 # ==================== 聊天服务 ====================
 
@@ -189,9 +42,6 @@ class ChatService:
         self.tools = [
             list_local_files,
             quick_analysis,
-            execute_sql,
-            execute_python,
-            generate_chart,
         ]
 
     def _get_llm(self, *, temperature: float = 0.0):
@@ -263,6 +113,34 @@ class ChatService:
             context_schema=ChatContext,
         )
 
+    def _build_data_source_contexts(self, data_sources: list[DataSource]) -> list[DataSourceContext]:
+        """将 DataSource 模型转换为 DataSourceContext"""
+        contexts = []
+        for ds in data_sources:
+            ctx = DataSourceContext(
+                id=ds.id,
+                name=ds.name,
+                source_type=ds.source_type,
+            )
+
+            if ds.source_type == "file" and ds.uploaded_file:
+                # 文件类型数据源
+                ctx.file_type = ds.uploaded_file.file_type
+                ctx.object_key = ds.uploaded_file.object_key
+                ctx.bucket_name = ds.uploaded_file.bucket_name
+            elif ds.source_type == "database":
+                # 数据库类型数据源
+                ctx.db_type = ds.db_type
+                ctx.host = ds.host
+                ctx.port = ds.port
+                ctx.database = ds.database
+                ctx.username = ds.username
+                ctx.password = ds.password
+
+            contexts.append(ctx)
+
+        return contexts
+
     async def get_history(
         self,
         session_id: int,
@@ -326,7 +204,7 @@ class ChatService:
         """
         # 获取会话关联的数据源
         data_source_ids = session.data_source_ids or []
-        data_sources = []
+        data_sources: list[DataSource] = []
         if data_source_ids:
             data_sources = await self.data_source_repo.get_by_ids(
                 data_source_ids, session.user_id
@@ -335,10 +213,14 @@ class ChatService:
         # 创建 Agent
         agent = self._create_agent(data_sources)
 
+        # 构建数据源上下文列表
+        ds_contexts = self._build_data_source_contexts(data_sources)
+
         # 创建上下文
         context = ChatContext(
             user_id=session.user_id,
             thread_id=session.id,
+            data_sources=ds_contexts,
         )
 
         # 配置
