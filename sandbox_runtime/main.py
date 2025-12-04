@@ -939,50 +939,50 @@ async def generate_chart(
     thread_id: int = Query(..., description="Thread/Session ID"),
 ):
     """
-    生成 Plotly 图表并保存为 HTML 文件。
+    执行 Python 代码生成 Plotly 图表。
 
-    支持的图表类型：bar, line, scatter, pie, histogram, box, heatmap
+    代码应该使用 plotly 库创建图表，并将 figure 对象赋值给 `fig` 变量。
+    示例代码：
+    ```python
+    import plotly.express as px
+    import pandas as pd
+
+    df = pd.DataFrame({'x': [1,2,3], 'y': [4,5,6]})
+    fig = px.bar(df, x='x', y='y', title='示例图表')
+    ```
     """
     session_dir = ensure_session_dir(user_id, thread_id)
 
+    # 捕获输出
+    stdout_buffer = io.StringIO()
+    stderr_buffer = io.StringIO()
+
+    # 准备执行环境
+    exec_globals = {
+        "__builtins__": __builtins__,
+        "__name__": "__main__",
+        "WORK_DIR": session_dir,
+    }
+
+    # 切换到会话目录
+    original_cwd = os.getcwd()
+    original_path = sys.path.copy()
+
     try:
-        import plotly.express as px
-        import plotly.graph_objects as go
-        import pandas as pd
+        os.chdir(session_dir)
+        sys.path.insert(0, str(session_dir))
 
-        chart_type = request.chart_type.lower()
-        data_config = request.data_config
-        title = request.title
+        with redirect_stdout(stdout_buffer), redirect_stderr(stderr_buffer):
+            exec(request.code, exec_globals)
 
-        # 从配置创建 DataFrame
-        if "data" in data_config:
-            df = pd.DataFrame(data_config["data"])
-        else:
-            df = pd.DataFrame(data_config)
-
-        # 根据图表类型生成图表
-        fig = None
-        x = data_config.get("x")
-        y = data_config.get("y")
-        labels = data_config.get("labels")
-        values = data_config.get("values")
-
-        if chart_type == "bar":
-            fig = px.bar(df, x=x, y=y, title=title)
-        elif chart_type == "line":
-            fig = px.line(df, x=x, y=y, title=title)
-        elif chart_type == "scatter":
-            fig = px.scatter(df, x=x, y=y, title=title)
-        elif chart_type == "pie":
-            fig = px.pie(df, names=labels or x, values=values or y, title=title)
-        elif chart_type == "histogram":
-            fig = px.histogram(df, x=x, title=title)
-        elif chart_type == "box":
-            fig = px.box(df, x=x, y=y, title=title)
-        elif chart_type == "heatmap":
-            fig = px.imshow(df, title=title)
-        else:
-            return {"success": False, "error": f"Unsupported chart type: {chart_type}"}
+        # 检查是否创建了 fig 变量
+        fig = exec_globals.get("fig")
+        if fig is None:
+            return {
+                "success": False,
+                "error": "代码执行成功，但未找到 'fig' 变量。请确保代码创建了名为 'fig' 的 Plotly figure 对象。",
+                "output": stdout_buffer.getvalue(),
+            }
 
         # 保存图表
         import time
@@ -998,9 +998,17 @@ async def generate_chart(
             "success": True,
             "chart_file": chart_filename,
             "chart_json": chart_json,
+            "output": stdout_buffer.getvalue(),
             "message": f"Chart saved as {chart_filename}",
         }
 
     except Exception as e:
-        logger.exception("Chart generation failed")
-        return {"success": False, "error": str(e)}
+        error_traceback = traceback.format_exc()
+        return {
+            "success": False,
+            "output": stdout_buffer.getvalue(),
+            "error": f"{e!s}\n\n{error_traceback}",
+        }
+    finally:
+        os.chdir(original_cwd)
+        sys.path = original_path
