@@ -215,4 +215,3 @@ class TaskRecommendationRepository(BaseRepository[TaskRecommendation]):
             recommendation = await self.create(data)
             created.append(recommendation)
         return created
-

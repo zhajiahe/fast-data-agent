@@ -44,7 +44,7 @@ class Settings(BaseSettings):
 
     # 应用配置
     APP_NAME: str = "Fast Data Agent"
-    DEBUG: bool = True
+    DEBUG: bool = False
 
     # CORS 配置
     ALLOWED_ORIGINS: list[str] = ["*"]

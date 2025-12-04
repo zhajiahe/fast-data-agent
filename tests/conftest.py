@@ -174,9 +174,7 @@ def superuser_token(
     async def _create_admin():
         async with TestingSessionLocal() as session:
             # 检查是否已存在admin用户
-            result = await session.execute(
-                select(User).where(User.username == "admin", User.deleted == 0)
-            )
+            result = await session.execute(select(User).where(User.username == "admin", User.deleted == 0))
             existing_user = result.scalar_one_or_none()
 
             if not existing_user:
@@ -200,9 +198,7 @@ def superuser_token(
     )
     json_data = response.json()
     if not json_data.get("success") or not json_data.get("data"):
-        raise RuntimeError(
-            f"Login failed: status={response.status_code}, response={json_data}"
-        )
+        raise RuntimeError(f"Login failed: status={response.status_code}, response={json_data}")
     return json_data["data"]["access_token"]
 
 

@@ -105,9 +105,7 @@ class ChatMessageRepository(BaseRepository[ChatMessage]):
         # AIMessage 特有字段
         if isinstance(message, AIMessage):
             data["tool_calls"] = message.tool_calls if message.tool_calls else None
-            data["invalid_tool_calls"] = (
-                message.invalid_tool_calls if message.invalid_tool_calls else None
-            )
+            data["invalid_tool_calls"] = message.invalid_tool_calls if message.invalid_tool_calls else None
             usage = getattr(message, "usage_metadata", None)
             data["usage_metadata"] = dict(usage) if usage else None
 
@@ -193,9 +191,7 @@ class ChatMessageRepository(BaseRepository[ChatMessage]):
                 name=chat_message.name,
             )
 
-    def to_langchain_messages(
-        self, chat_messages: list[ChatMessage]
-    ) -> list[BaseMessage]:
+    def to_langchain_messages(self, chat_messages: list[ChatMessage]) -> list[BaseMessage]:
         """
         批量转换为 LangChain 消息
 

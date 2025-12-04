@@ -450,9 +450,7 @@ class RecommendService:
         """
         # 如果强制重新生成，先清理现有推荐
         if force_regenerate:
-            await self.repo.delete_by_session(
-                session.id, source_type=RecommendationSourceType.INITIAL.value
-            )
+            await self.repo.delete_by_session(session.id, source_type=RecommendationSourceType.INITIAL.value)
 
         # 生成推荐
         try:
@@ -527,9 +525,7 @@ class RecommendService:
         source_type: str | None = None,
     ) -> list[TaskRecommendation]:
         """获取会话的推荐列表"""
-        return await self.repo.get_by_session(
-            session_id, status=status, source_type=source_type
-        )
+        return await self.repo.get_by_session(session_id, status=status, source_type=source_type)
 
     async def update_recommendation_status(
         self,
@@ -544,4 +540,3 @@ class RecommendService:
             return await self.repo.update_status(recommendation_id, status_enum)
         except ValueError:
             return None
-

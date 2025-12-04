@@ -160,4 +160,3 @@ class TestGenerateFollowupRequestSchema:
                 conversation_context="测试",
                 max_count=6,  # 超出最大值
             )
-

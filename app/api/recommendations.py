@@ -223,4 +223,3 @@ async def dismiss_all_recommendations(
         msg=f"已忽略 {count} 条推荐",
         data=None,
     )
-

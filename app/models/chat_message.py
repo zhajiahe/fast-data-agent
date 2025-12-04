@@ -41,46 +41,24 @@ class ChatMessage(Base, BaseTableMixin):
     )
 
     # 消息基本信息 (对应 LangChain BaseMessage)
-    message_type: Mapped[str] = mapped_column(
-        String(20), nullable=False, comment="消息类型: human/ai/system/tool"
-    )
+    message_type: Mapped[str] = mapped_column(String(20), nullable=False, comment="消息类型: human/ai/system/tool")
     content: Mapped[str] = mapped_column(Text, nullable=False, comment="消息内容")
-    message_id: Mapped[str | None] = mapped_column(
-        String(100), nullable=True, comment="LangChain 消息ID"
-    )
-    name: Mapped[str | None] = mapped_column(
-        String(100), nullable=True, comment="消息名称(可选)"
-    )
+    message_id: Mapped[str | None] = mapped_column(String(100), nullable=True, comment="LangChain 消息ID")
+    name: Mapped[str | None] = mapped_column(String(100), nullable=True, comment="消息名称(可选)")
 
     # AIMessage 特有字段
-    tool_calls: Mapped[list | None] = mapped_column(
-        JSONB, nullable=True, comment="工具调用列表(JSON)"
-    )
-    invalid_tool_calls: Mapped[list | None] = mapped_column(
-        JSONB, nullable=True, comment="无效工具调用列表(JSON)"
-    )
-    usage_metadata: Mapped[dict | None] = mapped_column(
-        JSONB, nullable=True, comment="Token使用统计(JSON)"
-    )
+    tool_calls: Mapped[list | None] = mapped_column(JSONB, nullable=True, comment="工具调用列表(JSON)")
+    invalid_tool_calls: Mapped[list | None] = mapped_column(JSONB, nullable=True, comment="无效工具调用列表(JSON)")
+    usage_metadata: Mapped[dict | None] = mapped_column(JSONB, nullable=True, comment="Token使用统计(JSON)")
 
     # ToolMessage 特有字段
-    tool_call_id: Mapped[str | None] = mapped_column(
-        String(100), nullable=True, comment="工具调用ID"
-    )
-    artifact: Mapped[dict | None] = mapped_column(
-        JSONB, nullable=True, comment="工具产出物(JSON)"
-    )
-    status: Mapped[str | None] = mapped_column(
-        String(20), nullable=True, comment="工具执行状态: success/error"
-    )
+    tool_call_id: Mapped[str | None] = mapped_column(String(100), nullable=True, comment="工具调用ID")
+    artifact: Mapped[dict | None] = mapped_column(JSONB, nullable=True, comment="工具产出物(JSON)")
+    status: Mapped[str | None] = mapped_column(String(20), nullable=True, comment="工具执行状态: success/error")
 
     # 额外元数据
-    additional_kwargs: Mapped[dict | None] = mapped_column(
-        JSONB, nullable=True, comment="额外参数(JSON)"
-    )
-    response_metadata: Mapped[dict | None] = mapped_column(
-        JSONB, nullable=True, comment="响应元数据(JSON)"
-    )
+    additional_kwargs: Mapped[dict | None] = mapped_column(JSONB, nullable=True, comment="额外参数(JSON)")
+    response_metadata: Mapped[dict | None] = mapped_column(JSONB, nullable=True, comment="响应元数据(JSON)")
 
     # 关系
     session: Mapped["AnalysisSession"] = relationship(  # type: ignore  # noqa: F821

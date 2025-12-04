@@ -41,8 +41,7 @@ def _serialize_message(message: BaseMessage) -> dict[str, Any]:
         }
         if message.tool_calls:
             result["tool_calls"] = [
-                {"id": tc.get("id"), "name": tc.get("name"), "args": tc.get("args")}
-                for tc in message.tool_calls
+                {"id": tc.get("id"), "name": tc.get("name"), "args": tc.get("args")} for tc in message.tool_calls
             ]
         return result
     elif isinstance(message, ToolMessage):
@@ -61,7 +60,7 @@ def _serialize_message(message: BaseMessage) -> dict[str, Any]:
 
 def _serialize_chunk(chunk: dict[str, Any] | tuple[Any, Any]) -> dict[str, Any]:
     """序列化流式 chunk
-    
+
     当 stream_mode="messages" 时，chunk 是 (message, metadata) 的 tuple
     当 stream_mode="values" 或 "updates" 时，chunk 是 dict
     """
@@ -73,7 +72,7 @@ def _serialize_chunk(chunk: dict[str, Any] | tuple[Any, Any]) -> dict[str, Any]:
             "type": getattr(message, "type", "ai"),
             "id": getattr(message, "id", None),
         }
-    
+
     # 处理 dict 格式
     result: dict[str, Any] = {}
 

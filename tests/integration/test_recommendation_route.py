@@ -296,4 +296,3 @@ class TestRecommendationAPI:
             headers=auth_headers,
         )
         assert response.status_code == 404
-

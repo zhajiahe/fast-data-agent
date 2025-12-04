@@ -194,12 +194,14 @@ class FileProcessorService:
                 else:
                     simple_type = "string"
 
-                columns_info.append({
-                    "name": col_name,
-                    "dtype": col_type,
-                    "type": simple_type,
-                    "nullable": nullable,
-                })
+                columns_info.append(
+                    {
+                        "name": col_name,
+                        "dtype": col_type,
+                        "type": simple_type,
+                        "nullable": nullable,
+                    }
+                )
 
             # 获取预览数据
             cursor.execute(f"SELECT * FROM '{main_table}' LIMIT {preview_rows}")  # noqa: S608

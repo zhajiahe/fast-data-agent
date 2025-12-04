@@ -63,4 +63,3 @@ class GenerateFollowupRequest(BaseModel):
     last_result: dict | None = Field(None, description="上次分析结果")
     max_count: int = Field(default=3, ge=1, le=5, description="最大推荐数量")
     trigger_message_id: int | None = Field(None, description="触发消息ID")
-
