@@ -1140,7 +1140,7 @@ async def generate_chart(
 
         chart_filename = f"chart_{int(time.time())}.html"
         chart_path = session_dir / chart_filename
-        fig.write_html(str(chart_path))
+        fig.write_html(str(chart_path), include_plotlyjs="cdn")
 
         # 同时保存为 JSON 以便前端渲染
         chart_json = fig.to_json()
