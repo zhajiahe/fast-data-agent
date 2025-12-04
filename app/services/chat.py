@@ -31,6 +31,8 @@ from app.utils.tools import (
     generate_chart, 
     list_local_files, 
     quick_analysis,
+    execute_python,
+    execute_sql,
 )
 
 # 过滤 LangGraph 内部序列化时的 Pydantic 警告
@@ -56,6 +58,8 @@ class ChatService:
             list_local_files,
             quick_analysis,
             generate_chart,
+            execute_sql,
+            execute_python,
         ]
 
     def _get_llm(self, *, temperature: float = 0.0):

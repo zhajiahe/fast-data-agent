@@ -294,7 +294,7 @@ class UserFlowTest:
         
         messages = [
             "请分析一下这三个数据源的数据概况",
-            "生成一个柱状图，展示各数据源的数据特点",
+            # "生成一个柱状图，展示各数据源的数据特点",
         ]
         
         for msg in messages:

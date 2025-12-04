@@ -41,6 +41,72 @@ MINIO_SECRET_KEY = os.getenv("MINIO_SECRET_KEY", "admin123")
 MINIO_SECURE = os.getenv("MINIO_SECURE", "false").lower() == "true"
 
 
+# ==================== DuckDB 连接管理器 ====================
+
+
+class DuckDBConnectionManager:
+    """
+    DuckDB 连接管理器
+    - 启动时预加载 httpfs 扩展
+    - 提供配置好 S3 访问的连接
+    """
+
+    def __init__(self):
+        self._extensions_loaded = False
+        self._extensions_dir = SANDBOX_ROOT / "duckdb_extensions"
+        self._extensions_dir.mkdir(parents=True, exist_ok=True)
+
+    def preload_extensions(self) -> None:
+        """预加载 DuckDB 扩展（启动时调用）"""
+        if self._extensions_loaded:
+            return
+
+        import duckdb
+
+        logger.info("预加载 DuckDB 扩展...")
+        try:
+            conn = duckdb.connect(":memory:")
+            conn.execute(f"SET extension_directory='{self._extensions_dir}';")
+            # 预安装常用扩展
+            conn.execute("INSTALL httpfs;")
+            conn.execute("INSTALL sqlite;")
+            conn.close()
+            self._extensions_loaded = True
+            logger.info("DuckDB 扩展预加载完成")
+        except Exception as e:
+            logger.warning(f"预加载 DuckDB 扩展失败: {e}")
+
+    def get_connection(self, with_s3: bool = False):
+        """
+        获取配置好的 DuckDB 连接
+
+        Args:
+            with_s3: 是否配置 S3 访问
+
+        Returns:
+            配置好的 DuckDB 连接
+        """
+        import duckdb
+
+        conn = duckdb.connect(":memory:")
+        conn.execute(f"SET extension_directory='{self._extensions_dir}';")
+
+        if with_s3:
+            # 加载 httpfs 并配置 S3（扩展已预安装，只需 LOAD）
+            conn.execute("LOAD httpfs;")
+            conn.execute(f"SET s3_endpoint='{MINIO_ENDPOINT}';")
+            conn.execute(f"SET s3_access_key_id='{MINIO_ACCESS_KEY}';")
+            conn.execute(f"SET s3_secret_access_key='{MINIO_SECRET_KEY}';")
+            conn.execute("SET s3_url_style='path';")
+            conn.execute(f"SET s3_use_ssl={'true' if MINIO_SECURE else 'false'};")
+
+        return conn
+
+
+# 全局连接管理器实例
+duckdb_manager = DuckDBConnectionManager()
+
+
 # ==================== 请求/响应模型 ====================
 
 
@@ -167,6 +233,12 @@ app = FastAPI(
     description="An API server for executing commands and managing files in a secure sandbox.",
     version="2.0.0",
 )
+
+
+@app.on_event("startup")
+async def startup_event():
+    """应用启动时预加载 DuckDB 扩展"""
+    duckdb_manager.preload_extensions()
 
 
 # ==================== 健康检查 ====================
@@ -738,16 +810,32 @@ async def analyze_sqlite_from_s3(conn, s3_url: str, user_id: int, thread_id: int
             "columns": [],
         }
     
-    # 获取所有表 - 使用正确的 SQLite 查询语法
+    # 获取所有表 - 使用 DuckDB 的方式列出附加数据库中的表
     try:
-        tables_result = conn.execute(
-            "SELECT name FROM sqlite_db.main.sqlite_master WHERE type='table'"
-        ).fetchall()
-    except Exception:
-        # 备用方案：直接查询 sqlite_master
-        tables_result = conn.execute(
-            "SELECT name FROM sqlite_master WHERE type='table'"
-        ).fetchall()
+        # DuckDB 方式：使用 SHOW TABLES
+        tables_result = conn.execute("SHOW TABLES FROM sqlite_db").fetchall()
+    except Exception as e1:
+        logger.warning(f"SHOW TABLES failed: {e1}")
+        try:
+            # 备用方案：使用 duckdb_tables() 函数
+            tables_result = conn.execute(
+                "SELECT table_name FROM duckdb_tables() WHERE database_name = 'sqlite_db'"
+            ).fetchall()
+        except Exception as e2:
+            logger.warning(f"duckdb_tables() failed: {e2}")
+            # 最后方案：尝试直接查询 information_schema
+            try:
+                tables_result = conn.execute(
+                    "SELECT table_name FROM information_schema.tables WHERE table_catalog = 'sqlite_db'"
+                ).fetchall()
+            except Exception as e3:
+                logger.error(f"All table listing methods failed: {e3}")
+                return {
+                    "error": f"Failed to inspect SQLite tables: {str(e3)}",
+                    "row_count": 0,
+                    "column_count": 0,
+                    "columns": [],
+                }
     
     tables_info = []
     total_rows = 0
@@ -805,23 +893,17 @@ async def quick_analysis(
     1. file - 直接从 MinIO (S3) 读取文件
     2. database - 连接外部数据库进行分析
     """
-    import duckdb
-
     ds = request.data_source
+    conn = None
 
     try:
-        conn = duckdb.connect(":memory:")
-        
-        # 设置扩展目录（所有类型都需要）
-        setup_duckdb_extensions_dir(conn)
-
         if ds.source_type == "file":
             # ========== 文件类型：直接从 MinIO (S3) 读取 ==========
             if not ds.object_key or not ds.bucket_name:
                 return {"success": False, "error": "Missing object_key or bucket_name for file data source"}
 
-            # 配置 S3 访问
-            setup_duckdb_s3(conn)
+            # 使用连接管理器获取配置好 S3 的连接
+            conn = duckdb_manager.get_connection(with_s3=True)
 
             # 构建 S3 URL
             s3_url = f"s3://{ds.bucket_name}/{ds.object_key}"
@@ -862,6 +944,9 @@ async def quick_analysis(
             # ========== 数据库类型：使用 DuckDB 的数据库扩展 ==========
             if not ds.db_type:
                 return {"success": False, "error": "Missing db_type for database data source"}
+
+            # 使用连接管理器获取基础连接
+            conn = duckdb_manager.get_connection(with_s3=False)
 
             # 安装并加载对应的数据库扩展
             if ds.db_type == "postgresql":

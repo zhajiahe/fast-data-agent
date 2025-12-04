@@ -25,11 +25,12 @@ from app.core.database import engine as async_engine
 
 
 async def reset_database():
-    """清理数据库中的数据"""
+    """清理数据库中的数据并重置自增序列"""
     logger.info("🗃️ 开始清理数据库...")
 
     async with async_engine.begin() as conn:
         # 按依赖顺序删除数据（先删外键依赖的表）
+        # 使用 TRUNCATE RESTART IDENTITY CASCADE 同时删除数据并重置序列
         tables_to_clear = [
             "task_recommendations",
             "chat_messages",
@@ -41,8 +42,9 @@ async def reset_database():
 
         for table in tables_to_clear:
             try:
-                result = await conn.execute(text(f"DELETE FROM {table}"))
-                logger.info(f"  ✅ 清理表 {table}: 删除 {result.rowcount} 条记录")
+                # TRUNCATE 会同时删除数据并重置自增序列
+                await conn.execute(text(f"TRUNCATE TABLE {table} RESTART IDENTITY CASCADE"))
+                logger.info(f"  ✅ 清理表 {table}: 数据已删除，ID序列已重置")
             except Exception as e:
                 logger.warning(f"  ⚠️ 清理表 {table} 失败: {e}")
 
