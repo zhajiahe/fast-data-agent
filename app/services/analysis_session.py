@@ -6,6 +6,7 @@
 
 from typing import Any
 
+from loguru import logger
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.exceptions import BadRequestException, NotFoundException
@@ -74,13 +75,20 @@ class AnalysisSessionService:
             limit=page_size,
         )
 
-    async def create_session(self, user_id: int, data: AnalysisSessionCreate) -> AnalysisSession:
+    async def create_session(
+        self,
+        user_id: int,
+        data: AnalysisSessionCreate,
+        *,
+        generate_recommendations: bool = True,
+    ) -> AnalysisSession:
         """
         创建会话
 
         Args:
             user_id: 用户 ID
             data: 创建数据
+            generate_recommendations: 是否自动生成初始推荐
 
         Returns:
             创建的会话实例
@@ -104,7 +112,25 @@ class AnalysisSessionService:
             "message_count": 0,
         }
 
-        return await self.repo.create(create_data)
+        session = await self.repo.create(create_data)
+
+        # 自动生成初始推荐（异步，不阻塞会话创建）
+        if generate_recommendations and data_sources:
+            try:
+                from app.services.recommend import RecommendService
+
+                recommend_service = RecommendService(self.db)
+                await recommend_service.generate_and_save_initial(
+                    session=session,
+                    data_sources=data_sources,
+                    user_id=user_id,
+                    max_count=5,
+                )
+            except Exception as e:
+                # 推荐生成失败不影响会话创建
+                logger.warning(f"自动生成初始推荐失败: {e}")
+
+        return session
 
     async def update_session(
         self,

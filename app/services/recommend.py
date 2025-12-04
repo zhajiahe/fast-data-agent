@@ -5,21 +5,27 @@
 1. 初始任务推荐（基于数据源 Schema）
 2. 追问推荐（基于对话上下文）
 3. 推荐优先级排序
+4. 推荐持久化（保存到数据库）
 """
 
 import json
 from typing import Any
 
-from langchain.chat_models import init_chat_model
-from langchain_core.messages import HumanMessage, SystemMessage
+from langchain.messages import HumanMessage, SystemMessage
+from langchain_openai import ChatOpenAI
+from loguru import logger
 from pydantic import BaseModel, Field, ValidationError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
 from app.models.analysis_session import AnalysisSession
 from app.models.data_source import DataSource
-from app.models.task_recommendation import RecommendationCategory, RecommendationSourceType
-
+from app.models.task_recommendation import (
+    RecommendationCategory,
+    RecommendationSourceType,
+    TaskRecommendation,
+)
+from app.repositories.task_recommendation import TaskRecommendationRepository
 
 # ==================== 数据模型 ====================
 
@@ -32,7 +38,6 @@ class RecommendationItem(BaseModel):
     category: str = Field(default="other", description="分类")
     priority: int | None = Field(default=None, ge=0, description="优先级，0最高")
     source_type: str = Field(default="initial", description="推荐来源类型")
-    task_payload: dict = Field(default_factory=dict, description="任务参数")
 
 
 class RecommendationResult(BaseModel):
@@ -49,20 +54,15 @@ class RecommendService:
 
     def __init__(self, db: AsyncSession):
         self.db = db
-
-    def _resolve_model_identifier(self) -> str:
-        """获取 LangChain init_chat_model 所需的模型 ID"""
-        model_name = getattr(settings, "OPENAI_MODEL", "gpt-4o-mini")
-        if ":" in model_name:
-            return model_name
-        return f"openai:{model_name}"
+        self.repo = TaskRecommendationRepository(db)
 
     def _get_llm(self, *, temperature: float | None = None):
         """获取 LLM 实例（参考最新 LangChain init_chat_model API）"""
-        temp = 0.3 if temperature is None else temperature
-        return init_chat_model(
-            self._resolve_model_identifier(),
-            temperature=temp,
+        return ChatOpenAI(
+            model=settings.LLM_MODEL,
+            temperature=0 if temperature is None else temperature,
+            api_key=settings.OPENAI_API_KEY,  # type: ignore[arg-type]
+            base_url=settings.OPENAI_API_BASE,
             timeout=45,
         )
 
@@ -83,7 +83,11 @@ class RecommendService:
             SystemMessage(content=system_prompt),
             HumanMessage(content=user_prompt),
         ]
-        return await structured_llm.ainvoke(messages)
+        result = await structured_llm.ainvoke(messages)
+        if isinstance(result, RecommendationResult):
+            return result
+        # 如果模型返回的不是预期类型，返回空结果
+        return RecommendationResult()
 
     def _normalize_recommendations(
         self,
@@ -101,10 +105,21 @@ class RecommendService:
                     category=item.category or RecommendationCategory.OTHER.value,
                     priority=item.priority if item.priority is not None else idx,
                     source_type=source_type.value,
-                    task_payload=item.task_payload or {},
                 )
             )
         return normalized
+
+    def _format_session_context(self, session: AnalysisSession) -> str:
+        """构建会话上下文描述，辅助 LLM 生成更贴合的推荐"""
+        description = session.description or "未提供"
+        config_summary = json.dumps(session.config or {}, ensure_ascii=False, indent=2)
+        return (
+            f"会话ID: {session.id}\n"
+            f"会话名称: {session.name}\n"
+            f"会话描述: {description}\n"
+            f"历史消息数: {session.message_count}\n"
+            f"额外配置: {config_summary}"
+        )
 
     async def generate_initial_recommendations(
         self,
@@ -135,6 +150,7 @@ class RecommendService:
         # 使用 LLM 生成推荐
         try:
             recommendations = await self._generate_with_llm(
+                session=session,
                 schema_info=schema_info,
                 source_type=RecommendationSourceType.INITIAL,
                 max_count=max_count,
@@ -174,6 +190,7 @@ class RecommendService:
 
         try:
             recommendations = await self._generate_followup_with_llm(
+                session=session,
                 schema_info=schema_info,
                 conversation_context=conversation_context,
                 last_result=last_result,
@@ -200,15 +217,21 @@ class RecommendService:
 
     async def _generate_with_llm(
         self,
+        session: AnalysisSession,
         schema_info: dict,
         source_type: RecommendationSourceType,
         max_count: int,
     ) -> list[RecommendationItem]:
         """使用 LLM 生成推荐"""
+        session_context = self._format_session_context(session)
+
         system_prompt = """你是一个资深数据分析顾问。请严格按照 RecommendationResult 模型填充 recommendations 字段，
 并确保每个推荐都能帮助用户快速理解或深入分析数据。"""
 
-        user_prompt = f"""数据库 Schema 信息：
+        user_prompt = f"""当前分析会话：
+{session_context}
+
+数据库 Schema 信息：
 {json.dumps(schema_info, ensure_ascii=False, indent=2)}
 
 请基于以上数据结构生成不超过 {max_count} 个高价值分析任务。"""
@@ -222,16 +245,22 @@ class RecommendService:
 
     async def _generate_followup_with_llm(
         self,
+        session: AnalysisSession,
         schema_info: dict,
         conversation_context: str,
         last_result: dict | None,
         max_count: int,
     ) -> list[RecommendationItem]:
         """使用 LLM 生成追问推荐"""
+        session_context = self._format_session_context(session)
+
         system_prompt = """你是一个资深数据分析顾问。请在 RecommendationResult 模型中补充 recommendations，
 用于引导用户基于当前上下文提出更深入的问题或分析任务。"""
 
-        context_parts = [f"对话上下文：\n{conversation_context}"]
+        context_parts = [
+            f"会话信息：\n{session_context}",
+            f"对话上下文：\n{conversation_context}",
+        ]
         if last_result:
             context_parts.append(f"上次分析结果：\n{json.dumps(last_result, ensure_ascii=False, indent=2)}")
         if schema_info:
@@ -264,7 +293,7 @@ class RecommendService:
         has_numeric_column = False
         has_category_column = False
 
-        for ds_name, ds_info in schema_info.items():
+        for _ds_name, ds_info in schema_info.items():
             for table in ds_info.get("tables", []):
                 all_tables.append(table.get("name", "unknown"))
                 for col in table.get("columns", []):
@@ -394,4 +423,125 @@ class RecommendService:
                 source_type=RecommendationSourceType.FOLLOW_UP.value,
             ),
         ]
+
+    # ==================== 持久化方法 ====================
+
+    async def generate_and_save_initial(
+        self,
+        session: AnalysisSession,
+        data_sources: list[DataSource],
+        user_id: int,
+        max_count: int = 5,
+        *,
+        force_regenerate: bool = False,
+    ) -> list[TaskRecommendation]:
+        """
+        生成并保存初始推荐
+
+        Args:
+            session: 分析会话
+            data_sources: 数据源列表
+            user_id: 用户 ID
+            max_count: 最大推荐数量
+            force_regenerate: 是否强制重新生成
+
+        Returns:
+            保存的推荐列表
+        """
+        # 如果强制重新生成，先清理现有推荐
+        if force_regenerate:
+            await self.repo.delete_by_session(
+                session.id, source_type=RecommendationSourceType.INITIAL.value
+            )
+
+        # 生成推荐
+        try:
+            items = await self.generate_initial_recommendations(
+                session=session,
+                data_sources=data_sources,
+                max_count=max_count,
+            )
+        except Exception as e:
+            logger.warning(f"生成初始推荐失败: {e}")
+            items = self._get_generic_recommendations()
+
+        # 保存到数据库
+        return await self.repo.create_from_items(
+            session_id=session.id,
+            items=[item.model_dump() for item in items],
+            user_id=user_id,
+        )
+
+    async def generate_and_save_followup(
+        self,
+        session: AnalysisSession,
+        data_sources: list[DataSource],
+        conversation_context: str,
+        user_id: int,
+        *,
+        last_result: dict | None = None,
+        max_count: int = 3,
+        trigger_message_id: int | None = None,
+    ) -> list[TaskRecommendation]:
+        """
+        生成并保存追问推荐
+
+        Args:
+            session: 分析会话
+            data_sources: 数据源列表
+            conversation_context: 对话上下文
+            user_id: 用户 ID
+            last_result: 上次分析结果
+            max_count: 最大推荐数量
+            trigger_message_id: 触发消息 ID
+
+        Returns:
+            保存的推荐列表
+        """
+        # 生成推荐
+        try:
+            items = await self.generate_followup_recommendations(
+                session=session,
+                data_sources=data_sources,
+                conversation_context=conversation_context,
+                last_result=last_result,
+                max_count=max_count,
+            )
+        except Exception as e:
+            logger.warning(f"生成追问推荐失败: {e}")
+            items = self._get_generic_followup_recommendations()
+
+        # 保存到数据库
+        return await self.repo.create_from_items(
+            session_id=session.id,
+            items=[item.model_dump() for item in items],
+            user_id=user_id,
+            trigger_message_id=trigger_message_id,
+        )
+
+    async def get_session_recommendations(
+        self,
+        session_id: int,
+        *,
+        status: str | None = None,
+        source_type: str | None = None,
+    ) -> list[TaskRecommendation]:
+        """获取会话的推荐列表"""
+        return await self.repo.get_by_session(
+            session_id, status=status, source_type=source_type
+        )
+
+    async def update_recommendation_status(
+        self,
+        recommendation_id: int,
+        status: str,
+    ) -> TaskRecommendation | None:
+        """更新推荐状态"""
+        from app.models.task_recommendation import RecommendationStatus
+
+        try:
+            status_enum = RecommendationStatus(status)
+            return await self.repo.update_status(recommendation_id, status_enum)
+        except ValueError:
+            return None
 

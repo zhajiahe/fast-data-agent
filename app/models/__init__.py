@@ -8,7 +8,12 @@ from app.models.analysis_session import AnalysisSession
 from app.models.base import Base, BasePageQuery, BaseResponse, BaseTableMixin, PageResponse, Token, TokenPayload
 from app.models.chat_message import ChatMessage, MessageType
 from app.models.data_source import DatabaseType, DataSource, DataSourceType, FileType
-from app.models.task_recommendation import RecommendationCategory, RecommendationStatus, TaskRecommendation
+from app.models.task_recommendation import (
+    RecommendationCategory,
+    RecommendationSourceType,
+    RecommendationStatus,
+    TaskRecommendation,
+)
 from app.models.uploaded_file import UploadedFile
 from app.models.user import User
 
@@ -35,6 +40,7 @@ __all__ = [
     # TaskRecommendation
     "TaskRecommendation",
     "RecommendationCategory",
+    "RecommendationSourceType",
     "RecommendationStatus",
     # ChatMessage
     "ChatMessage",

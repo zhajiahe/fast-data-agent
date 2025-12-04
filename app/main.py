@@ -11,6 +11,7 @@ from loguru import logger
 from app.api.chat import router as chat_router
 from app.api.data_sources import router as data_sources_router
 from app.api.files import router as files_router
+from app.api.recommendations import router as recommendations_router
 from app.api.sessions import router as sessions_router
 from app.api.users import auth_router
 from app.api.users import router as users_router
@@ -83,6 +84,9 @@ app.include_router(sessions_router, prefix="/api/v1")
 
 # 注册对话路由
 app.include_router(chat_router, prefix="/api/v1")
+
+# 注册推荐路由
+app.include_router(recommendations_router, prefix="/api/v1")
 
 
 if __name__ == "__main__":

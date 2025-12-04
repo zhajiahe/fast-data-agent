@@ -21,6 +21,7 @@ class RecommendationCategory(str, Enum):
     ANOMALY = "anomaly"  # 异常检测
     CORRELATION = "correlation"  # 关联分析
     DISTRIBUTION = "distribution"  # 分布分析
+    OTHER = "other"  # 其他
 
 
 class RecommendationStatus(str, Enum):
@@ -29,6 +30,13 @@ class RecommendationStatus(str, Enum):
     PENDING = "pending"  # 待选择
     SELECTED = "selected"  # 已选择执行
     DISMISSED = "dismissed"  # 已忽略
+
+
+class RecommendationSourceType(str, Enum):
+    """推荐来源类型"""
+
+    INITIAL = "initial"  # 初始推荐（创建会话时）
+    FOLLOW_UP = "follow_up"  # 追问推荐（对话过程中）
 
 
 class TaskRecommendation(Base, BaseTableMixin):
@@ -55,6 +63,12 @@ class TaskRecommendation(Base, BaseTableMixin):
     category: Mapped[str] = mapped_column(
         String(30), nullable=False, default=RecommendationCategory.OVERVIEW.value, comment="任务分类"
     )
+
+    # 推荐来源和优先级
+    source_type: Mapped[str] = mapped_column(
+        String(20), nullable=False, default=RecommendationSourceType.INITIAL.value, comment="推荐来源类型"
+    )
+    priority: Mapped[int] = mapped_column(Integer, nullable=False, default=0, comment="优先级（0最高）")
 
     # 状态
     status: Mapped[str] = mapped_column(
