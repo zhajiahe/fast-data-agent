@@ -10,7 +10,7 @@ from typing import Any
 
 from fastapi import APIRouter, Depends
 from fastapi.responses import StreamingResponse
-from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, ToolMessage
+from langchain_core.messages import AIMessageChunk, ToolMessageChunk
 
 from app.core.deps import CurrentUser, DBSession
 from app.models.base import BasePageQuery, BaseResponse, PageResponse
@@ -25,69 +25,87 @@ router = APIRouter(prefix="/sessions/{session_id}", tags=["chat"])
 # ==================== 消息序列化 ====================
 
 
-def _serialize_message(message: BaseMessage) -> dict[str, Any]:
-    """将 LangChain 消息序列化为 JSON 可传输格式"""
-    if isinstance(message, HumanMessage):
-        return {
-            "type": "human",
-            "content": message.content,
-            "id": getattr(message, "id", None),
-        }
-    elif isinstance(message, AIMessage):
-        result: dict[str, Any] = {
-            "type": "ai",
-            "content": message.content,
-            "id": getattr(message, "id", None),
-        }
-        if message.tool_calls:
-            result["tool_calls"] = [
-                {"id": tc.get("id"), "name": tc.get("name"), "args": tc.get("args")} for tc in message.tool_calls
-            ]
-        return result
-    elif isinstance(message, ToolMessage):
-        return {
-            "type": "tool",
-            "content": message.content,
-            "tool_call_id": message.tool_call_id,
-            "name": getattr(message, "name", None),
-        }
-    else:
-        return {
-            "type": getattr(message, "type", "unknown"),
-            "content": str(message.content) if hasattr(message, "content") else str(message),
-        }
+def _serialize_message(message: Any) -> dict[str, Any]:
+    """序列化单个消息对象"""
+    from langchain_core.messages import AIMessage, ToolMessage
+
+    result: dict[str, Any] = {
+        "content": str(message.content) if hasattr(message, "content") else "",
+        "type": getattr(message, "type", "unknown"),
+        "id": getattr(message, "id", None),
+    }
+
+    # AIMessage 可能包含 tool_calls
+    if isinstance(message, AIMessage) and message.tool_calls:
+        result["tool_calls"] = message.tool_calls
+
+    # ToolMessage 包含 tool_call_id 和可能的 artifact
+    if isinstance(message, ToolMessage):
+        result["tool_call_id"] = getattr(message, "tool_call_id", None)
+        result["name"] = getattr(message, "name", None)
+        artifact = getattr(message, "artifact", None)
+        if artifact:
+            result["artifact"] = artifact
+
+    return result
 
 
 def _serialize_chunk(chunk: dict[str, Any] | tuple[Any, Any]) -> dict[str, Any]:
     """序列化流式 chunk
 
-    当 stream_mode="messages" 时，chunk 是 (message, metadata) 的 tuple
-    当 stream_mode="values" 或 "updates" 时，chunk 是 dict
+    stream_mode=["values", "updates", "messages"] 时：
+    - tuple: "messages" 模式的 (message/message_chunk, metadata)
+    - dict with "mode": "updates": 状态更新（工具调用和结果）
+    - dict with "error": 错误信息
     """
-    # 处理 tuple 格式 (message, metadata)
+    from langchain_core.messages import ToolMessage
+
+    # 处理 tuple 格式 (message/message_chunk, metadata) - messages 模式
     if isinstance(chunk, tuple):
-        message, metadata = chunk
-        return {
+        message, _metadata = chunk
+        result: dict[str, Any] = {
+            "mode": "messages",
             "content": str(message.content) if hasattr(message, "content") else "",
             "type": getattr(message, "type", "ai"),
             "id": getattr(message, "id", None),
         }
 
+        # AIMessageChunk 可能包含 tool_calls
+        if isinstance(message, AIMessageChunk) and message.tool_calls:
+            result["tool_calls"] = message.tool_calls
+
+        # ToolMessage 或 ToolMessageChunk 包含 tool_call_id
+        if isinstance(message, (ToolMessage, ToolMessageChunk)):
+            result["tool_call_id"] = getattr(message, "tool_call_id", None)
+            result["name"] = getattr(message, "name", None)
+            artifact = getattr(message, "artifact", None)
+            if artifact:
+                result["artifact"] = artifact
+
+        return result
+
     # 处理 dict 格式
-    result: dict[str, Any] = {}
+    if isinstance(chunk, dict):
+        # updates 模式：状态更新（包含工具调用和结果）
+        if chunk.get("mode") == "updates":
+            data = chunk.get("data", {})
+            result = {"mode": "updates", "node": None, "messages": []}
 
-    if "messages" in chunk:
-        messages = chunk["messages"]
-        if isinstance(messages, list):
-            result["messages"] = [_serialize_message(m) for m in messages]
-        else:
-            result["messages"] = [_serialize_message(messages)]
+            # 提取节点名称和消息
+            for node_name, node_data in data.items():
+                result["node"] = node_name
+                if isinstance(node_data, dict) and "messages" in node_data:
+                    messages = node_data["messages"]
+                    if isinstance(messages, list):
+                        result["messages"] = [_serialize_message(m) for m in messages]
+                    else:
+                        result["messages"] = [_serialize_message(messages)]
+            return result
 
-    for key, value in chunk.items():
-        if key != "messages":
-            result[key] = value
+        # error 或其他 dict 格式
+        return chunk
 
-    return result
+    return {"error": "Unknown chunk format"}
 
 
 def _chat_message_to_response(msg: ChatMessage) -> ChatMessageResponse:
@@ -121,13 +139,23 @@ async def _stream_chat_response(
     session = await session_service.get_session(session_id, user_id)
 
     try:
-        async for chunk in chat_service.chat(content, session, stream_mode="messages"):
+        async for chunk in chat_service.chat(content, session):
             # 检查是否是 dict 且包含 error
             if isinstance(chunk, dict) and "error" in chunk:
                 yield f"data: {json.dumps(chunk, ensure_ascii=False)}\n\n"
                 continue
 
             serialized = _serialize_chunk(chunk)
+            
+            # 过滤空内容的消息（只有 content 且为空/空白的 messages 模式）
+            if serialized.get("mode") == "messages":
+                content = serialized.get("content", "")
+                tool_calls = serialized.get("tool_calls")
+                tool_call_id = serialized.get("tool_call_id")
+                # 跳过既没有内容也没有工具调用的消息
+                if not content and not tool_calls and not tool_call_id:
+                    continue
+            
             yield f"data: {json.dumps(serialized, ensure_ascii=False)}\n\n"
 
         yield "data: [DONE]\n\n"

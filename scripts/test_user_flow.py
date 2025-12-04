@@ -293,10 +293,8 @@ class UserFlowTest:
         print("=" * 60)
         
         messages = [
-            # "我是小章",
-            # "我是谁",
             "请分析一下这三个数据源的数据概况",
-            "对比一下各数据源的数据特点",
+            "生成一个柱状图，展示各数据源的数据特点",
         ]
         
         for msg in messages:
@@ -312,9 +310,9 @@ class UserFlowTest:
                 json={"content": msg},
             ) as response:
                 if response.status_code == 200:
-                    print("🤖 AI: ", end="", flush=True)
-                    
                     ai_response = ""
+                    current_tool_call = None
+                    
                     async for line in response.aiter_lines():
                         if line.startswith("data: "):
                             data_str = line[6:]
@@ -322,14 +320,54 @@ class UserFlowTest:
                                 break
                             try:
                                 data = json.loads(data_str)
-                                # 获取 AI 的文本响应（跳过工具调用结果）
-                                if "content" in data and data.get("type") in ("ai", "AIMessageChunk"):
-                                    content = data["content"]
-                                    if content:
+                                mode = data.get("mode", "")
+                                
+                                # 处理 messages 模式（流式 token）
+                                if mode == "messages":
+                                    msg_type = data.get("type", "")
+                                    content = data.get("content", "")
+                                    
+                                    # AI 文本流式输出（过滤空白内容）
+                                    if "ai" in msg_type.lower() and content and content.strip():
+                                        if not ai_response.strip():
+                                            print("🤖 AI: ", end="", flush=True)
                                         print(content, end="", flush=True)
                                         ai_response += content
+                                    
+                                    # AI 决定调用工具
+                                    if data.get("tool_calls"):
+                                        tool_calls = data["tool_calls"]
+                                        for tc in tool_calls:
+                                            if tc.get("name"):
+                                                current_tool_call = tc["name"]
+                                                print(f"\n   🔧 调用工具: {tc['name']}", end="", flush=True)
+                                    
+                                    # 工具执行结果
+                                    if data.get("tool_call_id"):
+                                        tool_name = data.get("name", "工具")
+                                        tool_content = content[:100] + "..." if len(content) > 100 else content
+                                        print(f"\n   ✅ {tool_name} 返回: {tool_content}", flush=True)
+                                
+                                # 处理 updates 模式（节点状态更新）
+                                elif mode == "updates":
+                                    node = data.get("node", "")
+                                    msgs = data.get("messages", [])
+                                    
+                                    for m in msgs:
+                                        m_type = m.get("type", "")
+                                        m_content = m.get("content", "")
+                                        
+                                        # 工具调用（完整参数）
+                                        if m.get("tool_calls"):
+                                            for tc in m["tool_calls"]:
+                                                args = tc.get("args", {})
+                                                args_str = json.dumps(args, ensure_ascii=False)[:80]
+                                                print(f" ({args_str})", flush=True)
+                                
+                                # 处理错误
                                 elif "error" in data:
                                     print(f"\n⚠️ Error: {data['error'].get('message', data['error'])}")
+                                    
                             except json.JSONDecodeError:
                                 pass
                     
@@ -339,7 +377,6 @@ class UserFlowTest:
                         print(f"   (响应长度: {len(ai_response)} 字符)")
                 else:
                     print(f"❌ 请求失败: {response.status_code}")
-                    # 读取错误响应
                     error_text = await response.aread()
                     print(f"   错误详情: {error_text.decode()[:500]}")
         

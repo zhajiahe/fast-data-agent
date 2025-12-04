@@ -25,7 +25,13 @@ from app.models.chat_message import ChatMessage
 from app.models.data_source import DataSource
 from app.repositories.chat_message import ChatMessageRepository
 from app.repositories.data_source import DataSourceRepository
-from app.utils.tools import ChatContext, DataSourceContext, list_local_files, quick_analysis
+from app.utils.tools import (
+    ChatContext, 
+    DataSourceContext, 
+    generate_chart, 
+    list_local_files, 
+    quick_analysis,
+)
 
 # 过滤 LangGraph 内部序列化时的 Pydantic 警告
 # 这是由于 context_schema 在序列化时与内部状态模式不完全匹配导致的，不影响功能
@@ -49,6 +55,7 @@ class ChatService:
         self.tools = [
             list_local_files,
             quick_analysis,
+            generate_chart,
         ]
 
     def _get_llm(self, *, temperature: float = 0.0):
@@ -195,20 +202,22 @@ class ChatService:
         content: str,
         session: AnalysisSession,
         *,
-        stream_mode: str = "messages",
         save_messages: bool = True,
-    ) -> AsyncGenerator[dict[str, Any], None]:
+    ) -> AsyncGenerator[dict[str, Any] | tuple[Any, Any], None]:
         """
         发送消息并获取 AI 响应（流式）
+
+        使用 stream_mode=["values", "messages"] 同时流式传输：
+        - "messages": LLM token 流，直接 yield (message, metadata) 用于实时显示
+        - "values": 完整状态快照，用于获取最终消息（不 yield，仅内部使用）
 
         Args:
             content: 用户消息内容
             session: 分析会话
-            stream_mode: 流模式 ("values", "updates", "messages", "custom")
             save_messages: 是否保存消息到数据库
 
         Yields:
-            流式状态/消息字典
+            流式 (message, metadata) 元组，或 error dict
         """
         # 获取会话关联的数据源
         data_source_ids = session.data_source_ids or []
@@ -228,7 +237,7 @@ class ChatService:
             thread_id=session.id,
             data_sources=ds_contexts,
         )
-        logger.info(f"上下文: {context}")
+        logger.debug(f"上下文: {context}")
 
         # 获取历史消息
         history = await self.get_history_as_langchain(session.id, limit=50)
@@ -242,69 +251,47 @@ class ChatService:
         initial_state = {
             "messages": [*history, user_message],
         }
-        logger.info(f"初始状态: {initial_state}")
-        # 收集流式消息用于保存
-        message_contents: dict[str, str] = {}  # 消息内容
-        message_types: dict[str, type] = {}  # 消息类型
-        message_artifacts: dict[str, Any] = {}  # 工具消息的 artifact
+        logger.debug(f"初始状态: {initial_state}")
+
+        # 记录历史消息数量，用于过滤新消息
+        history_count = len(history) + 1  # +1 是用户消息
+        final_messages: list[BaseMessage] = []
 
         try:
-            # 流式执行 Agent，context 直接作为参数传递
-            async for chunk in agent.astream(
+            # 使用多模式流式传输：
+            # - "messages": LLM token 流
+            # - "updates": 状态更新（包含工具调用和结果）
+            # - "values": 完整状态快照（用于获取最终消息）
+            async for mode, chunk in agent.astream(
                 initial_state,
                 context=context,
-                stream_mode=stream_mode,
+                stream_mode=["values", "updates", "messages"],
             ):
-                yield chunk
+                if mode == "messages":
+                    # token 流：直接 yield (message_chunk, metadata) 元组
+                    yield chunk
 
-                # stream_mode="messages" 返回 (message, metadata) tuple
-                # 流式模式下收到的是 MessageChunk，需要聚合内容
-                if isinstance(chunk, tuple) and len(chunk) >= 2:
-                    message, _metadata = chunk
-                    # 只保存非用户消息的内容
-                    if not isinstance(message, HumanMessage):
-                        content = getattr(message, "content", "")
-                        msg_id = getattr(message, "id", None)
+                elif mode == "updates":
+                    # 状态更新：包含节点执行结果（工具调用、工具结果等）
+                    yield {"mode": "updates", "data": chunk}
 
-                        if msg_id:
-                            # 记录消息类型（取第一个 chunk 的类型）
-                            if msg_id not in message_types:
-                                message_types[msg_id] = type(message)
-                                message_contents[msg_id] = ""
+                elif mode == "values":
+                    # 完整状态快照：提取新产生的消息（用于保存）
+                    all_messages = chunk.get("messages", [])
+                    final_messages = all_messages[history_count:]
 
-                            # 聚合内容
-                            if content:
-                                message_contents[msg_id] += content
-
-                            # 收集 artifact（如果有）
-                            artifact = getattr(message, "artifact", None)
-                            if artifact and msg_id not in message_artifacts:
-                                message_artifacts[msg_id] = artifact
-
-            # 保存响应消息
-            if save_messages and message_contents:
-                from langchain_core.messages import AIMessage, ToolMessage
-
-                messages_to_save: list[BaseMessage] = []
-                for msg_id, content in message_contents.items():
-                    if not content.strip():
-                        continue
-
-                    msg_type = message_types.get(msg_id)
-                    msg_type_name = msg_type.__name__ if msg_type else "Unknown"
-
-                    # 根据消息类型创建对应的消息对象
-                    if msg_type and "ToolMessage" in msg_type_name:
-                        # ToolMessage 包含 artifact（如果有）
-                        artifact = message_artifacts.get(msg_id)
-                        messages_to_save.append(ToolMessage(content=content, tool_call_id=msg_id, artifact=artifact))
-                    else:
-                        # AIMessage 或其他类型
-                        messages_to_save.append(AIMessage(content=content, id=msg_id))
-
+            # 保存响应消息（从完整状态中获取，无需手动聚合 token）
+            if save_messages and final_messages:
+                # 过滤掉空消息和用户消息
+                messages_to_save = [
+                    msg for msg in final_messages
+                    if not isinstance(msg, HumanMessage) and getattr(msg, "content", "")
+                ]
                 if messages_to_save:
                     logger.debug(f"保存 {len(messages_to_save)} 条消息")
-                    await self.message_repo.save_langchain_messages(session.id, messages_to_save, session.user_id)
+                    await self.message_repo.save_langchain_messages(
+                        session.id, messages_to_save, session.user_id
+                    )
 
         except Exception as e:
             yield {

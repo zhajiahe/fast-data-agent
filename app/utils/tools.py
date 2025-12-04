@@ -223,7 +223,7 @@ async def generate_chart(
 
         # artifact: 完整图表数据，不发送给 LLM
         artifact = {
-            "type": "chart",
+            "type": "plotly",
             "chart_file": result.get("chart_file"),
             "chart_json": result.get("chart_json"),  # 完整的 Plotly JSON
         }
