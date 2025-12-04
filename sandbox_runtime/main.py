@@ -504,15 +504,8 @@ async def analyze_sqlite_from_s3(conn, s3_url: str, user_id: int, thread_id: int
     从 S3 下载 SQLite 文件并分析。
     
     SQLite 文件不能直接从 S3 读取，需要先下载到本地。
-    使用 DuckDB 的 httpfs 扩展下载文件。
+    使用 Python 从 MinIO 下载文件。
     """
-    import urllib.request
-    import urllib.parse
-    import base64
-    import hmac
-    import hashlib
-    from datetime import datetime
-    
     # 解析 S3 URL
     # s3://bucket/key -> http://endpoint/bucket/key
     parts = s3_url.replace("s3://", "").split("/", 1)
@@ -525,55 +518,71 @@ async def analyze_sqlite_from_s3(conn, s3_url: str, user_id: int, thread_id: int
     
     logger.info(f"Downloading SQLite from S3: {s3_url} to {sqlite_path}")
     
-    try:
-        # 使用 AWS S3 签名 V4 风格下载
-        # 构建 HTTP URL
-        protocol = "https" if MINIO_SECURE else "http"
-        http_url = f"{protocol}://{MINIO_ENDPOINT}/{bucket}/{key}"
-        
-        # 创建签名请求（简化版本，假设 MinIO 允许匿名访问或使用 Query 签名）
-        # 实际项目中应该使用 boto3 或 minio SDK
-        
-        # 尝试直接下载（如果 bucket 是公开的）
+    # 如果文件已存在且有效，直接使用
+    if sqlite_path.exists() and sqlite_path.stat().st_size > 0:
+        logger.info(f"Using cached SQLite file: {sqlite_path}")
+    else:
         try:
-            urllib.request.urlretrieve(http_url, str(sqlite_path))
+            # 使用 minio 包下载文件（如果可用）
+            try:
+                from minio import Minio
+                
+                client = Minio(
+                    MINIO_ENDPOINT,
+                    access_key=MINIO_ACCESS_KEY,
+                    secret_key=MINIO_SECRET_KEY,
+                    secure=MINIO_SECURE,
+                )
+                
+                client.fget_object(bucket, key, str(sqlite_path))
+                logger.info(f"Downloaded SQLite via minio SDK")
+            except ImportError:
+                logger.warning("minio SDK not available, trying boto3...")
+                
+                # 备用方案：使用 boto3
+                try:
+                    import boto3
+                    from botocore.config import Config
+                    
+                    s3_client = boto3.client(
+                        's3',
+                        endpoint_url=f"{'https' if MINIO_SECURE else 'http'}://{MINIO_ENDPOINT}",
+                        aws_access_key_id=MINIO_ACCESS_KEY,
+                        aws_secret_access_key=MINIO_SECRET_KEY,
+                        config=Config(signature_version='s3v4'),
+                    )
+                    
+                    s3_client.download_file(bucket, key, str(sqlite_path))
+                    logger.info(f"Downloaded SQLite via boto3")
+                except ImportError:
+                    logger.warning("boto3 not available, trying direct HTTP with signature...")
+                    
+                    # 最后的备用方案：使用 DuckDB 查询二进制并写入文件
+                    try:
+                        result = conn.execute(f"SELECT content FROM read_blob('{s3_url}')").fetchone()
+                        if result and result[0]:
+                            with open(sqlite_path, 'wb') as f:
+                                f.write(result[0])
+                            logger.info(f"Downloaded SQLite via DuckDB read_blob")
+                        else:
+                            raise ValueError("Empty blob result")
+                    except Exception as e3:
+                        logger.error(f"All download methods failed: {e3}")
+                        return {
+                            "error": f"Failed to download SQLite file: {str(e3)}",
+                            "row_count": 0,
+                            "column_count": 0,
+                            "columns": [],
+                        }
+                        
         except Exception as e:
-            logger.warning(f"Direct download failed: {e}")
-            
-            # 使用 AWS Signature V4 进行签名下载
-            # 这里使用简化的签名方式
-            date_str = datetime.utcnow().strftime('%Y%m%dT%H%M%SZ')
-            date_short = datetime.utcnow().strftime('%Y%m%d')
-            
-            # 构建 canonical request
-            method = "GET"
-            canonical_uri = f"/{bucket}/{key}"
-            canonical_querystring = ""
-            host = MINIO_ENDPOINT
-            
-            # 签名请求头
-            headers = {
-                "Host": host,
-                "X-Amz-Date": date_str,
+            logger.error(f"Failed to download SQLite: {e}")
+            return {
+                "error": f"Failed to download SQLite file: {str(e)}",
+                "row_count": 0,
+                "column_count": 0,
+                "columns": [],
             }
-            
-            signed_headers = ";".join(sorted(headers.keys()).lower() for k in headers)
-            canonical_headers = "\n".join(f"{k.lower()}:{v}" for k, v in sorted(headers.items())) + "\n"
-            
-            payload_hash = hashlib.sha256(b"").hexdigest()
-            canonical_request = f"{method}\n{canonical_uri}\n{canonical_querystring}\n{canonical_headers}\n{signed_headers}\n{payload_hash}"
-            
-            # 这里简化处理，假设可以直接访问
-            # 实际需要完整的 AWS Signature V4 实现
-            
-    except Exception as e:
-        logger.error(f"Failed to download SQLite: {e}")
-        return {
-            "error": f"Failed to download SQLite file: {str(e)}",
-            "row_count": 0,
-            "column_count": 0,
-            "columns": [],
-        }
     
     # 检查文件是否存在且有效
     if not sqlite_path.exists() or sqlite_path.stat().st_size == 0:
@@ -595,10 +604,16 @@ async def analyze_sqlite_from_s3(conn, s3_url: str, user_id: int, thread_id: int
             "columns": [],
         }
     
-    # 获取所有表
-    tables_result = conn.execute(
-        "SELECT name FROM sqlite_db.sqlite_master WHERE type='table'"
-    ).fetchall()
+    # 获取所有表 - 使用正确的 SQLite 查询语法
+    try:
+        tables_result = conn.execute(
+            "SELECT name FROM sqlite_db.main.sqlite_master WHERE type='table'"
+        ).fetchall()
+    except Exception:
+        # 备用方案：直接查询 sqlite_master
+        tables_result = conn.execute(
+            "SELECT name FROM sqlite_master WHERE type='table'"
+        ).fetchall()
     
     tables_info = []
     total_rows = 0
@@ -607,9 +622,17 @@ async def analyze_sqlite_from_s3(conn, s3_url: str, user_id: int, thread_id: int
     
     for (table_name,) in tables_result:
         try:
+            # 获取行数
             row_count = conn.execute(f"SELECT COUNT(*) FROM sqlite_db.{table_name}").fetchone()[0]
-            columns_meta = conn.execute(f"PRAGMA sqlite_db.table_info('{table_name}')").fetchall()
-            columns = [{"name": col[1], "dtype": col[2]} for col in columns_meta]
+            
+            # 获取列信息 - 使用 DuckDB 的 DESCRIBE 而不是 PRAGMA
+            try:
+                columns_meta = conn.execute(f"DESCRIBE sqlite_db.{table_name}").fetchall()
+                columns = [{"name": col[0], "dtype": col[1]} for col in columns_meta]
+            except Exception:
+                # 备用方案：查询一行数据来获取列信息
+                sample = conn.execute(f"SELECT * FROM sqlite_db.{table_name} LIMIT 1")
+                columns = [{"name": desc[0], "dtype": "UNKNOWN"} for desc in sample.description] if sample.description else []
             
             tables_info.append({
                 "table_name": table_name,

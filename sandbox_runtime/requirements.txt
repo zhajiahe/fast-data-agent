@@ -8,3 +8,6 @@ pandas
 duckdb
 numpy
 plotly
+
+# For S3/MinIO access
+minio

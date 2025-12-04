@@ -59,8 +59,22 @@ def _serialize_message(message: BaseMessage) -> dict[str, Any]:
         }
 
 
-def _serialize_chunk(chunk: dict[str, Any]) -> dict[str, Any]:
-    """序列化流式 chunk"""
+def _serialize_chunk(chunk: dict[str, Any] | tuple[Any, Any]) -> dict[str, Any]:
+    """序列化流式 chunk
+    
+    当 stream_mode="messages" 时，chunk 是 (message, metadata) 的 tuple
+    当 stream_mode="values" 或 "updates" 时，chunk 是 dict
+    """
+    # 处理 tuple 格式 (message, metadata)
+    if isinstance(chunk, tuple):
+        message, metadata = chunk
+        return {
+            "content": str(message.content) if hasattr(message, "content") else "",
+            "type": getattr(message, "type", "ai"),
+            "id": getattr(message, "id", None),
+        }
+    
+    # 处理 dict 格式
     result: dict[str, Any] = {}
 
     if "messages" in chunk:
@@ -109,7 +123,8 @@ async def _stream_chat_response(
 
     try:
         async for chunk in chat_service.chat(content, session, stream_mode="messages"):
-            if "error" in chunk:
+            # 检查是否是 dict 且包含 error
+            if isinstance(chunk, dict) and "error" in chunk:
                 yield f"data: {json.dumps(chunk, ensure_ascii=False)}\n\n"
                 continue
 

@@ -10,12 +10,9 @@
 """
 
 from collections.abc import AsyncGenerator
-from dataclasses import dataclass
 from typing import Any
 
-import httpx
 from langchain.agents import create_agent
-from langchain.tools import ToolRuntime, tool
 from langchain_core.messages import BaseMessage, HumanMessage
 from langchain_openai import ChatOpenAI
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -223,9 +220,6 @@ class ChatService:
             data_sources=ds_contexts,
         )
 
-        # 配置
-        config = {"context": context}
-
         # 获取历史消息
         history = await self.get_history_as_langchain(session.id, limit=50)
 
@@ -245,10 +239,10 @@ class ChatService:
         last_chunk: dict[str, Any] | None = None
 
         try:
-            # 流式执行 Agent
+            # 流式执行 Agent，context 直接作为参数传递
             async for chunk in agent.astream(
                 initial_state,
-                config,
+                context=context,
                 stream_mode=stream_mode,
             ):
                 last_chunk = chunk
