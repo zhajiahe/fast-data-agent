@@ -52,7 +52,7 @@ class Settings(BaseSettings):
     # AI/LLM 配置
     OPENAI_API_KEY: str = ""
     OPENAI_API_BASE: str = "OPENAI_MODEL"
-    LLM_MODEL: str = "x-ai/grok-4.1-fast:free"
+    LLM_MODEL: str = "google/gemini-2.0-flash-exp:free"
 
     # Python 沙箱配置
     SANDBOX_URL: str = "http://localhost:8080"  # 沙箱服务地址

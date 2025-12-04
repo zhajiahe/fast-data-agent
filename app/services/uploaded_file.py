@@ -127,23 +127,34 @@ class UploadedFileService:
         }
 
         file = await self.repo.create(create_data)
+        file_id = file.id
 
         # 异步处理文件（提取元数据）
         try:
             metadata = await FileProcessorService.parse_file(content, file_type)
-            await self.repo.update(
-                file,
-                {
-                    "row_count": metadata["row_count"],
-                    "column_count": metadata["column_count"],
-                    "columns_info": metadata["columns_info"],
-                    "preview_data": metadata["preview_data"],
-                    "status": "ready",
-                },
-            )
+            # 重新获取文件对象以确保在当前会话中
+            file = await self.repo.get_by_id(file_id)
+            if file:
+                await self.repo.update(
+                    file,
+                    {
+                        "row_count": metadata["row_count"],
+                        "column_count": metadata["column_count"],
+                        "columns_info": metadata["columns_info"],
+                        "preview_data": metadata["preview_data"],
+                        "status": "ready",
+                    },
+                )
         except Exception as e:
-            await self.repo.update(file, {"status": "error", "error_message": str(e)})
+            # 重新获取文件对象
+            file = await self.repo.get_by_id(file_id)
+            if file:
+                await self.repo.update(file, {"status": "error", "error_message": str(e)})
 
+        # 返回最新的文件对象
+        file = await self.repo.get_by_id(file_id)
+        if not file:
+            raise BadRequestException(msg="文件创建失败")
         return file
 
     async def delete_file(self, file_id: int, user_id: int) -> None:

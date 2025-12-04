@@ -17,6 +17,7 @@ class UploadedFileResponse(BaseModel):
     user_id: int = Field(..., description="上传用户ID")
 
     original_name: str = Field(..., description="原始文件名")
+    object_key: str = Field(..., description="MinIO对象存储Key")
     file_type: FileType = Field(..., description="文件类型")
     file_size: int = Field(..., description="文件大小(字节)")
     mime_type: str | None = Field(default=None, description="MIME类型")

@@ -111,18 +111,20 @@ class FileProcessorService:
 
                 columns_info.append(
                     {
-                        "name": col,
+                        "name": str(col),  # 确保列名是字符串
                         "dtype": col_type,
                         "type": simple_type,
-                        "nullable": df[col].isnull().any(),
+                        "nullable": bool(df[col].isnull().any()),  # 转换为 Python 原生 bool
                         "unique_count": int(df[col].nunique()),
                     }
                 )
 
             # 生成预览数据
             preview_df = df.head(preview_rows)
-            # 将 NaN 转换为 None
-            preview_data = preview_df.where(pd.notnull(preview_df), None).to_dict(orient="records")
+            # 将 NaN 转换为 None，并确保所有值都是 Python 原生类型
+            preview_data = cls._convert_to_native_types(
+                preview_df.where(pd.notnull(preview_df), None).to_dict(orient="records")
+            )
 
             return {
                 "row_count": len(df),
@@ -218,6 +220,34 @@ class FileProcessorService:
         finally:
             # 清理临时文件
             Path(temp_path).unlink(missing_ok=True)
+
+    @classmethod
+    def _convert_to_native_types(cls, data: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        """
+        将数据中的 numpy 类型转换为 Python 原生类型
+
+        Args:
+            data: 包含可能是 numpy 类型的字典列表
+
+        Returns:
+            转换后的数据
+        """
+        import numpy as np
+
+        def convert_value(val: Any) -> Any:
+            if val is None:
+                return None
+            if isinstance(val, np.bool_):
+                return bool(val)
+            if isinstance(val, np.integer):
+                return int(val)
+            if isinstance(val, np.floating):
+                return float(val) if not np.isnan(val) else None
+            if isinstance(val, np.ndarray):
+                return val.tolist()
+            return val
+
+        return [{k: convert_value(v) for k, v in row.items()} for row in data]
 
     @classmethod
     def _read_dataframe(cls, data: bytes, file_type: FileType) -> pd.DataFrame:
