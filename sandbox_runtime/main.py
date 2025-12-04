@@ -492,6 +492,13 @@ def analyze_data_with_duckdb(conn, table_or_view: str = "data_preview") -> dict[
     }
 
 
+def setup_duckdb_extensions_dir(conn) -> None:
+    """设置 DuckDB 扩展目录到可写路径"""
+    extensions_dir = SANDBOX_ROOT / "duckdb_extensions"
+    extensions_dir.mkdir(parents=True, exist_ok=True)
+    conn.execute(f"SET extension_directory='{extensions_dir}';")
+
+
 @app.post("/quick_analysis", summary="Quick data analysis")
 async def quick_analysis(
     request: QuickAnalysisRequest,
@@ -510,6 +517,9 @@ async def quick_analysis(
 
     try:
         conn = duckdb.connect(":memory:")
+        
+        # 设置扩展目录（所有类型都需要）
+        setup_duckdb_extensions_dir(conn)
 
         if ds.source_type == "file":
             # ========== 文件类型：直接从 MinIO (S3) 读取 ==========

@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
 """
-测试脚本：CSV 上传到 MinIO + DuckDB 直接从 S3 分析
+测试脚本：多种文件格式上传到 MinIO + DuckDB 直接从 S3 分析
 
 测试内容：
-1. MinIO 文件上传/下载
-2. DuckDB 直接从 S3 分析（本地调用）
-3. Sandbox API quick_analysis 接口（需要 sandbox_runtime 运行）
+1. 文件类型: CSV, JSON, Parquet, Excel
+2. 数据库类型: SQLite
+3. DuckDB 直接从 S3 分析
+4. Sandbox API quick_analysis 接口
 
 运行方式：
     cd /data/zhanghuaao/project/fast-data-agent
@@ -15,6 +16,8 @@
 
 import asyncio
 import io
+import sqlite3
+import tempfile
 from pathlib import Path
 
 import duckdb
@@ -30,8 +33,8 @@ from app.core.minio import minio_client
 from app.core.config import settings
 
 
-def create_sample_csv() -> tuple[bytes, str]:
-    """创建示例 CSV 数据"""
+def create_sample_dataframe() -> pd.DataFrame:
+    """创建示例数据 DataFrame"""
     data = {
         "id": range(1, 101),
         "name": [f"用户_{i}" for i in range(1, 101)],
@@ -48,9 +51,55 @@ def create_sample_csv() -> tuple[bytes, str]:
     df.loc[15, "salary"] = None
     df.loc[25, "score"] = None
     
+    return df
+
+
+def create_sample_csv() -> tuple[bytes, str]:
+    """创建示例 CSV 数据"""
+    df = create_sample_dataframe()
     csv_buffer = io.StringIO()
     df.to_csv(csv_buffer, index=False)
     return csv_buffer.getvalue().encode("utf-8"), "test_data.csv"
+
+
+def create_sample_json() -> tuple[bytes, str]:
+    """创建示例 JSON 数据"""
+    df = create_sample_dataframe()
+    json_str = df.to_json(orient="records", force_ascii=False)
+    return json_str.encode("utf-8"), "test_data.json"
+
+
+def create_sample_parquet() -> tuple[bytes, str]:
+    """创建示例 Parquet 数据"""
+    df = create_sample_dataframe()
+    buffer = io.BytesIO()
+    df.to_parquet(buffer, index=False, engine="pyarrow")
+    return buffer.getvalue(), "test_data.parquet"
+
+
+def create_sample_excel() -> tuple[bytes, str]:
+    """创建示例 Excel 数据"""
+    df = create_sample_dataframe()
+    buffer = io.BytesIO()
+    df.to_excel(buffer, index=False, engine="openpyxl")
+    return buffer.getvalue(), "test_data.xlsx"
+
+
+def create_sample_sqlite() -> str:
+    """创建示例 SQLite 数据库并返回文件路径"""
+    df = create_sample_dataframe()
+    
+    # 创建临时 SQLite 文件
+    temp_file = tempfile.NamedTemporaryFile(suffix=".db", delete=False)
+    db_path = temp_file.name
+    temp_file.close()
+    
+    # 写入数据
+    conn = sqlite3.connect(db_path)
+    df.to_sql("users", conn, index=False, if_exists="replace")
+    conn.close()
+    
+    return db_path
 
 
 async def test_upload_to_minio(csv_data: bytes, filename: str) -> str:
@@ -229,20 +278,15 @@ def test_duckdb_direct_s3_analysis(object_key: str) -> dict:
         raise e
 
 
-async def test_sandbox_quick_analysis(object_key: str) -> dict | None:
-    """测试 Sandbox Runtime 的 quick_analysis 接口"""
-    print("\n" + "=" * 60)
-    print("🔧 测试 3: Sandbox Runtime quick_analysis 接口")
-    print("=" * 60)
-    
-    sandbox_url = settings.SANDBOX_URL
-    print(f"\n📍 Sandbox URL: {sandbox_url}")
+async def test_sandbox_quick_analysis(object_key: str, file_type: str = "csv") -> dict | None:
+    """测试 Sandbox Runtime 的 quick_analysis 接口（文件类型）"""
+    print(f"\n📍 Sandbox URL: {settings.SANDBOX_URL}")
     
     # 构建请求数据
     request_data = {
         "data_source": {
             "source_type": "file",
-            "file_type": "csv",
+            "file_type": file_type,
             "object_key": object_key,
             "bucket_name": settings.MINIO_BUCKET,
         }
@@ -251,9 +295,9 @@ async def test_sandbox_quick_analysis(object_key: str) -> dict | None:
     print(f"📤 请求数据: {request_data}")
     
     try:
-        async with httpx.AsyncClient(timeout=60) as client:
+        async with httpx.AsyncClient(timeout=120) as client:
             response = await client.post(
-                f"{sandbox_url}/quick_analysis",
+                f"{settings.SANDBOX_URL}/quick_analysis",
                 params={"user_id": 1, "thread_id": 1},
                 json=request_data,
             )
@@ -263,33 +307,177 @@ async def test_sandbox_quick_analysis(object_key: str) -> dict | None:
             if result.get("success"):
                 print("✅ Sandbox API 调用成功")
                 analysis = result.get("analysis", {})
-                print(f"\n📊 分析结果:")
-                print(f"   - 数据源类型: {analysis.get('source_type')}")
-                print(f"   - 文件名: {analysis.get('file_name')}")
-                print(f"   - 行数: {analysis.get('row_count')}")
-                print(f"   - 列数: {analysis.get('column_count')}")
-                
-                if analysis.get("columns"):
-                    print(f"\n   列信息:")
-                    for col in analysis["columns"][:5]:  # 只显示前 5 列
-                        print(f"      - {col['name']}: {col['dtype']} (空值: {col['null_count']})")
-                        if col.get("stats"):
-                            stats = col["stats"]
-                            print(f"        均值: {stats.get('mean', 'N/A'):.2f}, "
-                                  f"标准差: {stats.get('std', 'N/A'):.2f}")
-                
+                print(f"   - 行数: {analysis.get('row_count')}, 列数: {analysis.get('column_count')}")
                 return result
             else:
                 print(f"❌ Sandbox API 调用失败: {result.get('error')}")
                 return None
                 
     except httpx.ConnectError:
-        print(f"⚠️ 无法连接到 Sandbox Runtime ({sandbox_url})")
-        print("   请确保 sandbox_runtime 正在运行")
+        print(f"⚠️ 无法连接到 Sandbox Runtime")
         return None
     except Exception as e:
         print(f"❌ 测试失败: {e}")
         return None
+
+
+async def create_sqlite_in_sandbox() -> str | None:
+    """在 Sandbox 容器内创建 SQLite 数据库"""
+    # 创建 DataFrame 数据的 Python 代码
+    code = '''
+import sqlite3
+import pandas as pd
+
+# 创建示例数据
+data = {
+    "id": list(range(1, 101)),
+    "name": [f"用户_{i}" for i in range(1, 101)],
+    "age": [20 + (i % 50) for i in range(100)],
+    "salary": [5000 + (i * 100) + (i % 7) * 500 for i in range(100)],
+    "department": ["技术", "销售", "运营", "财务", "人事"] * 20,
+    "city": ["北京", "上海", "广州", "深圳", "杭州"] * 20,
+}
+df = pd.DataFrame(data)
+
+# 创建 SQLite 数据库
+db_path = str(WORK_DIR / "test.db")
+conn = sqlite3.connect(db_path)
+df.to_sql("users", conn, index=False, if_exists="replace")
+conn.close()
+
+print(f"SQLite 数据库已创建: {db_path}")
+'''
+    
+    try:
+        async with httpx.AsyncClient(timeout=60) as client:
+            response = await client.post(
+                f"{settings.SANDBOX_URL}/execute_python",
+                params={"user_id": 1, "thread_id": 1},
+                json={"code": code},
+            )
+            result = response.json()
+            if result.get("success"):
+                # 返回容器内的数据库路径
+                return "/app/sessions/1/1/test.db"
+            else:
+                print(f"❌ 创建 SQLite 失败: {result.get('error')}")
+                return None
+    except Exception as e:
+        print(f"❌ 创建 SQLite 失败: {e}")
+        return None
+
+
+async def test_sandbox_sqlite_analysis(db_path: str) -> dict | None:
+    """测试 Sandbox Runtime 的 quick_analysis 接口（SQLite）"""
+    print(f"\n📍 Sandbox URL: {settings.SANDBOX_URL}")
+    print(f"📁 SQLite 路径 (容器内): {db_path}")
+    
+    # 构建请求数据
+    request_data = {
+        "data_source": {
+            "source_type": "database",
+            "db_type": "sqlite",
+            "database": db_path,
+        }
+    }
+    
+    print(f"📤 请求数据: {request_data}")
+    
+    try:
+        async with httpx.AsyncClient(timeout=60) as client:
+            response = await client.post(
+                f"{settings.SANDBOX_URL}/quick_analysis",
+                params={"user_id": 1, "thread_id": 1},
+                json=request_data,
+            )
+            
+            result = response.json()
+            
+            if result.get("success"):
+                print("✅ Sandbox API 调用成功")
+                analysis = result.get("analysis", {})
+                print(f"   - 数据库类型: {analysis.get('db_type')}")
+                print(f"   - 表数量: {analysis.get('table_count')}")
+                if analysis.get("tables"):
+                    for table in analysis["tables"]:
+                        print(f"   - 表 {table['table_name']}: {table.get('row_count', 'N/A')} 行")
+                return result
+            else:
+                print(f"❌ Sandbox API 调用失败: {result.get('error')}")
+                return None
+                
+    except httpx.ConnectError:
+        print(f"⚠️ 无法连接到 Sandbox Runtime")
+        return None
+    except Exception as e:
+        print(f"❌ 测试失败: {e}")
+        return None
+
+
+async def test_file_format(file_type: str, create_func, mime_type: str):
+    """测试单个文件格式"""
+    print("\n" + "=" * 60)
+    print(f"📦 测试文件格式: {file_type.upper()}")
+    print("=" * 60)
+    
+    try:
+        # 创建文件
+        file_data, filename = create_func()
+        print(f"✅ 创建 {file_type} 文件: {len(file_data):,} bytes")
+        
+        # 上传到 MinIO
+        object_key = f"test/{filename}"
+        await minio_client.upload_file(
+            object_name=object_key,
+            data=file_data,
+            length=len(file_data),
+            content_type=mime_type,
+        )
+        print(f"✅ 上传成功: {object_key}")
+        
+        # 调用 Sandbox API
+        result = await test_sandbox_quick_analysis(object_key, file_type)
+        
+        # 清理
+        await minio_client.delete_file(object_key)
+        print(f"✅ 清理完成")
+        
+        return result is not None
+        
+    except Exception as e:
+        print(f"❌ 测试 {file_type} 失败: {e}")
+        import traceback
+        traceback.print_exc()
+        return False
+
+
+async def test_sqlite():
+    """测试 SQLite 数据库"""
+    print("\n" + "=" * 60)
+    print("📦 测试数据库类型: SQLite")
+    print("=" * 60)
+    
+    try:
+        # 在 Sandbox 容器内创建 SQLite 数据库
+        print("📝 在 Sandbox 容器内创建 SQLite 数据库...")
+        db_path = await create_sqlite_in_sandbox()
+        
+        if not db_path:
+            print("❌ 无法创建 SQLite 数据库")
+            return False
+        
+        print(f"✅ SQLite 数据库已创建: {db_path}")
+        
+        # 调用 Sandbox API 分析
+        result = await test_sandbox_sqlite_analysis(db_path)
+        
+        return result is not None
+        
+    except Exception as e:
+        print(f"❌ 测试 SQLite 失败: {e}")
+        import traceback
+        traceback.print_exc()
+        return False
 
 
 async def test_cleanup(object_key: str):
@@ -308,47 +496,51 @@ async def test_cleanup(object_key: str):
 async def main():
     """主测试流程"""
     print("\n" + "🚀" * 20)
-    print("  CSV 上传 MinIO + DuckDB 统计分析 测试")
+    print("  多格式文件 + 数据库 测试")
     print("🚀" * 20)
     
     print(f"\n📍 MinIO 配置:")
     print(f"   - Endpoint: {settings.MINIO_ENDPOINT}")
     print(f"   - Bucket: {settings.MINIO_BUCKET}")
     print(f"   - Secure: {settings.MINIO_SECURE}")
+    print(f"   - Sandbox URL: {settings.SANDBOX_URL}")
     
-    try:
-        # Step 1: 创建示例数据
-        csv_data, filename = create_sample_csv()
-        print(f"\n✅ 示例 CSV 数据已创建 ({len(csv_data):,} bytes)")
-        
-        # Step 2: 上传到 MinIO
-        object_key = await test_upload_to_minio(csv_data, filename)
-        
-        # Step 3: DuckDB 直接从 S3/MinIO 分析（本地调用）
-        analysis_result = test_duckdb_direct_s3_analysis(object_key)
-        
-        # Step 4: 测试 Sandbox Runtime API（如果可用）
-        sandbox_result = await test_sandbox_quick_analysis(object_key)
-        
-        # Step 5: 清理
-        await test_cleanup(object_key)
-        
-        # 总结
-        print("\n" + "=" * 60)
-        print("✅ 所有测试完成!")
-        print("=" * 60)
-        print(f"\n📊 分析结果摘要:")
-        print(f"   - 数据行数: {analysis_result['row_count']}")
-        print(f"   - 数据列数: {analysis_result['column_count']}")
-        print(f"   - 列名: {', '.join(analysis_result['columns'])}")
-        
-    except Exception as e:
-        print(f"\n❌ 测试失败: {e}")
-        import traceback
-        traceback.print_exc()
-        return 1
+    results = {}
     
-    return 0
+    # 测试各种文件格式
+    file_tests = [
+        ("csv", create_sample_csv, "text/csv"),
+        ("json", create_sample_json, "application/json"),
+        ("parquet", create_sample_parquet, "application/octet-stream"),
+        ("excel", create_sample_excel, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"),
+    ]
+    
+    for file_type, create_func, mime_type in file_tests:
+        results[file_type] = await test_file_format(file_type, create_func, mime_type)
+    
+    # 测试 SQLite
+    results["sqlite"] = await test_sqlite()
+    
+    # 总结
+    print("\n" + "=" * 60)
+    print("📊 测试结果总结")
+    print("=" * 60)
+    
+    all_passed = True
+    for test_name, passed in results.items():
+        status = "✅ 通过" if passed else "❌ 失败"
+        print(f"   {test_name.upper():>10}: {status}")
+        if not passed:
+            all_passed = False
+    
+    print("\n" + "=" * 60)
+    if all_passed:
+        print("🎉 所有测试通过!")
+    else:
+        print("⚠️ 部分测试失败，请检查日志")
+    print("=" * 60)
+    
+    return 0 if all_passed else 1
 
 
 if __name__ == "__main__":
