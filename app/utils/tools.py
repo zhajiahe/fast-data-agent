@@ -172,13 +172,20 @@ async def quick_analysis(
 
 @tool(
 description="""使用 DuckDB SQL 方言查询数据。
+**数据源访问方式**：
+1. 会话数据源：使用数据源名称或 ds_ID
+   - `SELECT * FROM "电商订单数据" LIMIT 10`
+   - `SELECT * FROM ds_19`
+2. 本地文件：直接读取会话目录中的文件
+   - CSV: `SELECT * FROM read_csv_auto('file.csv')`
+   - Parquet: `SELECT * FROM 'file.parquet'`
+   - JSON: `SELECT * FROM read_json_auto('file.json')`
 
-重要提示：
-1. 表名规则：使用数据源名称（如 "电商订单数据"）或数据源ID（如 "ds_19"）作为表名。
-2. 语法：支持标准 SQL 及 DuckDB 特有语法。
-3. 限制：仅用于查询 (SELECT)，不要执行修改操作。
-4. 示例：SELECT * FROM "电商订单数据" LIMIT 1000
-5. 结果自动保存：查询结果会自动保存为 parquet 文件（返回 result_file 字段），后续的 execute_sql、generate_chart 或 execute_python 可以直接读取这个文件。""",
+**示例**：
+- 查询数据源：`SELECT category, SUM(amount) FROM "电商订单数据" GROUP BY category`
+- 读取上次结果：`SELECT * FROM 'sql_result_xxx.parquet' WHERE amount > 1000`
+
+**重要**：结果自动保存为 parquet 文件（result_file），供后续工具使用""",
 )
 async def execute_sql(
     sql: str,
