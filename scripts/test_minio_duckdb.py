@@ -102,6 +102,30 @@ def create_sample_sqlite() -> str:
     return db_path
 
 
+def create_sample_sqlite_file() -> tuple[bytes, str]:
+    """创建示例 SQLite 数据库文件（用于上传到 MinIO）"""
+    df = create_sample_dataframe()
+    
+    # 创建临时 SQLite 文件
+    temp_file = tempfile.NamedTemporaryFile(suffix=".db", delete=False)
+    db_path = temp_file.name
+    temp_file.close()
+    
+    # 写入数据
+    conn = sqlite3.connect(db_path)
+    df.to_sql("users", conn, index=False, if_exists="replace")
+    conn.close()
+    
+    # 读取文件内容
+    with open(db_path, "rb") as f:
+        content = f.read()
+    
+    # 删除临时文件
+    Path(db_path).unlink(missing_ok=True)
+    
+    return content, "test_data.db"
+
+
 async def test_upload_to_minio(csv_data: bytes, filename: str) -> str:
     """测试上传 CSV 到 MinIO"""
     print("\n" + "=" * 60)
@@ -513,13 +537,14 @@ async def main():
         ("json", create_sample_json, "application/json"),
         ("parquet", create_sample_parquet, "application/octet-stream"),
         ("excel", create_sample_excel, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"),
+        ("sqlite", create_sample_sqlite_file, "application/x-sqlite3"),  # SQLite 文件上传
     ]
     
     for file_type, create_func, mime_type in file_tests:
         results[file_type] = await test_file_format(file_type, create_func, mime_type)
     
-    # 测试 SQLite
-    results["sqlite"] = await test_sqlite()
+    # 测试 SQLite 数据库连接（容器内）
+    results["sqlite_db"] = await test_sqlite()
     
     # 总结
     print("\n" + "=" * 60)

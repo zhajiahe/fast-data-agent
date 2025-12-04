@@ -37,6 +37,7 @@ class FileType(str, Enum):
     EXCEL = "excel"
     JSON = "json"
     PARQUET = "parquet"
+    SQLITE = "sqlite"  # SQLite 数据库文件
 
 
 class DataSource(Base, BaseTableMixin):

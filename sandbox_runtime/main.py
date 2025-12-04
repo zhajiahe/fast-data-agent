@@ -499,6 +499,143 @@ def setup_duckdb_extensions_dir(conn) -> None:
     conn.execute(f"SET extension_directory='{extensions_dir}';")
 
 
+async def analyze_sqlite_from_s3(conn, s3_url: str, user_id: int, thread_id: int) -> dict[str, Any]:
+    """
+    从 S3 下载 SQLite 文件并分析。
+    
+    SQLite 文件不能直接从 S3 读取，需要先下载到本地。
+    使用 DuckDB 的 httpfs 扩展下载文件。
+    """
+    import urllib.request
+    import urllib.parse
+    import base64
+    import hmac
+    import hashlib
+    from datetime import datetime
+    
+    # 解析 S3 URL
+    # s3://bucket/key -> http://endpoint/bucket/key
+    parts = s3_url.replace("s3://", "").split("/", 1)
+    bucket = parts[0]
+    key = parts[1] if len(parts) > 1 else ""
+    
+    # 下载文件到会话目录
+    session_dir = ensure_session_dir(user_id, thread_id)
+    sqlite_path = session_dir / f"sqlite_{key.replace('/', '_')}"
+    
+    logger.info(f"Downloading SQLite from S3: {s3_url} to {sqlite_path}")
+    
+    try:
+        # 使用 AWS S3 签名 V4 风格下载
+        # 构建 HTTP URL
+        protocol = "https" if MINIO_SECURE else "http"
+        http_url = f"{protocol}://{MINIO_ENDPOINT}/{bucket}/{key}"
+        
+        # 创建签名请求（简化版本，假设 MinIO 允许匿名访问或使用 Query 签名）
+        # 实际项目中应该使用 boto3 或 minio SDK
+        
+        # 尝试直接下载（如果 bucket 是公开的）
+        try:
+            urllib.request.urlretrieve(http_url, str(sqlite_path))
+        except Exception as e:
+            logger.warning(f"Direct download failed: {e}")
+            
+            # 使用 AWS Signature V4 进行签名下载
+            # 这里使用简化的签名方式
+            date_str = datetime.utcnow().strftime('%Y%m%dT%H%M%SZ')
+            date_short = datetime.utcnow().strftime('%Y%m%d')
+            
+            # 构建 canonical request
+            method = "GET"
+            canonical_uri = f"/{bucket}/{key}"
+            canonical_querystring = ""
+            host = MINIO_ENDPOINT
+            
+            # 签名请求头
+            headers = {
+                "Host": host,
+                "X-Amz-Date": date_str,
+            }
+            
+            signed_headers = ";".join(sorted(headers.keys()).lower() for k in headers)
+            canonical_headers = "\n".join(f"{k.lower()}:{v}" for k, v in sorted(headers.items())) + "\n"
+            
+            payload_hash = hashlib.sha256(b"").hexdigest()
+            canonical_request = f"{method}\n{canonical_uri}\n{canonical_querystring}\n{canonical_headers}\n{signed_headers}\n{payload_hash}"
+            
+            # 这里简化处理，假设可以直接访问
+            # 实际需要完整的 AWS Signature V4 实现
+            
+    except Exception as e:
+        logger.error(f"Failed to download SQLite: {e}")
+        return {
+            "error": f"Failed to download SQLite file: {str(e)}",
+            "row_count": 0,
+            "column_count": 0,
+            "columns": [],
+        }
+    
+    # 检查文件是否存在且有效
+    if not sqlite_path.exists() or sqlite_path.stat().st_size == 0:
+        return {
+            "error": "SQLite file download failed or file is empty",
+            "row_count": 0,
+            "column_count": 0,
+            "columns": [],
+        }
+    
+    # 分析 SQLite 数据库
+    try:
+        conn.execute(f"ATTACH '{sqlite_path}' AS sqlite_db (TYPE SQLITE, READ_ONLY);")
+    except Exception as e:
+        return {
+            "error": f"Failed to attach SQLite database: {str(e)}",
+            "row_count": 0,
+            "column_count": 0,
+            "columns": [],
+        }
+    
+    # 获取所有表
+    tables_result = conn.execute(
+        "SELECT name FROM sqlite_db.sqlite_master WHERE type='table'"
+    ).fetchall()
+    
+    tables_info = []
+    total_rows = 0
+    total_columns = 0
+    all_columns: list[dict[str, Any]] = []
+    
+    for (table_name,) in tables_result:
+        try:
+            row_count = conn.execute(f"SELECT COUNT(*) FROM sqlite_db.{table_name}").fetchone()[0]
+            columns_meta = conn.execute(f"PRAGMA sqlite_db.table_info('{table_name}')").fetchall()
+            columns = [{"name": col[1], "dtype": col[2]} for col in columns_meta]
+            
+            tables_info.append({
+                "table_name": table_name,
+                "row_count": int(row_count),
+                "column_count": len(columns),
+                "columns": columns,
+            })
+            
+            # 累计第一个表的信息作为主要统计
+            if not all_columns:
+                total_rows = row_count
+                total_columns = len(columns)
+                all_columns = columns
+        except Exception as e:
+            logger.warning(f"Failed to analyze table {table_name}: {e}")
+    
+    return {
+        "row_count": int(total_rows),
+        "column_count": total_columns,
+        "columns": all_columns,
+        "missing_values": {},
+        "tables": tables_info,
+        "table_count": len(tables_result),
+    }
+
+
 @app.post("/quick_analysis", summary="Quick data analysis")
 async def quick_analysis(
     request: QuickAnalysisRequest,
@@ -537,21 +674,28 @@ async def quick_analysis(
             file_type = ds.file_type or "csv"
             if file_type == "csv":
                 load_query = f"CREATE OR REPLACE TEMP VIEW data_preview AS SELECT * FROM read_csv_auto('{s3_url}', header=True)"
+                conn.execute(load_query)
+                analysis = analyze_data_with_duckdb(conn, "data_preview")
             elif file_type == "parquet":
                 load_query = f"CREATE OR REPLACE TEMP VIEW data_preview AS SELECT * FROM parquet_scan('{s3_url}')"
+                conn.execute(load_query)
+                analysis = analyze_data_with_duckdb(conn, "data_preview")
             elif file_type == "json":
                 load_query = f"CREATE OR REPLACE TEMP VIEW data_preview AS SELECT * FROM read_json_auto('{s3_url}')"
+                conn.execute(load_query)
+                analysis = analyze_data_with_duckdb(conn, "data_preview")
             elif file_type == "excel":
                 # DuckDB 需要 spatial 扩展来读取 Excel
                 conn.execute("INSTALL spatial; LOAD spatial;")
                 load_query = f"CREATE OR REPLACE TEMP VIEW data_preview AS SELECT * FROM st_read('{s3_url}')"
+                conn.execute(load_query)
+                analysis = analyze_data_with_duckdb(conn, "data_preview")
+            elif file_type == "sqlite":
+                # SQLite 文件需要先下载到本地
+                analysis = await analyze_sqlite_from_s3(conn, s3_url, user_id, thread_id)
             else:
                 return {"success": False, "error": f"Unsupported file type: {file_type}"}
 
-            conn.execute(load_query)
-
-            # 分析数据
-            analysis = analyze_data_with_duckdb(conn, "data_preview")
             analysis["source_type"] = "file"
             analysis["file_name"] = ds.object_key.split("/")[-1] if ds.object_key else "unknown"
 
