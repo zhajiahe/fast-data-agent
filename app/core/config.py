@@ -43,7 +43,7 @@ class Settings(BaseSettings):
     MAX_UPLOAD_SIZE: int = 100 * 1024 * 1024  # 100MB
 
     # 应用配置
-    APP_NAME: str = "FastAPI Template"
+    APP_NAME: str = "Fast Data Agent"
     DEBUG: bool = True
 
     # CORS 配置
@@ -51,10 +51,11 @@ class Settings(BaseSettings):
 
     # AI/LLM 配置
     OPENAI_API_KEY: str = ""
-    OPENAI_BASE_URL: str = "https://api.openai.com/v1"
-    OPENAI_MODEL: str = "gpt-4o"
+    OPENAI_API_BASE: str = "OPENAI_MODEL"
+    LLM_MODEL: str = "x-ai/grok-4.1-fast:free"
 
     # Python 沙箱配置
+    SANDBOX_URL: str = "http://localhost:8080"  # 沙箱服务地址
     SANDBOX_ENABLED: bool = True
     SANDBOX_TIMEOUT: int = 60  # 执行超时（秒）
     SANDBOX_MEMORY_LIMIT: str = "512m"  # 内存限制

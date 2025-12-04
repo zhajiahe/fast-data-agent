@@ -6,7 +6,7 @@ SQLAlchemy数据模型模块
 
 from app.models.analysis_session import AnalysisSession
 from app.models.base import Base, BasePageQuery, BaseResponse, BaseTableMixin, PageResponse, Token, TokenPayload
-from app.models.chat_message import ChatMessage, MessageRole, MessageType
+from app.models.chat_message import ChatMessage, MessageType
 from app.models.data_source import DatabaseType, DataSource, DataSourceType, FileType
 from app.models.task_recommendation import RecommendationCategory, RecommendationStatus, TaskRecommendation
 from app.models.uploaded_file import UploadedFile
@@ -38,6 +38,5 @@ __all__ = [
     "RecommendationStatus",
     # ChatMessage
     "ChatMessage",
-    "MessageRole",
     "MessageType",
 ]

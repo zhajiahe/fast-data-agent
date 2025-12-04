@@ -28,11 +28,6 @@ class DatabaseType(str, Enum):
     MYSQL = "mysql"
     POSTGRESQL = "postgresql"
     SQLITE = "sqlite"
-    MSSQL = "mssql"
-    ORACLE = "oracle"
-    CLICKHOUSE = "clickhouse"
-    DORIS = "doris"
-    STARROCKS = "starrocks"
 
 
 class FileType(str, Enum):
