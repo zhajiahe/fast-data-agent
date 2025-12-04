@@ -10,7 +10,7 @@ from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, System
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.chat_message import ChatMessage, MessageType
+from app.models.message import ChatMessage, MessageType
 from app.repositories.base import BaseRepository
 
 

@@ -7,7 +7,7 @@
 from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.analysis_session import AnalysisSession
+from app.models.session import AnalysisSession
 from app.repositories.base import BaseRepository
 
 

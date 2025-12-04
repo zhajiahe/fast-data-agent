@@ -4,11 +4,11 @@ SQLAlchemy数据模型模块
 包含所有数据库表模型的定义
 """
 
-from app.models.analysis_session import AnalysisSession
+from app.models.session import AnalysisSession
 from app.models.base import Base, BasePageQuery, BaseResponse, BaseTableMixin, PageResponse, Token, TokenPayload
-from app.models.chat_message import ChatMessage, MessageType
+from app.models.message import ChatMessage, MessageType
 from app.models.data_source import DatabaseType, DataSource, DataSourceType, FileType
-from app.models.task_recommendation import (
+from app.models.recommendation import (
     RecommendationCategory,
     RecommendationSourceType,
     RecommendationStatus,

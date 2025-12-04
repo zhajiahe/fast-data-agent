@@ -7,15 +7,15 @@ from fastapi import APIRouter, Depends, status
 from app.core.deps import CurrentUser, DBSession
 from app.core.exceptions import BadRequestException, NotFoundException
 from app.models.base import BasePageQuery, BaseResponse, PageResponse
-from app.models.task_recommendation import RecommendationStatus
-from app.repositories.task_recommendation import TaskRecommendationRepository
-from app.schemas.task_recommendation import (
+from app.models.recommendation import RecommendationStatus
+from app.repositories.recommendation import TaskRecommendationRepository
+from app.schemas.recommendation import (
     GenerateFollowupRequest,
     GenerateRecommendationsRequest,
     TaskRecommendationResponse,
     TaskRecommendationUpdate,
 )
-from app.services.analysis_session import AnalysisSessionService
+from app.services.session import AnalysisSessionService
 from app.services.recommend import RecommendService
 
 router = APIRouter(prefix="/sessions/{session_id}/recommendations", tags=["recommendations"])

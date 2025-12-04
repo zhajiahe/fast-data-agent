@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends, status
 
 from app.core.deps import CurrentUser, DBSession
 from app.models.base import BasePageQuery, BaseResponse, PageResponse
-from app.schemas.analysis_session import (
+from app.schemas.session import (
     AnalysisSessionCreate,
     AnalysisSessionDetail,
     AnalysisSessionListQuery,
@@ -14,7 +14,7 @@ from app.schemas.analysis_session import (
     AnalysisSessionUpdate,
 )
 from app.schemas.data_source import DataSourceResponse
-from app.services.analysis_session import AnalysisSessionService
+from app.services.session import AnalysisSessionService
 
 router = APIRouter(prefix="/sessions", tags=["sessions"])
 

@@ -6,7 +6,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.models.base import Base, BaseTableMixin
 
 if TYPE_CHECKING:
-    from app.models.analysis_session import AnalysisSession
+    from app.models.session import AnalysisSession
     from app.models.data_source import DataSource
     from app.models.uploaded_file import UploadedFile
 

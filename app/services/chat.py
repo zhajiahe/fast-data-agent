@@ -53,15 +53,16 @@ class LLMCache:
     def clear(cls) -> None:
         """清空缓存"""
         cls._instances.clear()
-from app.models.analysis_session import AnalysisSession
-from app.models.chat_message import ChatMessage
+from app.models.session import AnalysisSession
+from app.models.message import ChatMessage
 from app.models.data_source import DataSource
-from app.repositories.chat_message import ChatMessageRepository
+from app.repositories.message import ChatMessageRepository
 from app.repositories.data_source import DataSourceRepository
 from app.utils.tools import (
     ChatContext, 
     DataSourceContext, 
-    generate_chart, 
+    generate_chart,
+    get_sandbox_client,
     list_local_files, 
     quick_analysis,
     execute_python,
@@ -120,40 +121,86 @@ class ChatService:
 
         return "\n".join(lines)
 
-    def _get_system_prompt(self, data_sources: list[DataSource]) -> str:
+    def _format_local_files(self, files: list[dict[str, Any]]) -> str:
+        """格式化会话文件列表"""
+        if not files:
+            return "暂无文件"
+
+        lines = []
+        for f in files[:10]:  # 最多显示 10 个文件
+            name = f.get("name", "")
+            size = f.get("size", 0)
+            # 格式化文件大小
+            if size < 1024:
+                size_str = f"{size}B"
+            elif size < 1024 * 1024:
+                size_str = f"{size / 1024:.1f}KB"
+            else:
+                size_str = f"{size / 1024 / 1024:.1f}MB"
+            lines.append(f"- {name} ({size_str})")
+        
+        if len(files) > 10:
+            lines.append(f"- ... 等共 {len(files)} 个文件")
+        
+        return "\n".join(lines)
+
+    async def _get_local_files(self, user_id: int, session_id: int) -> list[dict[str, Any]]:
+        """获取会话本地文件列表"""
+        try:
+            client = get_sandbox_client()
+            response = await client.get(
+                "/files",
+                params={"user_id": user_id, "thread_id": session_id},
+            )
+            result = response.json()
+            return result.get("files", []) if result.get("success") else []
+        except Exception as e:
+            logger.warning(f"获取会话文件失败: {e}")
+            return []
+
+    async def _get_system_prompt(
+        self,
+        data_sources: list[DataSource],
+        user_id: int,
+        session_id: int,
+    ) -> str:
         """构建系统提示词"""
         data_source_info = self._format_data_sources(data_sources)
+        
+        # 获取会话文件列表
+        local_files = await self._get_local_files(user_id, session_id)
+        local_files_info = self._format_local_files(local_files)
 
-        return f"""你是一个专业的数据分析助手，擅长帮助用户理解和分析数据。
+        return f"""你是专业的数据分析助手，可以分析用户上传的文件或配置的数据源。
 
-## 你的能力
-1. **数据探索**：快速分析数据源，了解数据结构和基本统计信息
-2. **SQL 查询**：使用 DuckDB SQL 对数据进行查询和分析
-3. **Python 分析**：执行复杂的数据处理和分析代码
-4. **可视化**：生成各种图表帮助用户理解数据
+## 可用工具
+| 工具 | 用途 |
+|------|------|
+| quick_analysis | 获取数据概况（行数、列数、类型、统计摘要）|
+| execute_sql | DuckDB SQL 查询，结果自动保存为 parquet |
+| generate_chart | 基于数据生成 Plotly 图表 |
+| execute_python | 复杂数据处理和自定义分析 |
+| list_local_files | 查看会话中已生成的文件/图表/报告等, 以及用户上传的文件 |
 
-## 可用数据源
+## 数据源
 {data_source_info}
 
-## 工作流程
-1. 首先理解用户的分析需求
-2. 如果需要，先使用 quick_analysis 了解数据概况
-3. 根据需求选择合适的工具进行分析
-4. 清晰地解释分析结果，并给出见解和建议
+## 当前会话文件
+{local_files_info}
 
-## 注意事项
-- 对于 SQL 查询，请确保语法正确，并注意数据量，必要时使用 LIMIT
-- 生成图表时，选择最能展示数据特点的图表类型
-- 如果分析过程中发现有趣的模式或异常，主动向用户报告
-- 保持回复简洁明了，使用中文与用户交流
+## 要点
+- SQL 查询大数据量时使用 LIMIT
+- execute_sql、execute_python、generate_chart 优先使用 SQL 缓存的 parquet 文件
+- 使用中文交流
 """
 
-    def _create_agent(self, data_sources: list[DataSource]):
+    async def _create_agent(self, data_sources: list[DataSource], user_id: int, session_id: int):
         """创建 ReAct Agent"""
+        system_prompt = await self._get_system_prompt(data_sources, user_id, session_id)
         return create_agent(
             model=self._get_llm(),
             tools=self.tools,
-            system_prompt=self._get_system_prompt(data_sources),
+            system_prompt=system_prompt,
             context_schema=ChatContext,
         )
 
@@ -256,7 +303,7 @@ class ChatService:
             data_sources = await self.data_source_repo.get_by_ids(data_source_ids, session.user_id)
 
         # 创建 Agent
-        agent = self._create_agent(data_sources)
+        agent = await self._create_agent(data_sources, session.user_id, session.id)
 
         # 构建数据源上下文列表
         ds_contexts = self._build_data_source_contexts(data_sources)
@@ -315,7 +362,7 @@ class ChatService:
                 # 过滤掉空消息和用户消息
                 messages_to_save = [
                     msg for msg in final_messages
-                    if not isinstance(msg, HumanMessage) and getattr(msg, "content", "")
+                    if not isinstance(msg, HumanMessage) and getattr(msg, "content", None)
                 ]
                 if messages_to_save:
                     logger.debug(f"保存 {len(messages_to_save)} 条消息")

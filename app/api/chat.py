@@ -14,9 +14,9 @@ from langchain_core.messages import AIMessageChunk, ToolMessageChunk
 
 from app.core.deps import CurrentUser, DBSession
 from app.models.base import BasePageQuery, BaseResponse, PageResponse
-from app.models.chat_message import ChatMessage
-from app.schemas.chat_message import ChatMessageCreate, ChatMessageResponse
-from app.services.analysis_session import AnalysisSessionService
+from app.models.message import ChatMessage
+from app.schemas.message import ChatMessageCreate, ChatMessageResponse
+from app.services.session import AnalysisSessionService
 from app.services.chat import ChatService
 
 router = APIRouter(prefix="/sessions/{session_id}", tags=["chat"])

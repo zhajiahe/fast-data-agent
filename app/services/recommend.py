@@ -18,14 +18,14 @@ from pydantic import BaseModel, Field, ValidationError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
-from app.models.analysis_session import AnalysisSession
+from app.models.session import AnalysisSession
 from app.models.data_source import DataSource
-from app.models.task_recommendation import (
+from app.models.recommendation import (
     RecommendationCategory,
     RecommendationSourceType,
     TaskRecommendation,
 )
-from app.repositories.task_recommendation import TaskRecommendationRepository
+from app.repositories.recommendation import TaskRecommendationRepository
 
 # ==================== 数据模型 ====================
 
@@ -533,7 +533,7 @@ class RecommendService:
         status: str,
     ) -> TaskRecommendation | None:
         """更新推荐状态"""
-        from app.models.task_recommendation import RecommendationStatus
+        from app.models.recommendation import RecommendationStatus
 
         try:
             status_enum = RecommendationStatus(status)

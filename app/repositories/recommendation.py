@@ -9,7 +9,7 @@ from typing import Any, cast
 from sqlalchemy import CursorResult, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.task_recommendation import (
+from app.models.recommendation import (
     RecommendationSourceType,
     RecommendationStatus,
     TaskRecommendation,

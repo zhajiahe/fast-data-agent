@@ -9,9 +9,9 @@ from typing import Any
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.exceptions import BadRequestException, NotFoundException
-from app.models.analysis_session import AnalysisSession
-from app.repositories.analysis_session import AnalysisSessionRepository
-from app.schemas.analysis_session import (
+from app.models.session import AnalysisSession
+from app.repositories.session import AnalysisSessionRepository
+from app.schemas.session import (
     AnalysisSessionCreate,
     AnalysisSessionListQuery,
     AnalysisSessionUpdate,
