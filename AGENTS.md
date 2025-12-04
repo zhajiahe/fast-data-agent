@@ -14,8 +14,16 @@ app/
 ├── models/           # SQLAlchemy 模型
 ├── schemas/          # Pydantic 验证模型
 ├── core/             # 配置、安全、异常
-├── agents/           # LangGraph Agent（待实现）
+├── utils/            # 工具函数和 Agent 工具
 └── main.py           # 应用入口
+
+sandbox_runtime/      # Python 沙盒服务（Docker 容器）
+├── main.py           # 沙盒 FastAPI 应用
+└── Dockerfile        # 沙盒容器镜像
+
+scripts/              # 脚本工具
+├── test_user_flow.py     # 用户流程测试
+└── reset_resources.py    # 资源重置脚本
 ```
 
 ## 核心数据模型
@@ -93,6 +101,15 @@ make dev              # 启动开发服务器
 make test             # 运行测试
 make check            # lint + format + type-check
 make db-migrate msg="xxx"  # 数据库迁移
+
+# 沙盒管理
+make sandbox-build    # 构建沙盒镜像
+make sandbox-start    # 启动沙盒
+make sandbox-restart  # 重启沙盒
+make sandbox-status   # 查看状态
+
+# 资源重置
+make reset            # 重置所有资源（数据库、MinIO、沙盒）
 ```
 
 ## 技术栈
@@ -108,6 +125,36 @@ make db-migrate msg="xxx"  # 数据库迁移
 | 数据处理 | Pandas, PyArrow |
 | 前端可视化 | Plotly |
 
+## Agent 工具
+
+当前实现的 LangGraph Agent 工具（`app/utils/tools.py`）：
+
+| 工具 | 功能 |
+|------|------|
+| `list_local_files` | 列出沙盒中的会话文件 |
+| `quick_analysis` | 快速分析数据源概况 |
+| `execute_sql` | 执行 DuckDB SQL 查询 |
+| `execute_python` | 在沙盒中执行 Python 代码 |
+| `generate_chart` | 生成 Plotly 图表 |
+
+## 沙盒服务
+
+沙盒服务运行在 Docker 容器中，提供以下 API：
+
+| 端点 | 功能 |
+|------|------|
+| `GET /files` | 列出会话文件 |
+| `POST /upload` | 上传文件到会话目录 |
+| `GET /download/{path}` | 下载会话文件 |
+| `POST /execute` | 执行 Shell 命令 |
+| `POST /execute_python` | 执行 Python 代码 |
+| `POST /execute_sql` | 执行 DuckDB SQL |
+| `POST /quick_analysis` | 快速数据分析 |
+| `POST /generate_chart` | 生成图表 |
+| `POST /reset/session` | 重置会话文件 |
+| `POST /reset/user` | 重置用户所有会话 |
+| `POST /reset/all` | 重置全部沙盒数据 |
+
 ## 注意事项
 
 - 密码传输使用 JSON Body，不用 Query 参数
@@ -115,3 +162,4 @@ make db-migrate msg="xxx"  # 数据库迁移
 - 管理员接口需要 `CurrentSuperUser` 依赖
 - 数据源密码需要加密存储
 - 用户数据源的 SQL 执行需要在沙箱中进行
+- 沙盒服务需要通过 `make sandbox-start` 启动

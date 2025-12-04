@@ -68,11 +68,17 @@ fast-data-agent/
 │   ├── schemas/          # Pydantic 模型
 │   ├── services/         # 业务逻辑层
 │   ├── repositories/     # 数据访问层
-│   ├── agents/           # LangGraph Agent
+│   ├── utils/            # 工具函数和 Agent 工具
 │   └── main.py           # 应用入口
+├── sandbox_runtime/      # Python 沙盒服务
+│   ├── main.py           # 沙盒 FastAPI 应用
+│   ├── Dockerfile        # 沙盒容器镜像
+│   └── requirements.txt  # 沙盒依赖
+├── scripts/              # 脚本工具
+│   ├── test_user_flow.py     # 用户流程测试
+│   └── reset_resources.py    # 资源重置脚本
 ├── tests/                # 测试代码
 ├── alembic/              # 数据库迁移
-├── web/                  # 前端代码
 └── docker-compose.yml    # Docker Compose
 ```
 
@@ -155,10 +161,24 @@ User (用户)
 ## 🛠️ 常用命令
 
 ```bash
+# 开发
 make dev              # 启动开发服务器
 make test             # 运行测试
-make check            # 代码质量检查
+make check            # 代码质量检查 (lint + format + type-check)
+
+# 数据库
 make db-migrate msg="xxx"  # 数据库迁移
+
+# 沙盒管理
+make sandbox-build    # 构建沙盒 Docker 镜像
+make sandbox-start    # 启动沙盒容器
+make sandbox-stop     # 停止沙盒容器
+make sandbox-restart  # 重启沙盒容器
+make sandbox-status   # 查看沙盒状态
+make sandbox-logs     # 查看沙盒日志
+
+# 资源管理
+make reset            # 重置所有资源（数据库、MinIO、沙盒）
 ```
 
 ## 🐳 Docker 部署
