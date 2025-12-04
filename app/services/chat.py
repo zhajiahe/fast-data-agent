@@ -228,7 +228,7 @@ class ChatService:
             thread_id=session.id,
             data_sources=ds_contexts,
         )
-        logger.debug(f"上下文: {context}")
+        logger.info(f"上下文: {context}")
 
         # 获取历史消息
         history = await self.get_history_as_langchain(session.id, limit=50)
@@ -242,9 +242,10 @@ class ChatService:
         initial_state = {
             "messages": [*history, user_message],
         }
-
-        # 收集流式消息用于保存（按消息ID聚合内容）
+        logger.info(f"初始状态: {initial_state}")
+        # 收集流式消息用于保存（按消息ID聚合内容和类型）
         message_contents: dict[str, str] = {}
+        message_types: dict[str, type] = {}  # 记录每个消息ID对应的类型
 
         try:
             # 流式执行 Agent，context 直接作为参数传递
@@ -256,7 +257,7 @@ class ChatService:
                 yield chunk
 
                 # stream_mode="messages" 返回 (message, metadata) tuple
-                # 流式模式下收到的是 AIMessageChunk，需要聚合内容
+                # 流式模式下收到的是 MessageChunk，需要聚合内容
                 if isinstance(chunk, tuple) and len(chunk) >= 2:
                     message, _metadata = chunk
                     # 只保存非用户消息的内容
@@ -268,20 +269,32 @@ class ChatService:
                                 # 聚合同一ID的所有内容片段
                                 if msg_id not in message_contents:
                                     message_contents[msg_id] = ""
+                                    # 记录消息类型（取第一个 chunk 的类型）
+                                    message_types[msg_id] = type(message)
                                 message_contents[msg_id] += content
 
-            # 保存 AI 响应消息
+            # 保存响应消息
             if save_messages and message_contents:
-                from langchain_core.messages import AIMessage
+                from langchain_core.messages import AIMessage, ToolMessage
 
-                # 根据聚合的内容构建完整消息
-                messages_to_save: list[BaseMessage] = [
-                    AIMessage(content=content, id=msg_id)
-                    for msg_id, content in message_contents.items()
-                    if content.strip()  # 只保存有实际内容的消息
-                ]
+                messages_to_save: list[BaseMessage] = []
+                for msg_id, content in message_contents.items():
+                    if not content.strip():
+                        continue
+
+                    msg_type = message_types.get(msg_id)
+                    msg_type_name = msg_type.__name__ if msg_type else "Unknown"
+
+                    # 根据消息类型创建对应的消息对象
+                    if msg_type and "ToolMessage" in msg_type_name:
+                        # ToolMessage 需要 tool_call_id，从原始 ID 提取或使用默认值
+                        messages_to_save.append(ToolMessage(content=content, tool_call_id=msg_id))
+                    else:
+                        # AIMessage 或其他类型
+                        messages_to_save.append(AIMessage(content=content, id=msg_id))
+
                 if messages_to_save:
-                    logger.debug(f"保存 {len(messages_to_save)} 条AI消息")
+                    logger.debug(f"保存 {len(messages_to_save)} 条消息")
                     await self.message_repo.save_langchain_messages(session.id, messages_to_save, session.user_id)
 
         except Exception as e:
