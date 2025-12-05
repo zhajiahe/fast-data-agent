@@ -60,6 +60,7 @@ export const Chat = () => {
   const scrollRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
+  const shouldAutoScrollRef = useRef(true);
 
   const [input, setInput] = useState('');
   const [showPanel, setShowPanel] = useState(true);
@@ -121,12 +122,27 @@ export const Chat = () => {
     setLocalMessages(convertedMessages);
   }, [apiMessagesItems, isGenerating]);
 
-  // 自动滚动到底部
+  // 检测用户是否在底部附近
+  const handleScroll = useCallback(() => {
+    if (!scrollRef.current) return;
+    const { scrollTop, scrollHeight, clientHeight } = scrollRef.current;
+    // 如果用户距离底部 100px 以内，认为在底部
+    shouldAutoScrollRef.current = scrollHeight - scrollTop - clientHeight < 100;
+  }, []);
+
+  // 自动滚动到底部（仅当用户在底部时）
   useEffect(() => {
-    if (scrollRef.current) {
+    if (scrollRef.current && shouldAutoScrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
   }, [localMessages, streamingText]);
+
+  // 发送消息时重置自动滚动
+  useEffect(() => {
+    if (isGenerating) {
+      shouldAutoScrollRef.current = true;
+    }
+  }, [isGenerating]);
 
   // 添加消息到本地（防止重复）
   const addMessage = useCallback((message: LocalMessage) => {
@@ -392,7 +408,7 @@ export const Chat = () => {
         </div>
 
         {/* 消息列表 */}
-        <ScrollArea className="flex-1 p-4" ref={scrollRef}>
+        <ScrollArea className="flex-1 p-4" ref={scrollRef} onScrollCapture={handleScroll}>
           <div className="max-w-3xl mx-auto space-y-6">
             {localMessages.length === 0 && !isGenerating ? (
               <div className="flex flex-col items-center justify-center py-12 text-center">
