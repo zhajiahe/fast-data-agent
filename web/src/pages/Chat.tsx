@@ -16,7 +16,7 @@ import { storage } from '@/utils/storage';
 
 // SSE 事件类型
 interface SSEEvent {
-  type: string;
+  type: 'start' | 'text-start' | 'text-delta' | 'text-end' | 'tool-input-start' | 'tool-input-available' | 'tool-output-available' | 'start-step' | 'finish-step' | 'finish' | 'error';
   messageId?: string;
   id?: string;
   delta?: string;
@@ -239,6 +239,23 @@ export const Chat = () => {
                 if (event.delta) {
                   currentStreamingText += event.delta;
                   setStreamingText(currentStreamingText);
+                }
+                break;
+
+              case 'text-end':
+                // 文本块结束，将累积的文本保存为消息
+                if (currentStreamingText) {
+                  const aiMessage: LocalMessage = {
+                    id: Date.now() + Math.random(),
+                    session_id: sessionId,
+                    message_type: 'ai',
+                    content: currentStreamingText,
+                    create_time: new Date().toISOString(),
+                  };
+                  addMessage(aiMessage);
+                  finalAiContent = currentStreamingText;
+                  currentStreamingText = '';
+                  setStreamingText('');
                 }
                 break;
 
