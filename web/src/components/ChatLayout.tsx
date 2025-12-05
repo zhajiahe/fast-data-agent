@@ -30,3 +30,4 @@ export const ChatLayout = ({ children }: ChatLayoutProps) => {
     </div>
   );
 };
+

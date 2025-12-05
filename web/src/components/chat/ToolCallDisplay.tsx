@@ -70,3 +70,4 @@ export const ToolCallDisplay = ({ toolCall }: ToolCallDisplayProps) => {
     </div>
   );
 };
+
