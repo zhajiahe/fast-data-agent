@@ -122,7 +122,9 @@
     "enterToSend": "按 Enter 发送，Shift+Enter 换行",
     "recommendations": "推荐分析",
     "noRecommendations": "暂无推荐任务",
-    "generateRecommendations": "生成推荐"
+    "generateRecommendations": "生成推荐",
+    "followupQuestions": "继续探索",
+    "suggestedAnalysis": "建议分析"
   },
   "files": {
     "dragOrClick": "拖拽文件到此处，或点击选择",

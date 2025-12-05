@@ -2,7 +2,8 @@ import { ChevronLeft, Database, PanelRight, PanelRightClose, Send, Sparkles, Sto
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate, useParams } from 'react-router-dom';
-import { useSession, useMessages, type ChatMessageResponse, type AnalysisSessionDetail } from '@/api';
+import { useQueryClient } from '@tanstack/react-query';
+import { useSession, useMessages, type ChatMessageResponse, type AnalysisSessionDetail, generateFollowupRecommendationsApiV1SessionsSessionIdRecommendationsFollowupPost } from '@/api';
 import { ChatMessage } from '@/components/chat/ChatMessage';
 import { RecommendationPanel } from '@/components/chat/RecommendationPanel';
 import { ToolCallDisplay } from '@/components/chat/ToolCallDisplay';
@@ -70,28 +71,52 @@ export const Chat = () => {
     status: 'calling' | 'executing' | 'completed' | 'error';
   } | null>(null);
 
+  const queryClient = useQueryClient();
+
   // 使用生成的 API hooks
   const { data: sessionResponse } = useSession(sessionId);
-  const { data: messagesResponse } = useMessages(sessionId, { page_size: 100 });
+  const { data: messagesResponse, refetch: refetchMessages } = useMessages(sessionId, { page_size: 100 });
 
   const currentSession: AnalysisSessionDetail | null = sessionResponse?.data.data || null;
-  const apiMessages: ChatMessageResponse[] = messagesResponse?.data.data?.items || [];
+  
+  // 使用稳定引用，避免每次渲染创建新数组
+  const apiMessagesItems = messagesResponse?.data.data?.items;
+
+  // 追踪上一次同步的 sessionId，避免重复同步
+  const lastSyncedSessionRef = useRef<number | null>(null);
+
+  // 会话切换时重置状态
+  useEffect(() => {
+    if (lastSyncedSessionRef.current !== sessionId) {
+      lastSyncedSessionRef.current = sessionId;
+      setLocalMessages([]);
+    }
+  }, [sessionId]);
 
   // 同步 API 消息到本地
+  // - 首次加载：直接使用 API 消息
+  // - 生成过程中：不同步（避免覆盖 SSE 流添加的消息）
+  // - 生成完成后：API 消息包含后端保存的新消息，直接使用
   useEffect(() => {
-    if (apiMessages.length > 0) {
-      setLocalMessages(
-        apiMessages.map((m) => ({
-          id: m.id,
-          session_id: m.session_id,
-          message_type: m.message_type,
-          content: m.content,
-          tool_call_id: m.tool_call_id || undefined,
-          create_time: m.create_time || new Date().toISOString(),
-        }))
-      );
-    }
-  }, [apiMessages]);
+    // 生成过程中不同步
+    if (isGenerating) return;
+    
+    // 没有消息数据时不处理
+    if (!apiMessagesItems) return;
+    
+    // 转换 API 消息
+    const convertedMessages = apiMessagesItems.map((m) => ({
+      id: m.id,
+      session_id: m.session_id,
+      message_type: m.message_type,
+      content: m.content,
+      tool_call_id: m.tool_call_id || undefined,
+      tool_name: m.name || undefined,
+      create_time: m.create_time || new Date().toISOString(),
+    }));
+    
+    setLocalMessages(convertedMessages);
+  }, [apiMessagesItems, isGenerating]);
 
   // 自动滚动到底部
   useEffect(() => {
@@ -100,14 +125,20 @@ export const Chat = () => {
     }
   }, [localMessages, streamingText]);
 
-  // 添加消息到本地
+  // 添加消息到本地（防止重复）
   const addMessage = useCallback((message: LocalMessage) => {
-    setLocalMessages((prev) => [...prev, message]);
+    setLocalMessages((prev) => {
+      // 检查是否已存在相同 ID 的消息
+      if (prev.some((m) => m.id === message.id)) {
+        return prev;
+      }
+      return [...prev, message];
+    });
   }, []);
 
   // 发送消息
-  const handleSend = useCallback(async () => {
-    const content = input.trim();
+  const handleSend = useCallback(async (messageContent?: string) => {
+    const content = (messageContent || input).trim();
     if (!content || isGenerating) return;
 
     setInput('');
@@ -126,6 +157,8 @@ export const Chat = () => {
 
     // 创建 AbortController
     abortControllerRef.current = new AbortController();
+
+    let finalAiContent = '';
 
     try {
       const token = storage.getToken();
@@ -165,6 +198,7 @@ export const Chat = () => {
           if (dataStr === '[DONE]') {
             // 流结束，将 streamingText 转为正式消息
             if (currentStreamingText) {
+              finalAiContent = currentStreamingText;
               const aiMessage: LocalMessage = {
                 id: Date.now() + 1,
                 session_id: sessionId,
@@ -206,13 +240,15 @@ export const Chat = () => {
                 break;
 
               case 'tool-output-available': {
-                // 添加工具消息
+                // 添加工具消息（使用唯一 ID 避免重复）
+                const toolMessageId = Date.now() + Math.random();
                 const toolMessage: LocalMessage = {
-                  id: Date.now(),
+                  id: toolMessageId,
                   session_id: sessionId,
                   message_type: 'tool',
                   content: JSON.stringify(event.output),
                   tool_call_id: event.toolCallId,
+                  tool_name: event.toolName,
                   artifact: event.artifact,
                   create_time: new Date().toISOString(),
                 };
@@ -241,6 +277,26 @@ export const Chat = () => {
           }
         }
       }
+
+      // 生成后续问题推荐
+      if (finalAiContent) {
+        try {
+          await generateFollowupRecommendationsApiV1SessionsSessionIdRecommendationsFollowupPost(
+            sessionId,
+            {
+              conversation_context: `用户问: ${content}\n\nAI回答: ${finalAiContent}`,
+              max_count: 3,
+            }
+          );
+          // 刷新推荐列表
+          queryClient.invalidateQueries({ queryKey: ['recommendations', sessionId] });
+        } catch (e) {
+          console.warn('Failed to generate followup recommendations:', e);
+        }
+      }
+      
+      // 刷新消息列表（后端已保存消息，需要同步 ID）
+      await refetchMessages();
     } catch (err: unknown) {
       const error = err as Error;
       if (error.name === 'AbortError') {
@@ -260,7 +316,7 @@ export const Chat = () => {
       setCurrentToolCall(null);
       abortControllerRef.current = null;
     }
-  }, [input, isGenerating, sessionId, addMessage, toast, t]);
+  }, [input, isGenerating, sessionId, addMessage, toast, t, queryClient, refetchMessages]);
 
   // 停止生成
   const handleStop = () => {
@@ -277,11 +333,15 @@ export const Chat = () => {
     }
   };
 
-  // 处理推荐任务点击
-  const handleRecommendationClick = (query: string) => {
-    setInput(query);
-    textareaRef.current?.focus();
-  };
+  // 处理发送按钮点击
+  const handleSendClick = useCallback(() => {
+    handleSend();
+  }, [handleSend]);
+
+  // 处理推荐任务点击 - 直接发送消息
+  const handleRecommendationClick = useCallback((query: string) => {
+    handleSend(query);
+  }, [handleSend]);
 
   if (!sessionId) {
     return (
@@ -370,7 +430,7 @@ export const Chat = () => {
                     {t('chat.stop')}
                   </Button>
                 ) : (
-                  <Button size="sm" onClick={handleSend} disabled={!input.trim()}>
+                  <Button size="sm" onClick={handleSendClick} disabled={!input.trim()}>
                     <Send className="h-4 w-4 mr-1" />
                     {t('chat.send')}
                   </Button>

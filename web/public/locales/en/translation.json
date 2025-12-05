@@ -122,7 +122,9 @@
     "enterToSend": "Press Enter to send, Shift+Enter for new line",
     "recommendations": "Suggestions",
     "noRecommendations": "No suggestions yet",
-    "generateRecommendations": "Generate Suggestions"
+    "generateRecommendations": "Generate Suggestions",
+    "followupQuestions": "Continue Exploring",
+    "suggestedAnalysis": "Suggested Analysis"
   },
   "files": {
     "dragOrClick": "Drag files here or click to select",
