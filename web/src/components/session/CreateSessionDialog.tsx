@@ -59,7 +59,7 @@ export const CreateSessionDialog = ({ open, onOpenChange }: CreateSessionDialogP
   });
 
   // 使用生成的 API hooks
-  const { data: dataSourcesResponse, isLoading: isLoadingDataSources } = useDataSources(undefined, { enabled: open });
+  const { data: dataSourcesResponse, isLoading: isLoadingDataSources } = useDataSources();
   const createSessionMutation = useCreateSession();
 
   const dataSources: DataSourceResponse[] = dataSourcesResponse?.data.data?.items || [];

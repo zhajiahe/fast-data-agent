@@ -2,7 +2,7 @@
  * API React Query Hooks
  * 封装生成的 API 函数为 React Query hooks
  */
-import { useQuery, useMutation, useQueryClient, type UseQueryOptions, type UseMutationOptions } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import type { AxiosResponse } from 'axios';
 
 // 导入 API 配置（初始化 axios 拦截器）
@@ -52,49 +52,60 @@ import type {
   GenerateRecommendationsApiV1SessionsSessionIdRecommendationsPostBody,
   TaskRecommendationUpdate,
   BodyUploadFileApiV1FilesUploadPost,
+  // Response types
+  BaseResponseToken,
+  BaseResponseUserResponse,
+  BaseResponsePageResponseDataSourceResponse,
+  BaseResponseDataSourceResponse,
+  BaseResponseDataSourceTestResult,
+  BaseResponseDataSourceSchemaResponse,
+  BaseResponsePageResponseUploadedFileResponse,
+  BaseResponseUploadedFileResponse,
+  BaseResponsePageResponseAnalysisSessionResponse,
+  BaseResponseAnalysisSessionDetail,
+  BaseResponseAnalysisSessionResponse,
+  BaseResponseNoneType,
+  BaseResponseInt,
+  BaseResponsePageResponseChatMessageResponse,
+  BaseResponsePageResponseTaskRecommendationResponse,
+  BaseResponseListTaskRecommendationResponse,
+  BaseResponseTaskRecommendationResponse,
 } from './fastDataAgent';
 
 // ==================== Auth Hooks ====================
 
-export const useLogin = (options?: UseMutationOptions<AxiosResponse, Error, LoginRequest>) => {
-  return useMutation({
-    mutationFn: (data: LoginRequest) => loginApiV1AuthLoginPost(data),
-    ...options,
+export const useLogin = () => {
+  return useMutation<AxiosResponse<BaseResponseToken>, Error, LoginRequest>({
+    mutationFn: (data) => loginApiV1AuthLoginPost(data),
   });
 };
 
-export const useRegister = (options?: UseMutationOptions<AxiosResponse, Error, UserCreate>) => {
-  return useMutation({
-    mutationFn: (data: UserCreate) => registerApiV1AuthRegisterPost(data),
-    ...options,
+export const useRegister = () => {
+  return useMutation<AxiosResponse<BaseResponseUserResponse>, Error, UserCreate>({
+    mutationFn: (data) => registerApiV1AuthRegisterPost(data),
   });
 };
 
-export const useCurrentUser = (options?: Omit<UseQueryOptions, 'queryKey' | 'queryFn'>) => {
-  return useQuery({
+export const useCurrentUser = () => {
+  return useQuery<AxiosResponse<BaseResponseUserResponse>, Error>({
     queryKey: ['currentUser'],
     queryFn: () => getCurrentUserInfoApiV1AuthMeGet(),
-    ...options,
   });
 };
 
 // ==================== Data Source Hooks ====================
 
-export const useDataSources = (
-  params?: GetDataSourcesApiV1DataSourcesGetParams,
-  options?: Omit<UseQueryOptions, 'queryKey' | 'queryFn'>
-) => {
-  return useQuery({
+export const useDataSources = (params?: GetDataSourcesApiV1DataSourcesGetParams) => {
+  return useQuery<AxiosResponse<BaseResponsePageResponseDataSourceResponse>, Error>({
     queryKey: ['dataSources', params],
     queryFn: () => getDataSourcesApiV1DataSourcesGet(params),
-    ...options,
   });
 };
 
 export const useCreateDataSource = () => {
   const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: (data: DataSourceCreate) => createDataSourceApiV1DataSourcesPost(data),
+  return useMutation<AxiosResponse<BaseResponseDataSourceResponse>, Error, DataSourceCreate>({
+    mutationFn: (data) => createDataSourceApiV1DataSourcesPost(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['dataSources'] });
     },
@@ -103,8 +114,8 @@ export const useCreateDataSource = () => {
 
 export const useDeleteDataSource = () => {
   const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: (id: number) => deleteDataSourceApiV1DataSourcesDataSourceIdDelete(id),
+  return useMutation<AxiosResponse<BaseResponseNoneType>, Error, number>({
+    mutationFn: (id) => deleteDataSourceApiV1DataSourcesDataSourceIdDelete(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['dataSources'] });
     },
@@ -112,15 +123,15 @@ export const useDeleteDataSource = () => {
 };
 
 export const useTestDataSourceConnection = () => {
-  return useMutation({
-    mutationFn: (id: number) => testDataSourceConnectionApiV1DataSourcesDataSourceIdTestPost(id),
+  return useMutation<AxiosResponse<BaseResponseDataSourceTestResult>, Error, number>({
+    mutationFn: (id) => testDataSourceConnectionApiV1DataSourcesDataSourceIdTestPost(id),
   });
 };
 
 export const useSyncDataSourceSchema = () => {
   const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: (id: number) => syncDataSourceSchemaApiV1DataSourcesDataSourceIdSyncSchemaPost(id),
+  return useMutation<AxiosResponse<BaseResponseDataSourceSchemaResponse>, Error, number>({
+    mutationFn: (id) => syncDataSourceSchemaApiV1DataSourcesDataSourceIdSyncSchemaPost(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['dataSources'] });
     },
@@ -129,18 +140,17 @@ export const useSyncDataSourceSchema = () => {
 
 // ==================== File Hooks ====================
 
-export const useFiles = (options?: Omit<UseQueryOptions, 'queryKey' | 'queryFn'>) => {
-  return useQuery({
+export const useFiles = () => {
+  return useQuery<AxiosResponse<BaseResponsePageResponseUploadedFileResponse>, Error>({
     queryKey: ['files'],
     queryFn: () => getFilesApiV1FilesGet(),
-    ...options,
   });
 };
 
 export const useUploadFile = () => {
   const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: (data: BodyUploadFileApiV1FilesUploadPost) => uploadFileApiV1FilesUploadPost(data),
+  return useMutation<AxiosResponse<BaseResponseUploadedFileResponse>, Error, BodyUploadFileApiV1FilesUploadPost>({
+    mutationFn: (data) => uploadFileApiV1FilesUploadPost(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['files'] });
       queryClient.invalidateQueries({ queryKey: ['dataSources'] });
@@ -150,8 +160,8 @@ export const useUploadFile = () => {
 
 export const useDeleteFile = () => {
   const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: (id: number) => deleteFileApiV1FilesFileIdDelete(id),
+  return useMutation<AxiosResponse<BaseResponseNoneType>, Error, number>({
+    mutationFn: (id) => deleteFileApiV1FilesFileIdDelete(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['files'] });
     },
@@ -160,33 +170,25 @@ export const useDeleteFile = () => {
 
 // ==================== Session Hooks ====================
 
-export const useSessions = (
-  params?: GetSessionsApiV1SessionsGetParams,
-  options?: Omit<UseQueryOptions, 'queryKey' | 'queryFn'>
-) => {
-  return useQuery({
+export const useSessions = (params?: GetSessionsApiV1SessionsGetParams) => {
+  return useQuery<AxiosResponse<BaseResponsePageResponseAnalysisSessionResponse>, Error>({
     queryKey: ['sessions', params],
     queryFn: () => getSessionsApiV1SessionsGet(params),
-    ...options,
   });
 };
 
-export const useSession = (
-  sessionId: number,
-  options?: Omit<UseQueryOptions, 'queryKey' | 'queryFn'>
-) => {
-  return useQuery({
+export const useSession = (sessionId: number) => {
+  return useQuery<AxiosResponse<BaseResponseAnalysisSessionDetail>, Error>({
     queryKey: ['session', sessionId],
     queryFn: () => getSessionApiV1SessionsSessionIdGet(sessionId),
     enabled: !!sessionId,
-    ...options,
   });
 };
 
 export const useCreateSession = () => {
   const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: (data: AnalysisSessionCreate) => createSessionApiV1SessionsPost(data),
+  return useMutation<AxiosResponse<BaseResponseAnalysisSessionDetail>, Error, AnalysisSessionCreate>({
+    mutationFn: (data) => createSessionApiV1SessionsPost(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['sessions'] });
     },
@@ -195,8 +197,8 @@ export const useCreateSession = () => {
 
 export const useDeleteSession = () => {
   const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: (id: number) => deleteSessionApiV1SessionsSessionIdDelete(id),
+  return useMutation<AxiosResponse<BaseResponseNoneType>, Error, number>({
+    mutationFn: (id) => deleteSessionApiV1SessionsSessionIdDelete(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['sessions'] });
     },
@@ -205,8 +207,8 @@ export const useDeleteSession = () => {
 
 export const useArchiveSession = () => {
   const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: (id: number) => archiveSessionApiV1SessionsSessionIdArchivePost(id),
+  return useMutation<AxiosResponse<BaseResponseAnalysisSessionResponse>, Error, number>({
+    mutationFn: (id) => archiveSessionApiV1SessionsSessionIdArchivePost(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['sessions'] });
     },
@@ -217,21 +219,19 @@ export const useArchiveSession = () => {
 
 export const useMessages = (
   sessionId: number,
-  params?: GetMessagesApiV1SessionsSessionIdMessagesGetParams,
-  options?: Omit<UseQueryOptions, 'queryKey' | 'queryFn'>
+  params?: GetMessagesApiV1SessionsSessionIdMessagesGetParams
 ) => {
-  return useQuery({
+  return useQuery<AxiosResponse<BaseResponsePageResponseChatMessageResponse>, Error>({
     queryKey: ['messages', sessionId, params],
     queryFn: () => getMessagesApiV1SessionsSessionIdMessagesGet(sessionId, params),
     enabled: !!sessionId,
-    ...options,
   });
 };
 
 export const useClearMessages = () => {
   const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: (sessionId: number) => clearMessagesApiV1SessionsSessionIdMessagesDelete(sessionId),
+  return useMutation<AxiosResponse<BaseResponseInt>, Error, number>({
+    mutationFn: (sessionId) => clearMessagesApiV1SessionsSessionIdMessagesDelete(sessionId),
     onSuccess: (_data, sessionId) => {
       queryClient.invalidateQueries({ queryKey: ['messages', sessionId] });
     },
@@ -242,22 +242,23 @@ export const useClearMessages = () => {
 
 export const useRecommendations = (
   sessionId: number,
-  params?: GetRecommendationsApiV1SessionsSessionIdRecommendationsGetParams,
-  options?: Omit<UseQueryOptions, 'queryKey' | 'queryFn'>
+  params?: GetRecommendationsApiV1SessionsSessionIdRecommendationsGetParams
 ) => {
-  return useQuery({
+  return useQuery<AxiosResponse<BaseResponsePageResponseTaskRecommendationResponse>, Error>({
     queryKey: ['recommendations', sessionId, params],
     queryFn: () => getRecommendationsApiV1SessionsSessionIdRecommendationsGet(sessionId, params),
     enabled: !!sessionId,
-    ...options,
   });
 };
 
 export const useGenerateRecommendations = (sessionId: number) => {
   const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: (data: GenerateRecommendationsApiV1SessionsSessionIdRecommendationsPostBody) =>
-      generateRecommendationsApiV1SessionsSessionIdRecommendationsPost(sessionId, data),
+  return useMutation<
+    AxiosResponse<BaseResponseListTaskRecommendationResponse>,
+    Error,
+    GenerateRecommendationsApiV1SessionsSessionIdRecommendationsPostBody
+  >({
+    mutationFn: (data) => generateRecommendationsApiV1SessionsSessionIdRecommendationsPost(sessionId, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['recommendations', sessionId] });
     },
@@ -266,8 +267,12 @@ export const useGenerateRecommendations = (sessionId: number) => {
 
 export const useUpdateRecommendation = (sessionId: number) => {
   const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: ({ id, data }: { id: number; data: TaskRecommendationUpdate }) =>
+  return useMutation<
+    AxiosResponse<BaseResponseTaskRecommendationResponse>,
+    Error,
+    { id: number; data: TaskRecommendationUpdate }
+  >({
+    mutationFn: ({ id, data }) =>
       updateRecommendationApiV1SessionsSessionIdRecommendationsRecommendationIdPut(sessionId, id, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['recommendations', sessionId] });
@@ -277,5 +282,3 @@ export const useUpdateRecommendation = (sessionId: number) => {
 
 // 导出所有类型
 export * from './fastDataAgent';
-
-

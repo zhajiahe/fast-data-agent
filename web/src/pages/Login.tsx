@@ -34,37 +34,37 @@ export const Login = () => {
   });
 
   // 使用生成的 API hook
-  const loginMutation = useLogin({
-    onSuccess: (response) => {
-      const { id, nickname, access_token, refresh_token } = response.data.data!;
-      setAuth(
-        {
-          id: String(id),
-          username: '', // 后端不返回 username，暂时留空
-          nickname: nickname,
-        },
-        access_token,
-        refresh_token
-      );
-
-      toast({
-        title: t('auth.login_success'),
-        description: t('auth.login_success_desc', { username: nickname }),
-      });
-
-      navigate(from, { replace: true });
-    },
-    onError: (error) => {
-      toast({
-        title: t('auth.login_failed'),
-        description: error.message || t('auth.login_failed_desc'),
-        variant: 'destructive',
-      });
-    },
-  });
+  const loginMutation = useLogin();
 
   const onSubmit = async (data: LoginFormData) => {
-    loginMutation.mutate(data);
+    loginMutation.mutate(data, {
+      onSuccess: (response) => {
+        const { id, nickname, access_token, refresh_token } = response.data.data!;
+        setAuth(
+          {
+            id: String(id),
+            username: '', // 后端不返回 username，暂时留空
+            nickname: nickname,
+          },
+          access_token,
+          refresh_token
+        );
+
+        toast({
+          title: t('auth.login_success'),
+          description: t('auth.login_success_desc', { username: nickname }),
+        });
+
+        navigate(from, { replace: true });
+      },
+      onError: (error: Error) => {
+        toast({
+          title: t('auth.login_failed'),
+          description: error.message || t('auth.login_failed_desc'),
+          variant: 'destructive',
+        });
+      },
+    });
   };
 
   return (

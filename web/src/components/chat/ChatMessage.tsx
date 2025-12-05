@@ -33,6 +33,7 @@ interface LocalMessage {
     output?: string;
     files_created?: string[];
     // error
+    tool?: string;
     error_message?: string;
     // file
     filename?: string;
@@ -74,15 +75,27 @@ export const ChatMessage = ({ message, isStreaming }: ChatMessageProps) => {
     );
   }, [isUser, isTool]);
 
+  // 可折叠容器
+  const CollapsibleArtifact = ({ title, children }: { title: string; children: React.ReactNode }) => (
+    <details className="mt-3 group">
+      <summary className="cursor-pointer text-xs text-muted-foreground hover:text-foreground flex items-center gap-1">
+        <span className="group-open:rotate-90 transition-transform">▶</span>
+        {title}
+      </summary>
+      <div className="mt-2">{children}</div>
+    </details>
+  );
+
   // 渲染 Artifact
   const renderArtifact = () => {
     if (!message.artifact) return null;
 
     switch (message.artifact.type) {
       case 'plotly':
+        // 图表不折叠，直接显示
         if (message.artifact.chart_json) {
           return (
-            <div className="mt-4">
+            <div className="mt-3">
               <PlotlyChart chartJson={message.artifact.chart_json} />
             </div>
           );
@@ -92,79 +105,114 @@ export const ChatMessage = ({ message, isStreaming }: ChatMessageProps) => {
       case 'table':
         if (message.artifact.columns && message.artifact.rows) {
           return (
-            <div className="mt-4">
+            <CollapsibleArtifact title={`📊 数据表 (${message.artifact.rows.length} 行)`}>
               <DataTable
                 columns={message.artifact.columns}
                 rows={message.artifact.rows as unknown[][]}
                 title={message.artifact.title}
               />
-            </div>
+            </CollapsibleArtifact>
           );
         }
         break;
 
       case 'sql':
         return (
-          <div className="mt-4 space-y-3">
-            {message.artifact.sql && (
-              <pre className="p-3 bg-muted rounded-lg overflow-x-auto">
-                <code className="text-xs font-mono text-blue-600 dark:text-blue-400">{message.artifact.sql}</code>
-              </pre>
-            )}
-            {message.artifact.columns && message.artifact.rows && (
-              <DataTable
-                columns={message.artifact.columns}
-                rows={message.artifact.rows as unknown[][]}
-                title={message.artifact.truncated 
-                  ? `结果 (前 ${message.artifact.rows.length} 行 / 共 ${message.artifact.total_rows} 行)` 
-                  : undefined}
-              />
-            )}
-          </div>
+          <CollapsibleArtifact title={`🗃️ SQL 查询结果 (${message.artifact.rows?.length || 0} 行)`}>
+            <div className="space-y-2">
+              {message.artifact.sql && (
+                <pre className="p-2 bg-muted rounded-md overflow-x-auto">
+                  <code className="text-xs font-mono text-blue-600 dark:text-blue-400">{message.artifact.sql}</code>
+                </pre>
+              )}
+              {message.artifact.columns && message.artifact.rows && (
+                <DataTable
+                  columns={message.artifact.columns}
+                  rows={message.artifact.rows as unknown[][]}
+                  title={message.artifact.truncated 
+                    ? `结果 (前 ${message.artifact.rows.length} 行 / 共 ${message.artifact.total_rows} 行)` 
+                    : undefined}
+                />
+              )}
+            </div>
+          </CollapsibleArtifact>
         );
 
       case 'code':
         return (
-          <div className="mt-4 space-y-3">
-            {message.artifact.code && (
-              <pre className="p-3 bg-muted rounded-lg overflow-x-auto">
-                <code className="text-xs font-mono">{message.artifact.code}</code>
-              </pre>
-            )}
-            {message.artifact.output && (
-              <pre className="p-3 bg-black/90 text-green-400 rounded-lg overflow-x-auto text-xs font-mono whitespace-pre-wrap">
-                {message.artifact.output}
-              </pre>
-            )}
-            {message.artifact.files_created && message.artifact.files_created.length > 0 && (
-              <p className="text-xs text-muted-foreground">📁 生成文件: {message.artifact.files_created.join(', ')}</p>
-            )}
-          </div>
+          <CollapsibleArtifact title="💻 代码执行结果">
+            <div className="space-y-2">
+              {message.artifact.code && (
+                <pre className="p-2 bg-muted rounded-md overflow-x-auto">
+                  <code className="text-xs font-mono">{message.artifact.code}</code>
+                </pre>
+              )}
+              {message.artifact.output && (
+                <pre className="p-2 bg-black/90 text-green-400 rounded-md overflow-x-auto text-xs font-mono whitespace-pre-wrap">
+                  {message.artifact.output}
+                </pre>
+              )}
+              {message.artifact.files_created && message.artifact.files_created.length > 0 && (
+                <p className="text-xs text-muted-foreground">📁 生成文件: {message.artifact.files_created.join(', ')}</p>
+              )}
+            </div>
+          </CollapsibleArtifact>
         );
 
       case 'error':
         return (
-          <div className="mt-4 p-4 bg-destructive/10 border border-destructive/20 rounded-lg">
-            <div className="flex items-center gap-2 text-destructive">
-              <AlertCircle className="w-4 h-4" />
-              <span className="font-medium">错误</span>
+          <CollapsibleArtifact title={`❌ 错误${message.artifact.tool ? ` (${message.artifact.tool})` : ''}`}>
+            <div className="p-3 bg-destructive/10 border border-destructive/20 rounded-md space-y-2">
+              <div className="flex items-center gap-2 text-destructive">
+                <AlertCircle className="w-4 h-4" />
+                <span className="font-medium text-sm">
+                  {message.artifact.tool || '执行'}失败
+                </span>
+              </div>
+              {/* 显示相关代码/SQL */}
+              {(message.artifact.sql || message.artifact.code) && (
+                <details className="group">
+                  <summary className="cursor-pointer text-xs text-muted-foreground hover:text-foreground">
+                    查看代码
+                  </summary>
+                  <pre className="mt-1 p-2 bg-muted rounded text-xs font-mono overflow-x-auto max-h-[150px] overflow-y-auto">
+                    {message.artifact.sql || message.artifact.code}
+                  </pre>
+                </details>
+              )}
+              {/* 显示标准输出 */}
+              {message.artifact.output && (
+                <details className="group">
+                  <summary className="cursor-pointer text-xs text-muted-foreground hover:text-foreground">
+                    标准输出
+                  </summary>
+                  <pre className="mt-1 p-2 bg-black/90 text-green-400 rounded text-xs font-mono overflow-x-auto max-h-[100px] overflow-y-auto whitespace-pre-wrap">
+                    {message.artifact.output}
+                  </pre>
+                </details>
+              )}
+              {/* 完整错误信息 */}
+              <pre className="p-2 bg-destructive/5 text-destructive/90 rounded text-xs font-mono overflow-x-auto max-h-[300px] overflow-y-auto whitespace-pre-wrap">
+                {message.artifact.error_message}
+              </pre>
             </div>
-            <p className="mt-2 text-sm text-destructive/80">{message.artifact.error_message}</p>
-          </div>
+          </CollapsibleArtifact>
         );
 
       case 'file':
         return (
-          <div className="mt-4 p-3 bg-muted rounded-lg">
-            <a
-              href={`/api/v1/sessions/${message.session_id}/files/${message.artifact.filename}`}
-              className="text-sm text-primary hover:underline"
-              target="_blank"
-              rel="noreferrer"
-            >
-              📎 {message.artifact.filename}
-            </a>
-          </div>
+          <CollapsibleArtifact title={`📎 ${message.artifact.filename}`}>
+            <div className="p-2 bg-muted rounded-md">
+              <a
+                href={`/api/v1/sessions/${message.session_id}/files/${message.artifact.filename}`}
+                className="text-xs text-primary hover:underline"
+                target="_blank"
+                rel="noreferrer"
+              >
+                点击下载: {message.artifact.filename}
+              </a>
+            </div>
+          </CollapsibleArtifact>
         );
     }
 

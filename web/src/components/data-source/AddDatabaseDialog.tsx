@@ -36,7 +36,10 @@ const formSchema = z.object({
   description: z.string().max(200, '描述最多 200 个字符').optional(),
   db_type: z.enum(['postgresql', 'mysql', 'sqlite']),
   host: z.string().min(1, '请输入主机地址'),
-  port: z.coerce.number().min(0).max(65535),
+  port: z
+    .string()
+    .transform((val) => Number(val))
+    .pipe(z.number().min(0).max(65535)),
   database: z.string().min(1, '请输入数据库名'),
   username: z.string().min(1, '请输入用户名'),
   password: z.string().min(1, '请输入密码'),
@@ -59,11 +62,11 @@ export const AddDatabaseDialog = ({ open, onOpenChange }: AddDatabaseDialogProps
     setValue,
     reset,
     formState: { errors, isSubmitting },
-  } = useForm<FormData>({
+  } = useForm({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      db_type: 'postgresql',
-      port: 5432,
+      db_type: 'postgresql' as const,
+      port: '5432',
     },
   });
 
@@ -73,10 +76,10 @@ export const AddDatabaseDialog = ({ open, onOpenChange }: AddDatabaseDialogProps
   const createDataSourceMutation = useCreateDataSource();
 
   const handleDatabaseTypeChange = (value: typeof DatabaseType[keyof typeof DatabaseType]) => {
-    setValue('db_type', value);
+    setValue('db_type', value as 'postgresql' | 'mysql' | 'sqlite');
     const dbTypeConfig = databaseTypes.find((t) => t.value === value);
     if (dbTypeConfig) {
-      setValue('port', dbTypeConfig.defaultPort);
+      setValue('port', String(dbTypeConfig.defaultPort));
     }
   };
 

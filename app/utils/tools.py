@@ -255,8 +255,16 @@ async def execute_sql(
         }
         return content, artifact
     else:
-        error_msg = f"SQL 执行失败: {result.get('error', '未知错误')}"
-        return error_msg, {"type": "error", "sql": sql, "error_message": result.get("error")}
+        error_detail = result.get("error", "未知错误")
+        # 给 LLM 简短摘要
+        error_summary = error_detail.split("\n")[0] if error_detail else "未知错误"
+        content = f"SQL 执行失败: {error_summary}"
+        return content, {
+            "type": "error",
+            "tool": "execute_sql",
+            "sql": sql,
+            "error_message": error_detail,  # 完整错误信息（含 traceback）
+        }
 
 
 @tool(
@@ -312,8 +320,18 @@ async def execute_python(
         }
         return content, artifact
     else:
-        error_msg = f"Python 执行失败: {result.get('error', '未知错误')}"
-        return error_msg, {"type": "error", "code": code, "error_message": result.get("error")}
+        error_detail = result.get("error", "未知错误")
+        output = result.get("output", "")
+        # 给 LLM 简短摘要
+        error_summary = error_detail.split("\n")[0] if error_detail else "未知错误"
+        content = f"Python 执行失败: {error_summary}"
+        return content, {
+            "type": "error",
+            "tool": "execute_python",
+            "code": code,
+            "output": output,  # 执行时的标准输出
+            "error_message": error_detail,  # 完整错误信息（含 traceback）
+        }
 
 
 @tool(
@@ -379,5 +397,15 @@ async def generate_chart(
         }
         return content, artifact
     else:
-        error_msg = f"图表生成失败: {result.get('error', '未知错误')}"
-        return error_msg, {"type": "error", "error": result.get("error")}
+        error_detail = result.get("error", "未知错误")
+        output = result.get("output", "")
+        # 给 LLM 简短摘要
+        error_summary = error_detail.split("\n")[0] if error_detail else "未知错误"
+        content = f"图表生成失败: {error_summary}"
+        return content, {
+            "type": "error",
+            "tool": "generate_chart",
+            "code": code,
+            "output": output,
+            "error_message": error_detail,  # 完整错误信息（含 traceback）
+        }

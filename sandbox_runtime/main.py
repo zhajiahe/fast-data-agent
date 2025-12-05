@@ -696,8 +696,10 @@ async def execute_sql(
             conn.close()
 
     except Exception as e:
+        import traceback
+        error_traceback = traceback.format_exc()
         logger.exception("SQL execution failed")
-        return {"success": False, "error": str(e)}
+        return {"success": False, "error": f"{e!s}\n\n{error_traceback}"}
 
 
 # ==================== 数据分析 ====================
