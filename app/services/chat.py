@@ -21,7 +21,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
 
-
 # ==================== LLM 实例缓存 ====================
 
 
@@ -55,20 +54,20 @@ class LLMCache:
         cls._instances.clear()
 
 
-from app.models.session import AnalysisSession
-from app.models.message import ChatMessage
 from app.models.data_source import DataSource
-from app.repositories.message import ChatMessageRepository
+from app.models.message import ChatMessage
+from app.models.session import AnalysisSession
 from app.repositories.data_source import DataSourceRepository
+from app.repositories.message import ChatMessageRepository
 from app.utils.tools import (
     ChatContext,
     DataSourceContext,
+    execute_python,
+    execute_sql,
     generate_chart,
     get_sandbox_client,
     list_local_files,
     quick_analysis,
-    execute_python,
-    execute_sql,
 )
 
 # 过滤 LangGraph 内部序列化时的 Pydantic 警告
@@ -107,19 +106,22 @@ class ChatService:
         if not data_sources:
             return "当前没有可用的数据源。"
 
-        lines = ["可用的数据源列表："]
+        lines = ["可用的数据源："]
         for ds in data_sources:
-            info = f"- ID: {ds.id}, 名称: {ds.name}, 类型: {ds.source_type}"
+            # 基础信息
+            lines.append(f"- **{ds.name}** (ID: {ds.id})")
+            lines.append(f"  - 类型: {ds.source_type}")
+            lines.append(f'  - SQL 访问: `SELECT * FROM "{ds.name}" LIMIT 10`')
             if ds.description:
-                info += f", 描述: {ds.description}"
+                lines.append(f"  - 描述: {ds.description}")
             if ds.schema_cache:
                 tables = ds.schema_cache.get("tables", [])
                 if tables:
                     table_names = [t.get("name", "") for t in tables[:5]]
-                    info += f", 包含表: {', '.join(table_names)}"
+                    info = ", ".join(table_names)
                     if len(tables) > 5:
                         info += f" 等共 {len(tables)} 个表"
-            lines.append(info)
+                    lines.append(f"  - 包含表: {info}")
 
         return "\n".join(lines)
 
@@ -182,7 +184,7 @@ class ChatService:
 | execute_sql | DuckDB SQL 查询，结果自动保存为 parquet |
 | generate_chart | 基于数据生成 Plotly 图表 |
 | execute_python | 复杂数据处理和自定义分析 |
-| list_local_files | 查看会话中已生成的文件/图表/报告等, 以及用户上传的文件 |
+| list_local_files | 查看会话中已生成的文件 |
 
 ## 数据源
 {data_source_info}
@@ -190,9 +192,13 @@ class ChatService:
 ## 当前会话文件
 {local_files_info}
 
+## 数据访问规则 ⚠️
+1. **访问数据源**：在 execute_sql 中使用数据源名称，如 `SELECT * FROM "数据源名称"`
+2. **读取 SQL 结果**：execute_sql 返回的 result_file 可用于后续分析，如 `SELECT * FROM 'sql_result_xxx.parquet'`
+3. **generate_chart**：先用 execute_sql 查询数据，再用返回的 parquet 文件绘图
+
 ## 要点
 - SQL 查询大数据量时使用 LIMIT
-- execute_sql、execute_python、generate_chart 优先使用 SQL 缓存的 parquet 文件
 - 使用中文交流
 """
 

@@ -213,6 +213,32 @@ def ensure_session_dir(user_id: int, thread_id: int) -> Path:
     return session_dir
 
 
+def generate_unique_filename(directory: Path, prefix: str, ext: str) -> str:
+    """
+    生成唯一的文件名（4 个随机字母）。
+    
+    Args:
+        directory: 目标目录
+        prefix: 文件名前缀（如 "sql_result_"）
+        ext: 文件扩展名（如 ".parquet"）
+    
+    Returns:
+        唯一的文件名（如 "sql_result_abcd.parquet"）
+    """
+    import random
+    import string
+    
+    for _ in range(100):  # 最多尝试 100 次
+        suffix = ''.join(random.choices(string.ascii_lowercase, k=4))
+        filename = f"{prefix}{suffix}{ext}"
+        if not (directory / filename).exists():
+            return filename
+    
+    # 如果 100 次都冲突，使用时间戳兜底
+    import time
+    return f"{prefix}{int(time.time())}{ext}"
+
+
 def list_files_in_dir(directory: Path) -> list[dict[str, Any]]:
     """
     列出目录中的所有文件（递归）。
@@ -648,12 +674,11 @@ async def execute_sql(
             # 自动保存结果到 parquet 文件（供后续工具使用）
             result_file = None
             if rows and columns:
-                import time
                 import pandas as pd
                 
                 try:
                     df = pd.DataFrame(rows, columns=columns)
-                    result_file = f"sql_result_{int(time.time())}.parquet"
+                    result_file = generate_unique_filename(session_dir, "sql_result_", ".parquet")
                     df.to_parquet(session_dir / result_file, index=False)
                     logger.info(f"SQL result saved to {result_file}")
                 except Exception as e:
@@ -1004,7 +1029,8 @@ async def quick_analysis(
                 return {"success": False, "error": f"Unsupported file type: {file_type}"}
 
             analysis["source_type"] = "file"
-            analysis["file_name"] = ds.object_key.split("/")[-1] if ds.object_key else "unknown"
+            # 注意：不返回 object_key/file_name，避免 LLM 误用 UUID 文件名
+            # LLM 应该通过数据源名称访问数据
 
             return {"success": True, "analysis": analysis}
 
@@ -1138,9 +1164,7 @@ async def generate_chart(
             }
 
         # 保存图表
-        import time
-
-        chart_filename = f"chart_{int(time.time())}.html"
+        chart_filename = generate_unique_filename(session_dir, "chart_", ".html")
         chart_path = session_dir / chart_filename
         fig.write_html(str(chart_path), include_plotlyjs="cdn")
 
