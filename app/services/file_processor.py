@@ -121,10 +121,9 @@ class FileProcessorService:
 
             # 生成预览数据
             preview_df = df.head(preview_rows)
-            # 将 NaN 转换为 None，并确保所有值都是 Python 原生类型
-            preview_data = cls._convert_to_native_types(
-                preview_df.where(pd.notnull(preview_df), None).to_dict(orient="records")
-            )
+            # 将 DataFrame 转换为字典，然后手动处理 NaN
+            # to_dict() 会保留 NaN，需要在 _convert_to_native_types 中处理
+            preview_data = cls._convert_to_native_types(preview_df.to_dict(orient="records"))
 
             return {
                 "row_count": len(df),
@@ -234,19 +233,27 @@ class FileProcessorService:
         Returns:
             转换后的数据
         """
+        import math
+
         import numpy as np
 
         def convert_value(val: Any) -> Any:
             if val is None:
+                return None
+            # 检查 pandas/numpy NaN
+            if isinstance(val, float) and (math.isnan(val) or val != val):
                 return None
             if isinstance(val, np.bool_):
                 return bool(val)
             if isinstance(val, np.integer):
                 return int(val)
             if isinstance(val, np.floating):
-                return float(val) if not np.isnan(val) else None
+                return None if np.isnan(val) else float(val)
             if isinstance(val, np.ndarray):
                 return val.tolist()
+            # 处理 pandas Timestamp
+            if hasattr(val, "isoformat"):
+                return val.isoformat()
             return val
 
         return [{k: convert_value(v) for k, v in row.items()} for row in data]
