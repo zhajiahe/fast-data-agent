@@ -27,6 +27,7 @@ from langchain_core.messages import AIMessageChunk, ToolMessageChunk
 from app.core.deps import CurrentUser, DBSession
 from app.models.base import BasePageQuery, BaseResponse, PageResponse
 from app.models.message import ChatMessage
+from app.repositories.message import ChatMessageRepository
 from app.schemas.message import ChatMessageCreate, ChatMessageResponse
 from app.services.chat import ChatService
 from app.services.session import AnalysisSessionService
@@ -461,4 +462,28 @@ async def get_messages(
             total=total,
             items=items,
         ),
+    )
+
+
+@router.delete("/messages", response_model=BaseResponse[int])
+async def clear_messages(
+    session_id: int,
+    db: DBSession,
+    current_user: CurrentUser,
+):
+    """清空会话的所有消息"""
+    # 验证会话权限
+    session_service = AnalysisSessionService(db)
+    await session_service.get_session(session_id, current_user.id)
+
+    # 清空消息
+    repo = ChatMessageRepository(db)
+    count = await repo.clear_by_session(session_id)
+    await db.commit()
+
+    return BaseResponse(
+        success=True,
+        code=200,
+        msg=f"已清空 {count} 条消息",
+        data=count,
     )

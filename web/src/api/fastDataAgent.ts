@@ -276,6 +276,14 @@ export interface BaseResponseNoneType {
   err?: null;
 }
 
+export interface BaseResponseInt {
+  success: boolean;
+  code: number;
+  msg: string;
+  data?: number;
+  err?: number | null;
+}
+
 export type BaseResponsePageResponseAnalysisSessionResponseData = PageResponseAnalysisSessionResponse | null;
 
 export type BaseResponsePageResponseAnalysisSessionResponseErr = PageResponseAnalysisSessionResponse | null;
@@ -1860,6 +1868,18 @@ export const getMessagesApiV1SessionsSessionIdMessagesGet = <TData = AxiosRespon
       `/api/v1/sessions/${sessionId}/messages`,{
     ...options,
         params: {...params, ...options?.params},}
+    );
+  }
+
+/**
+ * 清空会话的所有消息
+ * @summary Clear Messages
+ */
+export const clearMessagesApiV1SessionsSessionIdMessagesDelete = <TData = AxiosResponse<BaseResponseInt>>(
+    sessionId: number, options?: AxiosRequestConfig
+ ): Promise<TData> => {
+    return axios.delete(
+      `/api/v1/sessions/${sessionId}/messages`, options
     );
   }
 

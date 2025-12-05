@@ -32,6 +32,7 @@ import {
   archiveSessionApiV1SessionsSessionIdArchivePost,
   // Messages
   getMessagesApiV1SessionsSessionIdMessagesGet,
+  clearMessagesApiV1SessionsSessionIdMessagesDelete,
   // Recommendations
   getRecommendationsApiV1SessionsSessionIdRecommendationsGet,
   generateRecommendationsApiV1SessionsSessionIdRecommendationsPost,
@@ -224,6 +225,16 @@ export const useMessages = (
     queryFn: () => getMessagesApiV1SessionsSessionIdMessagesGet(sessionId, params),
     enabled: !!sessionId,
     ...options,
+  });
+};
+
+export const useClearMessages = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (sessionId: number) => clearMessagesApiV1SessionsSessionIdMessagesDelete(sessionId),
+    onSuccess: (_data, sessionId) => {
+      queryClient.invalidateQueries({ queryKey: ['messages', sessionId] });
+    },
   });
 };
 

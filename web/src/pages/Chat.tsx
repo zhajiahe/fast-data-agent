@@ -1,9 +1,9 @@
-import { ChevronLeft, Database, PanelRight, PanelRightClose, Send, Sparkles, StopCircle } from 'lucide-react';
+import { ChevronLeft, Database, PanelRight, PanelRightClose, Send, Sparkles, StopCircle, Trash2 } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
-import { useSession, useMessages, type ChatMessageResponse, type AnalysisSessionDetail, generateFollowupRecommendationsApiV1SessionsSessionIdRecommendationsFollowupPost } from '@/api';
+import { useSession, useMessages, useClearMessages, type ChatMessageResponse, type AnalysisSessionDetail, generateFollowupRecommendationsApiV1SessionsSessionIdRecommendationsFollowupPost } from '@/api';
 import { ChatMessage } from '@/components/chat/ChatMessage';
 import { RecommendationPanel } from '@/components/chat/RecommendationPanel';
 import { SessionFilesPanel } from '@/components/chat/SessionFilesPanel';
@@ -77,6 +77,7 @@ export const Chat = () => {
   // 使用生成的 API hooks
   const { data: sessionResponse } = useSession(sessionId);
   const { data: messagesResponse, refetch: refetchMessages } = useMessages(sessionId, { page_size: 100 });
+  const clearMessagesMutation = useClearMessages();
 
   const currentSession: AnalysisSessionDetail | null = sessionResponse?.data.data || null;
   
@@ -345,6 +346,18 @@ export const Chat = () => {
     handleSend(query);
   }, [handleSend]);
 
+  // 清空对话
+  const handleClearMessages = useCallback(async () => {
+    if (!sessionId || isGenerating) return;
+    try {
+      await clearMessagesMutation.mutateAsync(sessionId);
+      setMessages([]);
+      toast({ title: t('chat.messagesCleared') });
+    } catch {
+      toast({ title: t('chat.clearFailed'), variant: 'destructive' });
+    }
+  }, [sessionId, isGenerating, clearMessagesMutation, toast, t]);
+
   if (!sessionId) {
     return (
       <div className="flex items-center justify-center h-screen">
@@ -426,6 +439,15 @@ export const Chat = () => {
                 disabled={isGenerating}
               />
               <div className="absolute right-2 bottom-2 flex gap-2">
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={handleClearMessages}
+                  disabled={isGenerating || messages.length === 0}
+                  title={t('chat.clearMessages')}
+                >
+                  <Trash2 className="h-4 w-4" />
+                </Button>
                 {isGenerating ? (
                   <Button size="sm" variant="destructive" onClick={handleStop}>
                     <StopCircle className="h-4 w-4 mr-1" />

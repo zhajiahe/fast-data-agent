@@ -59,6 +59,23 @@ class ChatMessageRepository(BaseRepository[ChatMessage]):
         result = await self.db.execute(query)
         return result.scalar() or 0
 
+    async def clear_by_session(self, session_id: int) -> int:
+        """
+        清空会话的所有消息（硬删除）
+
+        Args:
+            session_id: 会话 ID
+
+        Returns:
+            删除的消息数量
+        """
+        from sqlalchemy import delete
+
+        query = delete(ChatMessage).where(ChatMessage.session_id == session_id)
+        result = await self.db.execute(query)
+        await self.db.flush()
+        return result.rowcount or 0
+
     async def save_langchain_message(
         self,
         session_id: int,
