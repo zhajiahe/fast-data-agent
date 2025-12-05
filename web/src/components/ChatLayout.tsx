@@ -14,7 +14,7 @@ export const ChatLayout = ({ children }: ChatLayoutProps) => {
       <header className="h-14 border-b bg-background/95 backdrop-blur shrink-0">
         <div className="h-full flex items-center px-4">
           <Link to="/" className="flex items-center space-x-2">
-            <img src="/data_agent_logo.png" alt="Logo" className="h-7 w-7 rounded-lg" />
+            <img src={`${import.meta.env.BASE_URL}data_agent_logo.png`} alt="Logo" className="h-7 w-7 rounded-lg" />
             <span className="font-semibold text-sm bg-gradient-to-r from-violet-600 to-purple-600 bg-clip-text text-transparent">
               Fast Data Agent
             </span>
