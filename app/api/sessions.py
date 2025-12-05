@@ -2,10 +2,14 @@
 分析会话 API 路由
 """
 
+from typing import Any
+
 from fastapi import APIRouter, Depends, status
+from fastapi.responses import StreamingResponse
 
 from app.core.deps import CurrentUser, DBSession
 from app.models.base import BasePageQuery, BaseResponse, PageResponse
+from app.utils.tools import get_sandbox_client
 from app.schemas.session import (
     AnalysisSessionCreate,
     AnalysisSessionDetail,
@@ -102,3 +106,76 @@ async def archive_session(session_id: int, current_user: CurrentUser, db: DBSess
     service = AnalysisSessionService(db)
     item = await service.archive_session(session_id, current_user.id)
     return BaseResponse(success=True, code=200, msg="会话已归档", data=AnalysisSessionResponse.model_validate(item))
+
+
+# ==================== 会话文件管理 ====================
+
+
+@router.get("/{session_id}/files", response_model=BaseResponse[dict[str, Any]])
+async def list_session_files(session_id: int, current_user: CurrentUser, db: DBSession):
+    """
+    列出会话文件
+
+    返回会话目录中的所有文件，包括：
+    - 用户上传的数据文件
+    - SQL 查询结果的 parquet 缓存
+    - 生成的图表文件
+    - 其他分析过程中产生的文件
+    """
+    # 验证会话权限
+    service = AnalysisSessionService(db)
+    await service.get_session(session_id, current_user.id)
+
+    # 调用 sandbox API
+    client = get_sandbox_client()
+    response = await client.get(
+        "/files",
+        params={"user_id": current_user.id, "thread_id": session_id},
+    )
+    result = response.json()
+
+    return BaseResponse(
+        success=True,
+        code=200,
+        msg="获取文件列表成功",
+        data={"files": result.get("files", []), "count": result.get("count", 0)},
+    )
+
+
+@router.get("/{session_id}/files/{filename:path}")
+async def download_session_file(
+    session_id: int,
+    filename: str,
+    current_user: CurrentUser,
+    db: DBSession,
+):
+    """
+    下载会话文件
+
+    Args:
+        session_id: 会话 ID
+        filename: 文件名（相对于会话目录的路径）
+    """
+    # 验证会话权限
+    service = AnalysisSessionService(db)
+    await service.get_session(session_id, current_user.id)
+
+    # 调用 sandbox API 流式下载
+    client = get_sandbox_client()
+    response = await client.get(
+        f"/download/{filename}",
+        params={"user_id": current_user.id, "thread_id": session_id},
+    )
+
+    if response.status_code == 404:
+        return BaseResponse(success=False, code=404, msg="文件不存在", data=None)
+
+    if response.status_code != 200:
+        return BaseResponse(success=False, code=response.status_code, msg="下载失败", data=None)
+
+    # 流式返回文件内容
+    return StreamingResponse(
+        iter([response.content]),
+        media_type="application/octet-stream",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
