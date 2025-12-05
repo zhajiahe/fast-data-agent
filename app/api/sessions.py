@@ -4,7 +4,7 @@
 
 from typing import Any
 
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, File, UploadFile, status
 from fastapi.responses import StreamingResponse
 
 from app.core.deps import CurrentUser, DBSession
@@ -109,6 +109,48 @@ async def archive_session(session_id: int, current_user: CurrentUser, db: DBSess
 
 
 # ==================== 会话文件管理 ====================
+
+
+@router.post("/{session_id}/files/upload", response_model=BaseResponse[dict[str, Any]])
+async def upload_session_file(
+    session_id: int,
+    file: UploadFile = File(...),
+    current_user: CurrentUser = Depends(),
+    db: DBSession = Depends(),
+):
+    """
+    上传文件到会话目录
+
+    用于上传临时数据文件供 AI 分析使用。
+    文件会保存到沙盒的会话目录中。
+    """
+    # 验证会话权限
+    service = AnalysisSessionService(db)
+    await service.get_session(session_id, current_user.id)
+
+    # 调用 sandbox API 上传文件
+    client = get_sandbox_client()
+    content = await file.read()
+    
+    response = await client.post(
+        "/upload",
+        params={"user_id": current_user.id, "thread_id": session_id},
+        files={"file": (file.filename, content, file.content_type or "application/octet-stream")},
+    )
+    result = response.json()
+
+    if not result.get("success"):
+        return BaseResponse(success=False, code=500, msg=result.get("message", "上传失败"), data=None)
+
+    return BaseResponse(
+        success=True,
+        code=200,
+        msg="文件上传成功",
+        data={
+            "filename": file.filename,
+            "path": result.get("path"),
+        },
+    )
 
 
 @router.get("/{session_id}/files", response_model=BaseResponse[dict[str, Any]])

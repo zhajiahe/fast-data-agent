@@ -6,6 +6,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useSession, useMessages, type ChatMessageResponse, type AnalysisSessionDetail, generateFollowupRecommendationsApiV1SessionsSessionIdRecommendationsFollowupPost } from '@/api';
 import { ChatMessage } from '@/components/chat/ChatMessage';
 import { RecommendationPanel } from '@/components/chat/RecommendationPanel';
+import { SessionFilesPanel } from '@/components/chat/SessionFilesPanel';
 import { ToolCallDisplay } from '@/components/chat/ToolCallDisplay';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -372,9 +373,12 @@ export const Chat = () => {
               )}
             </div>
           </div>
-          <Button variant="ghost" size="icon" onClick={() => setShowPanel(!showPanel)}>
-            {showPanel ? <PanelRightClose className="h-5 w-5" /> : <PanelRight className="h-5 w-5" />}
-          </Button>
+          <div className="flex items-center gap-1">
+            <SessionFilesPanel sessionId={sessionId} />
+            <Button variant="ghost" size="icon" onClick={() => setShowPanel(!showPanel)}>
+              {showPanel ? <PanelRightClose className="h-5 w-5" /> : <PanelRight className="h-5 w-5" />}
+            </Button>
+          </div>
         </div>
 
         {/* 消息列表 */}

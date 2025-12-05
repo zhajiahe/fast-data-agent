@@ -135,6 +135,18 @@
     "uploading": "上传中...",
     "uploadSuccess": "文件上传成功"
   },
+  "sessionFiles": {
+    "title": "会话文件",
+    "description": "查看和管理分析过程中的文件",
+    "fileList": "文件列表",
+    "noFiles": "暂无文件",
+    "dragOrClick": "拖拽文件上传，或点击选择",
+    "uploading": "上传中...",
+    "uploadSuccess": "上传成功",
+    "uploadSuccessDesc": "文件已上传到会话目录",
+    "uploadFailed": "上传失败",
+    "downloadFailed": "下载失败"
+  },
   "auth": {
     "login": "登录",
     "login_subtitle": "登录到您的账户",

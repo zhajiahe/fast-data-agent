@@ -135,6 +135,18 @@
     "uploading": "Uploading...",
     "uploadSuccess": "File uploaded successfully"
   },
+  "sessionFiles": {
+    "title": "Session Files",
+    "description": "View and manage files in the analysis session",
+    "fileList": "Files",
+    "noFiles": "No files yet",
+    "dragOrClick": "Drop files here, or click to select",
+    "uploading": "Uploading...",
+    "uploadSuccess": "Upload Successful",
+    "uploadSuccessDesc": "File uploaded to session directory",
+    "uploadFailed": "Upload Failed",
+    "downloadFailed": "Download Failed"
+  },
   "auth": {
     "login": "Login",
     "login_subtitle": "Sign in to your account",
