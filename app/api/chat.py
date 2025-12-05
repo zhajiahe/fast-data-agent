@@ -176,6 +176,7 @@ def _chat_message_to_response(msg: ChatMessage) -> ChatMessageResponse:
         name=msg.name,
         tool_calls=msg.tool_calls,
         tool_call_id=msg.tool_call_id,
+        artifact=msg.artifact,  # 工具产出物（图表、表格等）
         usage_metadata=msg.usage_metadata,
         create_time=msg.create_time,
     )

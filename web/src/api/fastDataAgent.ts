@@ -481,6 +481,13 @@ export type ChatMessageResponseUsageMetadata = ChatMessageResponseUsageMetadataA
  */
 export type ChatMessageResponseToolCallId = string | null;
 
+export type ChatMessageResponseArtifactAnyOf = { [key: string]: unknown };
+
+/**
+ * 工具产出物(图表、表格等)
+ */
+export type ChatMessageResponseArtifact = ChatMessageResponseArtifactAnyOf | null;
+
 /**
  * 创建时间
  */
@@ -508,6 +515,8 @@ export interface ChatMessageResponse {
   usage_metadata?: ChatMessageResponseUsageMetadata;
   /** 工具调用ID */
   tool_call_id?: ChatMessageResponseToolCallId;
+  /** 工具产出物(图表、表格等) */
+  artifact?: ChatMessageResponseArtifact;
   /** 创建时间 */
   create_time?: ChatMessageResponseCreateTime;
 }

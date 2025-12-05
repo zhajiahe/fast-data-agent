@@ -34,6 +34,7 @@ class ChatMessageResponse(BaseModel):
 
     # ToolMessage 特有字段
     tool_call_id: str | None = Field(default=None, description="工具调用ID")
+    artifact: dict[str, Any] | None = Field(default=None, description="工具产出物(图表、表格等)")
 
     create_time: datetime | None = Field(default=None, description="创建时间")
 

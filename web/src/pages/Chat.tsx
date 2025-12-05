@@ -104,7 +104,7 @@ export const Chat = () => {
     // 没有消息数据时不处理
     if (!apiMessagesItems) return;
     
-    // 转换 API 消息
+    // 转换 API 消息（包含 artifact）
     const convertedMessages = apiMessagesItems.map((m) => ({
       id: m.id,
       session_id: m.session_id,
@@ -112,6 +112,7 @@ export const Chat = () => {
       content: m.content,
       tool_call_id: m.tool_call_id || undefined,
       tool_name: m.name || undefined,
+      artifact: m.artifact as SSEEvent['artifact'] | undefined,
       create_time: m.create_time || new Date().toISOString(),
     }));
     
