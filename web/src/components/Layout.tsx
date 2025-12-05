@@ -71,7 +71,7 @@ export const Layout = ({ children }: LayoutProps) => {
         <div className="container flex h-14 items-center px-4">
           {/* Logo */}
           <Link to="/" className="mr-6 flex items-center space-x-2">
-            <img src={`${import.meta.env.BASE_URL}data_agent_logo.png`} alt="Logo" className="h-8 w-8 rounded-lg" />
+            <img src={`${import.meta.env.BASE_URL}data_agent_logo.png`} alt="Logo" className="h-8 w-auto rounded-lg" />
             <span className="hidden font-bold sm:inline-block bg-gradient-to-r from-violet-600 to-purple-600 bg-clip-text text-transparent">
               Fast Data Agent
             </span>

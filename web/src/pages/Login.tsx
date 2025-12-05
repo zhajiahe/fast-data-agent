@@ -80,7 +80,7 @@ export const Login = () => {
         {/* Logo */}
         <div className="relative">
           <div className="flex items-center gap-3">
-            <img src={`${import.meta.env.BASE_URL}data_agent_logo.png`} alt="Logo" className="h-10 w-10 rounded-xl" />
+            <img src={`${import.meta.env.BASE_URL}data_agent_logo.png`} alt="Logo" className="h-10 w-auto rounded-xl" />
             <span className="text-2xl font-bold text-white">Fast Data Agent</span>
           </div>
         </div>
@@ -101,7 +101,7 @@ export const Login = () => {
           <CardHeader className="space-y-1 text-center">
             {/* 移动端 Logo */}
             <div className="lg:hidden flex justify-center mb-4">
-              <img src={`${import.meta.env.BASE_URL}data_agent_logo.png`} alt="Logo" className="h-12 w-12 rounded-xl" />
+              <img src={`${import.meta.env.BASE_URL}data_agent_logo.png`} alt="Logo" className="h-12 w-auto rounded-xl" />
             </div>
             <CardTitle className="text-2xl">{t('auth.login')}</CardTitle>
             <CardDescription>{t('auth.login_subtitle')}</CardDescription>
