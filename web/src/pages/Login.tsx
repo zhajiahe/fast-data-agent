@@ -1,5 +1,5 @@
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Loader2, Sparkles } from 'lucide-react';
+import { Loader2 } from 'lucide-react';
 import { useForm } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
@@ -80,9 +80,7 @@ export const Login = () => {
         {/* Logo */}
         <div className="relative">
           <div className="flex items-center gap-3">
-            <div className="h-10 w-10 rounded-xl bg-white/20 backdrop-blur flex items-center justify-center">
-              <Sparkles className="h-5 w-5 text-white" />
-            </div>
+            <img src="/data_agent_logo.png" alt="Logo" className="h-10 w-10 rounded-xl" />
             <span className="text-2xl font-bold text-white">Fast Data Agent</span>
           </div>
         </div>
@@ -103,9 +101,7 @@ export const Login = () => {
           <CardHeader className="space-y-1 text-center">
             {/* 移动端 Logo */}
             <div className="lg:hidden flex justify-center mb-4">
-              <div className="h-12 w-12 rounded-xl bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center">
-                <Sparkles className="h-6 w-6 text-white" />
-              </div>
+              <img src="/data_agent_logo.png" alt="Logo" className="h-12 w-12 rounded-xl" />
             </div>
             <CardTitle className="text-2xl">{t('auth.login')}</CardTitle>
             <CardDescription>{t('auth.login_subtitle')}</CardDescription>

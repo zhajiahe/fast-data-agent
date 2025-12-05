@@ -7,7 +7,6 @@ import {
   MessageSquare,
   MoonIcon,
   SettingsIcon,
-  Sparkles,
   SunIcon,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
@@ -72,9 +71,7 @@ export const Layout = ({ children }: LayoutProps) => {
         <div className="container flex h-14 items-center px-4">
           {/* Logo */}
           <Link to="/" className="mr-6 flex items-center space-x-2">
-            <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center">
-              <Sparkles className="h-4 w-4 text-white" />
-            </div>
+            <img src="/data_agent_logo.png" alt="Logo" className="h-8 w-8 rounded-lg" />
             <span className="hidden font-bold sm:inline-block bg-gradient-to-r from-violet-600 to-purple-600 bg-clip-text text-transparent">
               Fast Data Agent
             </span>
