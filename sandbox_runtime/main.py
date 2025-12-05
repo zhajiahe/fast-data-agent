@@ -185,6 +185,7 @@ class CodeExecutionResult(BaseModel):
     success: bool
     output: str
     error: str | None = None
+    files_created: list[str] = []  # 执行过程中创建的文件
 
 
 # ==================== 辅助函数 ====================
@@ -563,6 +564,7 @@ async def execute_python(
         return CodeExecutionResult(
             success=True,
             output=stdout_buffer.getvalue(),
+            files_created=files_created,
         )
 
     except Exception as e:

@@ -17,11 +17,24 @@ interface LocalMessage {
   tool_name?: string;
   artifact?: {
     type: string;
+    // plotly
     chart_json?: string;
+    // table / sql
     columns?: string[];
     rows?: unknown[][];
     title?: string;
+    // sql
+    sql?: string;
+    total_rows?: number;
+    truncated?: boolean;
+    result_file?: string;
+    // code
+    code?: string;
+    output?: string;
+    files_created?: string[];
+    // error
     error_message?: string;
+    // file
     filename?: string;
   };
   create_time: string;
@@ -89,6 +102,45 @@ export const ChatMessage = ({ message, isStreaming }: ChatMessageProps) => {
           );
         }
         break;
+
+      case 'sql':
+        return (
+          <div className="mt-4 space-y-3">
+            {message.artifact.sql && (
+              <pre className="p-3 bg-muted rounded-lg overflow-x-auto">
+                <code className="text-xs font-mono text-blue-600 dark:text-blue-400">{message.artifact.sql}</code>
+              </pre>
+            )}
+            {message.artifact.columns && message.artifact.rows && (
+              <DataTable
+                columns={message.artifact.columns}
+                rows={message.artifact.rows as unknown[][]}
+                title={message.artifact.truncated 
+                  ? `结果 (前 ${message.artifact.rows.length} 行 / 共 ${message.artifact.total_rows} 行)` 
+                  : undefined}
+              />
+            )}
+          </div>
+        );
+
+      case 'code':
+        return (
+          <div className="mt-4 space-y-3">
+            {message.artifact.code && (
+              <pre className="p-3 bg-muted rounded-lg overflow-x-auto">
+                <code className="text-xs font-mono">{message.artifact.code}</code>
+              </pre>
+            )}
+            {message.artifact.output && (
+              <pre className="p-3 bg-black/90 text-green-400 rounded-lg overflow-x-auto text-xs font-mono whitespace-pre-wrap">
+                {message.artifact.output}
+              </pre>
+            )}
+            {message.artifact.files_created && message.artifact.files_created.length > 0 && (
+              <p className="text-xs text-muted-foreground">📁 生成文件: {message.artifact.files_created.join(', ')}</p>
+            )}
+          </div>
+        );
 
       case 'error':
         return (

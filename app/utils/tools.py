@@ -6,7 +6,6 @@ from pydantic import BaseModel, Field
 
 from app.core.config import settings
 
-
 # ==================== HTTP 客户端连接池 ====================
 
 
@@ -171,6 +170,7 @@ async def quick_analysis(
 
 
 @tool(
+    response_format="content_and_artifact",
     description="""使用 DuckDB SQL 方言查询数据。
 **数据源访问方式**：
 1. 会话数据源：使用数据源名称或 ds_ID
@@ -190,13 +190,17 @@ async def quick_analysis(
 async def execute_sql(
     sql: str,
     runtime: ToolRuntime,
-) -> Any:
+) -> tuple[str, dict[str, Any]]:
     """
     执行 DuckDB SQL 查询。
     支持对会话中所有数据源进行 SQL 查询分析。
 
     Args:
         sql: duckdb sql query，表名使用数据源名称或 ds_{id} 格式
+
+    Returns:
+        content: 给 LLM 看的简短描述
+        artifact: 包含 SQL 和查询结果的字典（前端渲染用）
     """
     runtime.stream_writer("正在执行 SQL 查询...")
     ctx: ChatContext = runtime.context  # type: ignore[assignment]
@@ -231,11 +235,32 @@ async def execute_sql(
             "data_sources": data_sources_info,
         },
     )
-    return response.json()
+    result = response.json()
+
+    if result.get("success"):
+        row_count = result.get("row_count", 0)
+        content = f"查询成功，返回 {row_count} 行数据"
+
+        # 限制 artifact 中的行数，避免数据过大
+        rows = result.get("rows", [])
+        max_rows = 100
+        artifact = {
+            "type": "sql",
+            "sql": sql,
+            "columns": result.get("columns", []),
+            "rows": rows[:max_rows],
+            "total_rows": row_count,
+            "truncated": len(rows) > max_rows,
+            "result_file": result.get("result_file"),
+        }
+        return content, artifact
+    else:
+        error_msg = f"SQL 执行失败: {result.get('error', '未知错误')}"
+        return error_msg, {"type": "error", "sql": sql, "error_message": result.get("error")}
 
 
 @tool(
-    response_format="content",
+    response_format="content_and_artifact",
     description="""执行 Python 代码进行数据处理。
 **最佳实践**：
 如果你正在清洗数据以便绘图，请务必将最终的 DataFrame 保存为文件。
@@ -245,13 +270,17 @@ async def execute_sql(
 async def execute_python(
     code: str,
     runtime: ToolRuntime,
-) -> Any:
+) -> tuple[str, dict[str, Any]]:
     """
     在沙盒中执行 Python 代码，用于复杂数据处理和分析。
     可以使用 pandas、numpy 等数据分析库。
 
     Args:
         code: 要执行的 Python 代码
+
+    Returns:
+        content: 给 LLM 看的简短描述
+        artifact: 包含代码和执行结果的字典（前端渲染用）
     """
     runtime.stream_writer("正在执行 Python 代码...")
     ctx: ChatContext = runtime.context  # type: ignore[assignment]
@@ -265,7 +294,26 @@ async def execute_python(
         },
         json={"code": code},
     )
-    return response.json()
+    result = response.json()
+
+    if result.get("success"):
+        output = result.get("output", "")
+        files_created = result.get("files_created", [])
+        # 给 LLM 的简短描述
+        content = output[:500] if output else "代码执行成功"
+        if files_created:
+            content += f"\n生成文件: {', '.join(files_created)}"
+
+        artifact = {
+            "type": "code",
+            "code": code,
+            "output": output,
+            "files_created": files_created,
+        }
+        return content, artifact
+    else:
+        error_msg = f"Python 执行失败: {result.get('error', '未知错误')}"
+        return error_msg, {"type": "error", "code": code, "error_message": result.get("error")}
 
 
 @tool(

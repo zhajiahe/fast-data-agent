@@ -28,8 +28,8 @@ from app.core.deps import CurrentUser, DBSession
 from app.models.base import BasePageQuery, BaseResponse, PageResponse
 from app.models.message import ChatMessage
 from app.schemas.message import ChatMessageCreate, ChatMessageResponse
-from app.services.session import AnalysisSessionService
 from app.services.chat import ChatService
+from app.services.session import AnalysisSessionService
 
 router = APIRouter(prefix="/sessions/{session_id}", tags=["chat"])
 
@@ -135,6 +135,7 @@ class VercelStreamBuilder:
         tool_call_id: str,
         output: Any,
         artifact: dict[str, Any] | None = None,
+        tool_name: str | None = None,
     ) -> str:
         """工具输出完成"""
         result: dict[str, Any] = {
@@ -142,6 +143,8 @@ class VercelStreamBuilder:
             "toolCallId": tool_call_id,
             "output": output,
         }
+        if tool_name:
+            result["toolName"] = tool_name
         # 如果有 artifact（如图表数据），作为额外数据传递
         if artifact:
             result["artifact"] = artifact
@@ -213,6 +216,7 @@ async def _stream_chat_response(
     session = await session_service.get_session(session_id, user_id)
 
     builder = VercelStreamBuilder()
+    sent_tool_outputs: set[str] = set()  # 跟踪已发送的工具输出，避免重复
 
     try:
         # 发送消息开始
@@ -252,6 +256,12 @@ async def _stream_chat_response(
                 # ToolMessage 或 ToolMessageChunk -> 工具结果
                 if isinstance(message, (ToolMessage, ToolMessageChunk)):
                     tool_call_id = getattr(message, "tool_call_id", None) or f"call_{uuid.uuid4().hex[:8]}"
+                    # 避免重复发送同一个工具结果
+                    if tool_call_id in sent_tool_outputs:
+                        continue
+                    sent_tool_outputs.add(tool_call_id)
+
+                    tool_name = getattr(message, "name", None)
                     content_str = str(message.content) if hasattr(message, "content") else ""
                     artifact = getattr(message, "artifact", None)
 
@@ -261,7 +271,7 @@ async def _stream_chat_response(
                     except json.JSONDecodeError:
                         output = {"result": content_str}
 
-                    yield builder.tool_output_available(tool_call_id, output, artifact)
+                    yield builder.tool_output_available(tool_call_id, output, artifact, tool_name)
                     continue
 
                 # 普通 AI token -> 文本流
@@ -302,6 +312,12 @@ async def _stream_chat_response(
                             # 处理工具结果
                             elif serialized.get("tool_call_id"):
                                 tool_call_id = serialized["tool_call_id"]
+                                # 避免重复发送同一个工具结果
+                                if tool_call_id in sent_tool_outputs:
+                                    continue
+                                sent_tool_outputs.add(tool_call_id)
+
+                                tool_name = serialized.get("name")
                                 content_str = serialized.get("content", "")
                                 artifact = serialized.get("artifact")
 
@@ -310,7 +326,7 @@ async def _stream_chat_response(
                                 except json.JSONDecodeError:
                                     output = {"result": content_str}
 
-                                yield builder.tool_output_available(tool_call_id, output, artifact)
+                                yield builder.tool_output_available(tool_call_id, output, artifact, tool_name)
 
         # 如果文本块未结束，结束它
         if builder.text_started:
