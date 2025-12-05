@@ -77,6 +77,41 @@ class ChatContext(BaseModel):
     data_sources: list[DataSourceContext] = Field(default_factory=list)
 
 
+# ==================== 错误处理工具 ====================
+
+
+def extract_error_for_llm(error_text: str, max_lines: int = 10) -> str:
+    """
+    从错误信息中提取对 LLM 有价值的关键行。
+    保留: 错误类型、错误消息、Did you mean 建议、KeyError 等。
+    过滤: 完整的 traceback 堆栈。
+    """
+    if not error_text:
+        return "未知错误"
+
+    lines = error_text.split("\n")
+    key_lines: list[str] = []
+    keywords = ("error", "exception", "did you mean", "keyerror", "invalid", "not found", "不存在")
+
+    for line in lines:
+        stripped = line.strip()
+        if not stripped:
+            continue
+        # 跳过 traceback 的堆栈行（File "...", line ...）
+        if stripped.startswith("File ") and ", line " in stripped:
+            continue
+        # 跳过纯缩进的代码行
+        if line.startswith("    ") and not any(kw in stripped.lower() for kw in keywords):
+            continue
+        # 保留关键信息行
+        if any(kw in stripped.lower() for kw in keywords) or len(key_lines) < 3:
+            key_lines.append(stripped)
+
+    # 限制最大行数
+    result = "\n".join(key_lines[:max_lines])
+    return result if result else error_text.split("\n")[0]
+
+
 # ==================== 工具定义 ====================
 
 
@@ -256,14 +291,14 @@ async def execute_sql(
         return content, artifact
     else:
         error_detail = result.get("error", "未知错误")
-        # 给 LLM 简短摘要
-        error_summary = error_detail.split("\n")[0] if error_detail else "未知错误"
-        content = f"SQL 执行失败: {error_summary}"
+        # 给 LLM 关键错误信息（便于反思和修正）
+        error_for_llm = extract_error_for_llm(error_detail)
+        content = f"SQL 执行失败:\n{error_for_llm}"
         return content, {
             "type": "error",
             "tool": "execute_sql",
             "sql": sql,
-            "error_message": error_detail,  # 完整错误信息（含 traceback）
+            "error_message": error_detail,  # 完整错误信息（给前端调试用）
         }
 
 
@@ -322,15 +357,15 @@ async def execute_python(
     else:
         error_detail = result.get("error", "未知错误")
         output = result.get("output", "")
-        # 给 LLM 简短摘要
-        error_summary = error_detail.split("\n")[0] if error_detail else "未知错误"
-        content = f"Python 执行失败: {error_summary}"
+        # 给 LLM 关键错误信息（便于反思和修正）
+        error_for_llm = extract_error_for_llm(error_detail)
+        content = f"Python 执行失败:\n{error_for_llm}"
         return content, {
             "type": "error",
             "tool": "execute_python",
             "code": code,
             "output": output,  # 执行时的标准输出
-            "error_message": error_detail,  # 完整错误信息（含 traceback）
+            "error_message": error_detail,  # 完整错误信息（给前端调试用）
         }
 
 
@@ -399,13 +434,13 @@ async def generate_chart(
     else:
         error_detail = result.get("error", "未知错误")
         output = result.get("output", "")
-        # 给 LLM 简短摘要
-        error_summary = error_detail.split("\n")[0] if error_detail else "未知错误"
-        content = f"图表生成失败: {error_summary}"
+        # 给 LLM 关键错误信息（便于反思和修正）
+        error_for_llm = extract_error_for_llm(error_detail)
+        content = f"图表生成失败:\n{error_for_llm}"
         return content, {
             "type": "error",
             "tool": "generate_chart",
             "code": code,
             "output": output,
-            "error_message": error_detail,  # 完整错误信息（含 traceback）
+            "error_message": error_detail,  # 完整错误信息（给前端调试用）
         }
