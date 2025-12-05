@@ -99,7 +99,7 @@ export const Chat = () => {
   // 同步 API 消息到本地
   // - 首次加载：直接使用 API 消息
   // - 生成过程中：不同步（避免覆盖 SSE 流添加的消息）
-  // - 生成完成后：API 消息包含后端保存的新消息，直接使用
+  // - 生成完成后：API 消息包含后端保存的新消息，按时间排序后使用
   useEffect(() => {
     // 生成过程中不同步
     if (isGenerating) return;
@@ -118,6 +118,11 @@ export const Chat = () => {
       artifact: m.artifact as SSEEvent['artifact'] | undefined,
       create_time: m.create_time || new Date().toISOString(),
     }));
+    
+    // 按 create_time 排序，确保消息顺序正确
+    convertedMessages.sort((a, b) => 
+      new Date(a.create_time).getTime() - new Date(b.create_time).getTime()
+    );
     
     setLocalMessages(convertedMessages);
   }, [apiMessagesItems, isGenerating]);
