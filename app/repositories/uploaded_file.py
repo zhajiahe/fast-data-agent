@@ -83,4 +83,3 @@ class UploadedFileRepository(BaseRepository[UploadedFile]):
             select(UploadedFile).where(UploadedFile.stored_name == stored_name, UploadedFile.deleted == 0)
         )
         return result.scalar_one_or_none()
-

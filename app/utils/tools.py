@@ -171,7 +171,7 @@ async def quick_analysis(
 
 
 @tool(
-description="""使用 DuckDB SQL 方言查询数据。
+    description="""使用 DuckDB SQL 方言查询数据。
 **数据源访问方式**：
 1. 会话数据源：使用数据源名称或 ds_ID
    - `SELECT * FROM "电商订单数据" LIMIT 10`
@@ -210,11 +210,13 @@ async def execute_sql(
             "source_type": ds.source_type,
         }
         if ds.source_type == "file":
-            ds_info.update({
-                "file_type": ds.file_type,
-                "object_key": ds.object_key,
-                "bucket_name": ds.bucket_name,
-            })
+            ds_info.update(
+                {
+                    "file_type": ds.file_type,
+                    "object_key": ds.object_key,
+                    "bucket_name": ds.bucket_name,
+                }
+            )
         data_sources_info.append(ds_info)
 
     client = get_sandbox_client()
@@ -233,8 +235,8 @@ async def execute_sql(
 
 
 @tool(
-response_format="content",
-description="""执行 Python 代码进行数据处理。
+    response_format="content",
+    description="""执行 Python 代码进行数据处理。
 **最佳实践**：
 如果你正在清洗数据以便绘图，请务必将最终的 DataFrame 保存为文件。
 - 推荐格式：`df.to_parquet('analysis_result.parquet')`
@@ -267,8 +269,8 @@ async def execute_python(
 
 
 @tool(
-response_format="content_and_artifact",
-description="""使用 Python Plotly 绘制图表。
+    response_format="content_and_artifact",
+    description="""使用 Python Plotly 绘制图表。
 
 **关键策略 - 数据复用**：
 直接读取 execute_sql 自动保存的结果文件（result_file 字段中的文件名）。

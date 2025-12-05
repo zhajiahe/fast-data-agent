@@ -111,20 +111,24 @@ class VercelStreamBuilder:
     def tool_input_start(self, tool_call_id: str, tool_name: str) -> str:
         """工具输入开始"""
         self.current_tool_calls[tool_call_id] = {"toolName": tool_name, "input": {}}
-        return _sse_data({
-            "type": "tool-input-start",
-            "toolCallId": tool_call_id,
-            "toolName": tool_name,
-        })
+        return _sse_data(
+            {
+                "type": "tool-input-start",
+                "toolCallId": tool_call_id,
+                "toolName": tool_name,
+            }
+        )
 
     def tool_input_available(self, tool_call_id: str, tool_name: str, args: dict[str, Any]) -> str:
         """工具输入完成"""
-        return _sse_data({
-            "type": "tool-input-available",
-            "toolCallId": tool_call_id,
-            "toolName": tool_name,
-            "input": args,
-        })
+        return _sse_data(
+            {
+                "type": "tool-input-available",
+                "toolCallId": tool_call_id,
+                "toolName": tool_name,
+                "input": args,
+            }
+        )
 
     def tool_output_available(
         self,
@@ -219,7 +223,9 @@ async def _stream_chat_response(
             # 检查是否是 dict 且包含 error
             if isinstance(chunk, dict) and "error" in chunk:
                 error_info = chunk.get("error", {})
-                error_msg = error_info.get("message", "Unknown error") if isinstance(error_info, dict) else str(error_info)
+                error_msg = (
+                    error_info.get("message", "Unknown error") if isinstance(error_info, dict) else str(error_info)
+                )
                 yield builder.error(error_msg)
                 continue
 

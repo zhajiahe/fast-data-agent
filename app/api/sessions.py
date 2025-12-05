@@ -36,19 +36,23 @@ async def get_sessions(
         user_id=current_user.id,
         query_params=query_params,
         page_num=page_query.page_num,
-        page_size=page_query.page_size,
+        page_size=page_query.page_size, 
     )
     data_list = [AnalysisSessionResponse.model_validate(item) for item in items]
-    return BaseResponse(
+    return BaseResponse[PageResponse[AnalysisSessionResponse]](
         success=True,
         code=200,
         msg="获取会话列表成功",
-        data=PageResponse(page_num=page_query.page_num, page_size=page_query.page_size, total=total, items=data_list),
+        data=PageResponse[AnalysisSessionResponse](page_num=page_query.page_num, page_size=page_query.page_size, total=total, items=data_list),
     )
 
 
 @router.get("/{session_id}", response_model=BaseResponse[AnalysisSessionDetail])
-async def get_session(session_id: int, current_user: CurrentUser, db: DBSession):
+async def get_session(
+    session_id: int,
+    current_user: CurrentUser,
+    db: DBSession,
+):
     """获取单个会话详情（包含数据源信息）"""
     service = AnalysisSessionService(db)
     session, data_sources = await service.get_session_with_data_sources(session_id, current_user.id)
@@ -68,11 +72,15 @@ async def get_session(session_id: int, current_user: CurrentUser, db: DBSession)
         data_sources=[DataSourceResponse.model_validate(ds) for ds in data_sources],
     )
 
-    return BaseResponse(success=True, code=200, msg="获取会话成功", data=response)
+    return BaseResponse[AnalysisSessionDetail](success=True, code=200, msg="获取会话成功", data=response)
 
 
 @router.post("", response_model=BaseResponse[AnalysisSessionResponse], status_code=status.HTTP_201_CREATED)
-async def create_session(data: AnalysisSessionCreate, current_user: CurrentUser, db: DBSession):
+async def create_session(
+    data: AnalysisSessionCreate,
+    current_user: CurrentUser,
+    db: DBSession,
+):
     """创建会话"""
     service = AnalysisSessionService(db)
     item = await service.create_session(current_user.id, data)
@@ -93,7 +101,11 @@ async def update_session(
 
 
 @router.delete("/{session_id}", response_model=BaseResponse[None])
-async def delete_session(session_id: int, current_user: CurrentUser, db: DBSession):
+async def delete_session(
+    session_id: int,
+    current_user: CurrentUser,
+    db: DBSession,
+):
     """删除会话"""
     service = AnalysisSessionService(db)
     await service.delete_session(session_id, current_user.id)
@@ -101,7 +113,11 @@ async def delete_session(session_id: int, current_user: CurrentUser, db: DBSessi
 
 
 @router.post("/{session_id}/archive", response_model=BaseResponse[AnalysisSessionResponse])
-async def archive_session(session_id: int, current_user: CurrentUser, db: DBSession):
+async def archive_session(
+    session_id: int,
+    current_user: CurrentUser,
+    db: DBSession,
+):
     """归档会话"""
     service = AnalysisSessionService(db)
     item = await service.archive_session(session_id, current_user.id)
@@ -114,9 +130,9 @@ async def archive_session(session_id: int, current_user: CurrentUser, db: DBSess
 @router.post("/{session_id}/files/upload", response_model=BaseResponse[dict[str, Any]])
 async def upload_session_file(
     session_id: int,
-    file: UploadFile = File(...),
-    current_user: CurrentUser = Depends(),
-    db: DBSession = Depends(),
+    file: UploadFile,
+    current_user: CurrentUser,
+    db: DBSession,
 ):
     """
     上传文件到会话目录
@@ -131,7 +147,7 @@ async def upload_session_file(
     # 调用 sandbox API 上传文件
     client = get_sandbox_client()
     content = await file.read()
-    
+
     response = await client.post(
         "/upload",
         params={"user_id": current_user.id, "thread_id": session_id},

@@ -135,7 +135,7 @@ async def generate_followup_recommendations(
     session, data_sources = await session_service.get_session_with_data_sources(session_id, current_user.id)
 
     repo = TaskRecommendationRepository(db)
-    
+
     # 先删除旧的 followup 推荐，避免累积
     await repo.delete_by_session(session_id, source_type="followup")
 

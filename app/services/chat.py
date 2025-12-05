@@ -53,17 +53,19 @@ class LLMCache:
     def clear(cls) -> None:
         """清空缓存"""
         cls._instances.clear()
+
+
 from app.models.session import AnalysisSession
 from app.models.message import ChatMessage
 from app.models.data_source import DataSource
 from app.repositories.message import ChatMessageRepository
 from app.repositories.data_source import DataSourceRepository
 from app.utils.tools import (
-    ChatContext, 
-    DataSourceContext, 
+    ChatContext,
+    DataSourceContext,
     generate_chart,
     get_sandbox_client,
-    list_local_files, 
+    list_local_files,
     quick_analysis,
     execute_python,
     execute_sql,
@@ -138,10 +140,10 @@ class ChatService:
             else:
                 size_str = f"{size / 1024 / 1024:.1f}MB"
             lines.append(f"- {name} ({size_str})")
-        
+
         if len(files) > 10:
             lines.append(f"- ... 等共 {len(files)} 个文件")
-        
+
         return "\n".join(lines)
 
     async def _get_local_files(self, user_id: int, session_id: int) -> list[dict[str, Any]]:
@@ -166,7 +168,7 @@ class ChatService:
     ) -> str:
         """构建系统提示词"""
         data_source_info = self._format_data_sources(data_sources)
-        
+
         # 获取会话文件列表
         local_files = await self._get_local_files(user_id, session_id)
         local_files_info = self._format_local_files(local_files)
@@ -361,14 +363,11 @@ class ChatService:
             if save_messages and final_messages:
                 # 过滤掉空消息和用户消息
                 messages_to_save = [
-                    msg for msg in final_messages
-                    if not isinstance(msg, HumanMessage) and getattr(msg, "content", None)
+                    msg for msg in final_messages if not isinstance(msg, HumanMessage) and getattr(msg, "content", None)
                 ]
                 if messages_to_save:
                     logger.debug(f"保存 {len(messages_to_save)} 条消息")
-                    await self.message_repo.save_langchain_messages(
-                        session.id, messages_to_save, session.user_id
-                    )
+                    await self.message_repo.save_langchain_messages(session.id, messages_to_save, session.user_id)
 
         except Exception as e:
             yield {

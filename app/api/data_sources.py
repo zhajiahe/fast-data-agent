@@ -145,4 +145,3 @@ async def get_data_source_schema(data_source_id: int, current_user: CurrentUser,
         msg="获取 Schema 成功",
         data=DataSourceSchemaResponse(tables=tables, synced_at=synced_at),
     )
-

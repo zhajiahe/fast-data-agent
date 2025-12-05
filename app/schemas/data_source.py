@@ -114,4 +114,3 @@ class DataSourceSchemaResponse(BaseModel):
 
     tables: list[TableSchema] = Field(default_factory=list, description="表列表")
     synced_at: datetime | None = Field(default=None, description="同步时间")
-
