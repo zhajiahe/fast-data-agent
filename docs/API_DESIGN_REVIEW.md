@@ -79,21 +79,52 @@ interface PageResponse<T> {
 
 **优点**：分页信息完整，支持无限滚动和传统分页
 
-### 3. SSE 流式传输
+### 3. SSE 流式传输（兼容 Vercel AI SDK）
 
-聊天接口使用 Server-Sent Events 实现流式响应：
+聊天接口使用 Server-Sent Events 实现流式响应，**兼容 Vercel AI SDK Data Stream Protocol**，可直接与 `@ai-sdk/react` 的 `useChat` hook 配合使用。
 
 ```typescript
-// SSE 事件格式
-data: {"mode": "messages", "content": "...", "type": "ai"}
-data: {"mode": "updates", "node": "tools", "messages": [...]}
+// SSE 数据流格式（Vercel AI SDK Data Stream Protocol）
+
+// 消息开始
+data: {"type":"start","messageId":"msg_xxx"}
+
+// 文本流（start/delta/end 模式）
+data: {"type":"text-start","id":"text_xxx"}
+data: {"type":"text-delta","id":"text_xxx","delta":"你好"}
+data: {"type":"text-end","id":"text_xxx"}
+
+// 工具调用
+data: {"type":"tool-input-start","toolCallId":"call_xxx","toolName":"execute_sql"}
+data: {"type":"tool-input-available","toolCallId":"call_xxx","toolName":"execute_sql","input":{...}}
+
+// 工具结果
+data: {"type":"tool-output-available","toolCallId":"call_xxx","output":{...},"artifact":{...}}
+
+// 步骤控制
+data: {"type":"start-step"}
+data: {"type":"finish-step"}
+data: {"type":"finish"}
+
+// 错误
+data: {"type":"error","errorText":"..."}
+
+// 流结束
 data: [DONE]
+```
+
+**响应头**：
+```
+Content-Type: text/event-stream
+x-vercel-ai-ui-message-stream: v1
 ```
 
 **优点**：
 - 实时显示 AI 回复
 - 支持工具调用过程展示
 - 支持 artifact（图表数据）传递
+- **兼容 Vercel AI SDK**，可直接使用 `useChat` hook
+- 参考: https://ai-sdk.dev/docs/ai-sdk-ui/stream-protocol
 
 ### 4. LangChain 消息格式对齐
 
@@ -154,24 +185,11 @@ POST /sessions/{id}/messages/{id}/regenerate  # 重新生成
 POST /sessions/{id}/messages/{id}/feedback    # 消息反馈（👍/👎）
 ```
 
-### 4. SSE 事件类型不明确
+### 4. ~~SSE 事件类型不明确~~ ✅ 已修复（升级为 Vercel AI SDK 兼容）
 
-**问题**：当前只使用 `data:` 前缀，前端需要解析 JSON 判断类型
+**改进内容**：现在兼容 Vercel AI SDK Data Stream Protocol，可直接使用 `@ai-sdk/react` 的 `useChat` hook。
 
-**建议改进**：
-```
-event: token
-data: {"content": "..."}
-
-event: tool_call
-data: {"name": "execute_sql", "args": {...}}
-
-event: tool_result
-data: {"name": "execute_sql", "result": {...}, "artifact": {...}}
-
-event: done
-data: {}
-```
+详见上方「SSE 流式传输」章节的协议格式说明。
 
 ## 建议新增接口
 
@@ -222,13 +240,91 @@ async def message_feedback(session_id: int, message_id: int, feedback: FeedbackT
 ## 前端技术建议
 
 ### 推荐技术栈
-- **框架**: React/Vue 3 + TypeScript
-- **状态管理**: Zustand/Pinia
-- **SSE 处理**: EventSource API 或 fetch + ReadableStream
+- **框架**: React + TypeScript (推荐 Next.js)
+- **AI SDK**: `@ai-sdk/react` (Vercel AI SDK)
 - **图表**: Plotly.js（与后端一致）
-- **UI 组件**: Ant Design/shadcn/ui
+- **UI 组件**: shadcn/ui
 
-### SSE 处理示例
+### 方式一：使用 Vercel AI SDK useChat（推荐）
+
+后端已兼容 Vercel AI SDK Data Stream Protocol，可直接使用 `useChat` hook。
+
+```bash
+npm install @ai-sdk/react ai
+```
+
+```tsx
+'use client';
+
+import { useChat } from '@ai-sdk/react';
+import { UIMessage } from 'ai';
+
+export default function Chat({ sessionId }: { sessionId: number }) {
+  const { messages, input, setInput, sendMessage, isLoading } = useChat({
+    api: `/api/v1/sessions/${sessionId}/chat`,
+    // 自定义请求头（如认证）
+    headers: {
+      'Authorization': `Bearer ${token}`,
+    },
+  });
+
+  return (
+    <div className="flex flex-col h-full">
+      {/* 消息列表 */}
+      <div className="flex-1 overflow-y-auto p-4 space-y-4">
+        {messages.map((message) => (
+          <div key={message.id} className="whitespace-pre-wrap">
+            <strong>{message.role === 'user' ? '你: ' : 'AI: '}</strong>
+            {message.parts.map((part, i) => {
+              switch (part.type) {
+                case 'text':
+                  return <span key={i}>{part.text}</span>;
+                case 'tool-invocation':
+                  return (
+                    <div key={i} className="bg-gray-100 p-2 rounded mt-2">
+                      <div>工具: {part.toolInvocation.toolName}</div>
+                      {part.toolInvocation.state === 'result' && (
+                        <div>结果: {JSON.stringify(part.toolInvocation.result)}</div>
+                      )}
+                      {/* 渲染图表 artifact */}
+                      {part.toolInvocation.result?.artifact?.type === 'plotly' && (
+                        <PlotlyChart data={part.toolInvocation.result.artifact.chart_json} />
+                      )}
+                    </div>
+                  );
+                default:
+                  return null;
+              }
+            })}
+          </div>
+        ))}
+      </div>
+
+      {/* 输入框 */}
+      <form
+        onSubmit={(e) => {
+          e.preventDefault();
+          sendMessage({ text: input });
+          setInput('');
+        }}
+        className="p-4 border-t"
+      >
+        <input
+          value={input}
+          onChange={(e) => setInput(e.target.value)}
+          placeholder="输入消息..."
+          className="w-full p-2 border rounded"
+          disabled={isLoading}
+        />
+      </form>
+    </div>
+  );
+}
+```
+
+### 方式二：手动处理 SSE 流
+
+如果不使用 Vercel AI SDK，可以手动处理 SSE 流：
 
 ```typescript
 async function streamChat(sessionId: number, content: string) {
@@ -241,46 +337,61 @@ async function streamChat(sessionId: number, content: string) {
     body: JSON.stringify({ content })
   });
 
-  const reader = response.body.getReader();
+  const reader = response.body!.getReader();
   const decoder = new TextDecoder();
+  let buffer = '';
+  let currentText = '';
 
   while (true) {
     const { done, value } = await reader.read();
     if (done) break;
 
-    const text = decoder.decode(value);
-    const lines = text.split('\n');
+    buffer += decoder.decode(value, { stream: true });
+    const lines = buffer.split('\n');
+    buffer = lines.pop() || '';
 
     for (const line of lines) {
-      if (line.startsWith('data: ')) {
-        const data = line.slice(6);
-        if (data === '[DONE]') return;
-        
-        const event = JSON.parse(data);
-        handleEvent(event);
+      if (!line.startsWith('data: ')) continue;
+      const dataStr = line.slice(6);
+      
+      // 流结束
+      if (dataStr === '[DONE]') {
+        onComplete(currentText);
+        return;
+      }
+
+      const data = JSON.parse(dataStr);
+      
+      switch (data.type) {
+        case 'text-delta':
+          currentText += data.delta;
+          onTextDelta(data.delta);
+          break;
+        case 'tool-input-available':
+          onToolCall(data.toolName, data.input);
+          break;
+        case 'tool-output-available':
+          onToolResult(data.toolCallId, data.output, data.artifact);
+          break;
+        case 'error':
+          onError(data.errorText);
+          break;
       }
     }
-  }
-}
-
-function handleEvent(event: SSEEvent) {
-  if (event.mode === 'messages') {
-    // 处理 AI 回复 token
-    appendToken(event.content);
-  } else if (event.mode === 'updates') {
-    // 处理工具调用
-    handleToolUpdate(event);
   }
 }
 ```
 
 ## 总结
 
-当前 API 设计总体合理，满足基本的前端构建需求。主要需要补充：
+当前 API 设计总体合理，满足基本的前端构建需求。
 
+### 已完成
+- ✅ **SSE 流协议升级** - 兼容 Vercel AI SDK Data Stream Protocol，支持 `useChat` hook
+
+### 待补充
 1. **会话文件访问接口** - 下载图表和结果文件
 2. **交互控制接口** - 中断、重新生成、反馈
-3. **SSE 事件标准化** - 可选优化
 
 优先级建议：
 1. ⭐⭐⭐ 会话文件下载接口
