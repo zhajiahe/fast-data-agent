@@ -666,7 +666,16 @@ async def execute_sql(
                         except Exception as e:
                             logger.warning(f"Failed to create view for {ds.name}: {e}")
 
-            # 执行 SQL
+            # 先用 EXPLAIN 检查 SQL 语法（不实际执行）
+            try:
+                conn.execute(f"EXPLAIN {request.sql}")
+            except Exception as explain_error:
+                # 语法错误，直接返回错误信息
+                error_msg = str(explain_error)
+                logger.warning(f"SQL syntax check failed: {error_msg}")
+                return {"success": False, "error": error_msg}
+
+            # 语法检查通过，执行实际查询
             result = conn.execute(request.sql)
             columns = [desc[0] for desc in result.description] if result.description else []
             rows = result.fetchall()
