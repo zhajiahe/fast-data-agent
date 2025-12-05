@@ -142,10 +142,12 @@ class RecommendService:
         """
         # 收集 Schema 信息
         schema_info = self._collect_schema_info(data_sources)
+        logger.debug(f"收集到 {len(schema_info)} 个数据源的 Schema 信息")
 
         if not schema_info:
-            # 如果没有 Schema 信息，返回通用推荐
-            return self._get_generic_recommendations()
+            # 如果没有 Schema 信息，尝试使用数据源名称生成推荐
+            logger.warning(f"数据源没有 Schema 缓存，使用数据源名称生成推荐")
+            return self._get_recommendations_without_schema(data_sources)
 
         # 使用 LLM 生成推荐
         try:
@@ -157,8 +159,11 @@ class RecommendService:
             )
             if recommendations:
                 return recommendations
-        except (ValidationError, Exception):
-            pass
+            logger.warning("LLM 返回空推荐列表，使用规则生成")
+        except ValidationError as e:
+            logger.warning(f"LLM 推荐结果验证失败: {e}")
+        except Exception as e:
+            logger.warning(f"LLM 生成推荐异常: {e}")
 
         # LLM 调用失败时返回基于规则的推荐
         return self._generate_rule_based_recommendations(schema_info, max_count)
@@ -197,9 +202,13 @@ class RecommendService:
                 max_count=max_count,
             )
             if recommendations:
+                logger.debug(f"LLM 生成了 {len(recommendations)} 条追问推荐")
                 return recommendations
-        except (ValidationError, Exception):
-            pass
+            logger.warning("LLM 返回空追问推荐列表")
+        except ValidationError as e:
+            logger.warning(f"LLM 追问推荐结果验证失败: {e}")
+        except Exception as e:
+            logger.warning(f"LLM 生成追问推荐异常: {e}")
 
         return self._get_generic_followup_recommendations()
 
@@ -371,6 +380,77 @@ class RecommendService:
             priority += 1
 
         return recommendations[:max_count]
+
+    def _get_recommendations_without_schema(self, data_sources: list[DataSource]) -> list[RecommendationItem]:
+        """当数据源没有 Schema 时，基于数据源信息生成推荐"""
+        recommendations = []
+        priority = 0
+
+        # 获取数据源名称列表
+        ds_names = [ds.name for ds in data_sources]
+        ds_names_str = "、".join(ds_names) if ds_names else "数据"
+
+        recommendations.append(
+            RecommendationItem(
+                title=f"快速分析 {ds_names_str}",
+                description="获取数据的基本结构、行数、列信息和统计摘要",
+                category=RecommendationCategory.OVERVIEW.value,
+                priority=priority,
+                source_type=RecommendationSourceType.INITIAL.value,
+            )
+        )
+        priority += 1
+
+        # 检查数据源类型生成相应推荐
+        has_file = any(ds.source_type == "file" for ds in data_sources)
+        has_db = any(ds.source_type == "database" for ds in data_sources)
+
+        if has_file:
+            recommendations.append(
+                RecommendationItem(
+                    title="查看文件数据预览",
+                    description="预览文件内容，了解数据格式和字段类型",
+                    category=RecommendationCategory.OVERVIEW.value,
+                    priority=priority,
+                    source_type=RecommendationSourceType.INITIAL.value,
+                )
+            )
+            priority += 1
+
+        if has_db:
+            recommendations.append(
+                RecommendationItem(
+                    title="查看数据库表结构",
+                    description="了解数据库中的表和字段信息",
+                    category=RecommendationCategory.OVERVIEW.value,
+                    priority=priority,
+                    source_type=RecommendationSourceType.INITIAL.value,
+                )
+            )
+            priority += 1
+
+        recommendations.append(
+            RecommendationItem(
+                title="数据质量检查",
+                description="检查数据完整性、缺失值和异常情况",
+                category=RecommendationCategory.ANOMALY.value,
+                priority=priority,
+                source_type=RecommendationSourceType.INITIAL.value,
+            )
+        )
+        priority += 1
+
+        recommendations.append(
+            RecommendationItem(
+                title="数值统计分析",
+                description="计算数值字段的均值、中位数、标准差等统计指标",
+                category=RecommendationCategory.DISTRIBUTION.value,
+                priority=priority,
+                source_type=RecommendationSourceType.INITIAL.value,
+            )
+        )
+
+        return recommendations[:5]
 
     def _get_generic_recommendations(self) -> list[RecommendationItem]:
         """获取通用推荐（当无法分析 Schema 时）"""

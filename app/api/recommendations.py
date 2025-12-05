@@ -85,9 +85,9 @@ async def generate_recommendations(
 
     repo = TaskRecommendationRepository(db)
 
-    # 如果强制重新生成，先清理现有的 pending 推荐
+    # 如果强制重新生成，清理所有现有的 pending 推荐（包括 initial 和 followup）
     if data.force_regenerate:
-        await repo.delete_by_session(session_id, source_type="initial")
+        await repo.delete_by_session(session_id)  # 删除所有类型
 
     # 生成推荐
     recommend_service = RecommendService(db)
@@ -134,6 +134,11 @@ async def generate_followup_recommendations(
     session_service = AnalysisSessionService(db)
     session, data_sources = await session_service.get_session_with_data_sources(session_id, current_user.id)
 
+    repo = TaskRecommendationRepository(db)
+    
+    # 先删除旧的 followup 推荐，避免累积
+    await repo.delete_by_session(session_id, source_type="followup")
+
     # 生成追问推荐
     recommend_service = RecommendService(db)
     recommendation_items = await recommend_service.generate_followup_recommendations(
@@ -145,7 +150,6 @@ async def generate_followup_recommendations(
     )
 
     # 保存推荐到数据库
-    repo = TaskRecommendationRepository(db)
     created = await repo.create_from_items(
         session_id=session_id,
         items=[item.model_dump() for item in recommendation_items],
