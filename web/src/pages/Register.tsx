@@ -114,6 +114,7 @@ export const Register = () => {
                 id="password"
                 type="password"
                 placeholder={`${t('auth.enter_password')} (${t('auth.password_hint')})`}
+                autoComplete="new-password"
                 disabled={isSubmitting}
                 {...register('password')}
                 aria-invalid={!!errors.password}
@@ -127,6 +128,7 @@ export const Register = () => {
                 id="confirmPassword"
                 type="password"
                 placeholder={t('auth.enter_password_again')}
+                autoComplete="new-password"
                 disabled={isSubmitting}
                 {...register('confirmPassword')}
                 aria-invalid={!!errors.confirmPassword}

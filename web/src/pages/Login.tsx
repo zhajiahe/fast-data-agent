@@ -117,6 +117,7 @@ export const Login = () => {
                 <Input
                   id="username"
                   placeholder={t('auth.enter_username')}
+                  autoComplete="username"
                   disabled={isSubmitting || loginMutation.isPending}
                   {...register('username')}
                   aria-invalid={!!errors.username}
@@ -130,6 +131,7 @@ export const Login = () => {
                   id="password"
                   type="password"
                   placeholder={t('auth.enter_password')}
+                  autoComplete="current-password"
                   disabled={isSubmitting || loginMutation.isPending}
                   {...register('password')}
                   aria-invalid={!!errors.password}

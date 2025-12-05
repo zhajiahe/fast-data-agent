@@ -182,6 +182,7 @@ export const Settings = () => {
                       id="oldPassword"
                       type="password"
                       placeholder={t('settings.enter_current_password')}
+                      autoComplete="current-password"
                       {...passwordForm.register('oldPassword')}
                       aria-invalid={!!passwordForm.formState.errors.oldPassword}
                     />
@@ -195,6 +196,7 @@ export const Settings = () => {
                       id="newPassword"
                       type="password"
                       placeholder={t('settings.at_least_6_chars')}
+                      autoComplete="new-password"
                       {...passwordForm.register('newPassword')}
                       aria-invalid={!!passwordForm.formState.errors.newPassword}
                     />
@@ -207,6 +209,7 @@ export const Settings = () => {
                     <Input
                       id="confirmPassword"
                       type="password"
+                      autoComplete="new-password"
                       placeholder={t('settings.enter_new_password_again')}
                       {...passwordForm.register('confirmPassword')}
                       aria-invalid={!!passwordForm.formState.errors.confirmPassword}

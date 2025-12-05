@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   BarChart3,
@@ -89,6 +89,18 @@ export const RecommendationPanel = ({ sessionId, onSelect }: RecommendationPanel
   const generateMutation = useGenerateRecommendations(sessionId);
 
   const recommendations = response?.data.data?.items || [];
+  const hasLoadedRef = useRef(false);
+
+  // 首次加载时，如果没有推荐，自动生成
+  useEffect(() => {
+    // 只在首次加载完成且没有推荐时自动生成
+    if (!isLoading && !hasLoadedRef.current && response?.data.data) {
+      hasLoadedRef.current = true;
+      if (recommendations.length === 0 && !generateMutation.isPending) {
+        generateMutation.mutate({});
+      }
+    }
+  }, [isLoading, recommendations.length, response?.data.data, generateMutation]);
 
   // 分离初始推荐和后续问题推荐
   const { initialRecs, followupRecs } = useMemo(() => {
