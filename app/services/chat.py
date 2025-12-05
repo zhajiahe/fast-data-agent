@@ -374,6 +374,9 @@ class ChatService:
                 if messages_to_save:
                     logger.debug(f"保存 {len(messages_to_save)} 条消息")
                     await self.message_repo.save_langchain_messages(session.id, messages_to_save, session.user_id)
+                    # 显式 commit，确保消息在发送 [DONE] 之前持久化
+                    # 避免前端 refetch 时看不到最新消息
+                    await self.db.commit()
 
         except Exception as e:
             yield {
