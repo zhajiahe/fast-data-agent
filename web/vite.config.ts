@@ -38,8 +38,6 @@ export default defineConfig({
             "@radix-ui/react-slot",
             "@radix-ui/react-alert-dialog",
           ],
-          // 图表库 (最大的依赖)
-          plotly: ["plotly.js-dist-min", "react-plotly.js"],
           // 数据处理和状态管理
           "data-vendor": ["@tanstack/react-query", "zustand", "axios", "zod"],
           // Markdown 渲染

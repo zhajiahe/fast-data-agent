@@ -61,7 +61,7 @@ const RecommendationCard = ({
     <button
       type="button"
       className="w-full text-left p-3 rounded-lg border hover:bg-muted/50 transition-colors group"
-      onClick={() => onSelect(rec.title)}
+      onClick={() => onSelect(rec.description || rec.title)}
     >
       <div className="flex items-start gap-3">
         <div className={`p-1.5 rounded ${color}`}>{icon}</div>
@@ -108,7 +108,7 @@ export const RecommendationPanel = ({ sessionId, onSelect }: RecommendationPanel
     const followup: TaskRecommendationResponse[] = [];
 
     for (const rec of recommendations) {
-      if (rec.source_type === 'followup') {
+      if (rec.source_type === 'follow_up') {
         followup.push(rec);
       } else {
         initial.push(rec);
@@ -165,39 +165,16 @@ export const RecommendationPanel = ({ sessionId, onSelect }: RecommendationPanel
               </Button>
             </div>
           ) : (
-            <>
-              {/* 后续问题推荐 - 放在最前面 */}
-              {followupRecs.length > 0 && (
-                <div className="space-y-2">
-                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                    <MessageCircle className="h-3 w-3" />
-                    <span>{t('chat.followupQuestions')}</span>
-                  </div>
-                  <div className="space-y-2">
-                    {followupRecs.map((rec) => (
-                      <RecommendationCard key={rec.id} rec={rec} onSelect={onSelect} isFollowup />
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* 初始推荐 */}
-              {initialRecs.length > 0 && (
-                <div className="space-y-2">
-                  {followupRecs.length > 0 && (
-                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                      <Sparkles className="h-3 w-3" />
-                      <span>{t('chat.suggestedAnalysis')}</span>
-                    </div>
-                  )}
-                  <div className="space-y-2">
-                    {initialRecs.map((rec) => (
-                      <RecommendationCard key={rec.id} rec={rec} onSelect={onSelect} />
-                    ))}
-                  </div>
-                </div>
-              )}
-            </>
+            <div className="space-y-2">
+              {(followupRecs.length > 0 ? followupRecs : initialRecs).map((rec) => (
+                <RecommendationCard
+                  key={rec.id}
+                  rec={rec}
+                  onSelect={onSelect}
+                  isFollowup={followupRecs.length > 0}
+                />
+              ))}
+            </div>
           )}
         </div>
       </ScrollArea>

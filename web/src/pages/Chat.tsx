@@ -373,12 +373,9 @@ export const Chat = () => {
               )}
             </div>
           </div>
-          <div className="flex items-center gap-1">
-            <SessionFilesPanel sessionId={sessionId} />
-            <Button variant="ghost" size="icon" onClick={() => setShowPanel(!showPanel)}>
-              {showPanel ? <PanelRightClose className="h-5 w-5" /> : <PanelRight className="h-5 w-5" />}
-            </Button>
-          </div>
+          <Button variant="ghost" size="icon" onClick={() => setShowPanel(!showPanel)}>
+            {showPanel ? <PanelRightClose className="h-5 w-5" /> : <PanelRight className="h-5 w-5" />}
+          </Button>
         </div>
 
         {/* 消息列表 */}
@@ -447,10 +444,15 @@ export const Chat = () => {
         </div>
       </div>
 
-      {/* 右侧面板 */}
+      {/* 右侧面板 - 上下分栏 */}
       {showPanel && (
-        <div className="w-80 border-l shrink-0 hidden lg:block">
-          <RecommendationPanel sessionId={sessionId} onSelect={handleRecommendationClick} />
+        <div className="w-80 border-l shrink-0 hidden lg:flex lg:flex-col">
+          <div className="flex-1 min-h-0 border-b">
+            <RecommendationPanel sessionId={sessionId} onSelect={handleRecommendationClick} />
+          </div>
+          <div className="h-[280px] shrink-0">
+            <SessionFilesPanel sessionId={sessionId} />
+          </div>
         </div>
       )}
     </div>
