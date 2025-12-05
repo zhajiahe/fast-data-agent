@@ -351,7 +351,7 @@ export const Chat = () => {
     if (!sessionId || isGenerating) return;
     try {
       await clearMessagesMutation.mutateAsync(sessionId);
-      setMessages([]);
+      setLocalMessages([]);
       toast({ title: t('chat.messagesCleared') });
     } catch {
       toast({ title: t('chat.clearFailed'), variant: 'destructive' });
@@ -443,7 +443,7 @@ export const Chat = () => {
                   size="sm"
                   variant="ghost"
                   onClick={handleClearMessages}
-                  disabled={isGenerating || messages.length === 0}
+                  disabled={isGenerating || localMessages.length === 0}
                   title={t('chat.clearMessages')}
                 >
                   <Trash2 className="h-4 w-4" />
