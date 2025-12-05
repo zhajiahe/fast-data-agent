@@ -31,7 +31,8 @@ const LoadingFallback = () => (
  * 应用根组件
  */
 function App() {
-  const basePath = import.meta.env.VITE_BASE_PATH || import.meta.env.BASE_URL || '/';
+  // BASE_URL 末尾有斜杠（如 /web/），需要去掉以匹配 Router basename
+  const basePath = (import.meta.env.VITE_BASE_PATH || import.meta.env.BASE_URL || '/').replace(/\/$/, '') || '/';
 
   return (
     <Router basename={basePath}>
