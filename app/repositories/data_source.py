@@ -135,3 +135,21 @@ class DataSourceRepository(BaseRepository[DataSource]):
             query = query.where(DataSource.id != exclude_id)
         result = await self.db.execute(query)
         return result.scalar_one_or_none() is not None
+
+    async def get_with_file(self, id: int) -> DataSource | None:
+        """
+        获取数据源（包含关联的 uploaded_file）
+
+        Args:
+            id: 数据源 ID
+
+        Returns:
+            数据源实例或 None
+        """
+        query = (
+            select(DataSource)
+            .options(selectinload(DataSource.uploaded_file))
+            .where(DataSource.id == id, DataSource.deleted == 0)
+        )
+        result = await self.db.execute(query)
+        return result.scalar_one_or_none()

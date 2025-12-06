@@ -16,6 +16,7 @@ import type {
   BaseResponseDataSourceResponse,
   BaseResponseDataSourceSchemaResponse,
   BaseResponseDataSourceTestResult,
+  BaseResponseFilePreviewResponse,
   BaseResponseInt,
   BaseResponseListTaskRecommendationResponse,
   BaseResponseNoneType,
@@ -33,6 +34,7 @@ import type {
   DataSourceCreate,
   GenerateRecommendationsApiV1SessionsSessionIdRecommendationsPostBody,
   GetDataSourcesApiV1DataSourcesGetParams,
+  GetFilePreviewApiV1FilesFileIdPreviewGetParams,
   GetMessagesApiV1SessionsSessionIdMessagesGetParams,
   GetRecommendationsApiV1SessionsSessionIdRecommendationsGetParams,
   GetSessionsApiV1SessionsGetParams,
@@ -54,6 +56,7 @@ import {
   // Data Sources
   getDataSourcesApiV1DataSourcesGet,
   // Files
+  getFilePreviewApiV1FilesFileIdPreviewGet,
   getFilesApiV1FilesGet,
   // Messages
   getMessagesApiV1SessionsSessionIdMessagesGet,
@@ -164,6 +167,14 @@ export const useDeleteFile = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['files'] });
     },
+  });
+};
+
+export const useFilePreview = (fileId: number, params?: GetFilePreviewApiV1FilesFileIdPreviewGetParams) => {
+  return useQuery<AxiosResponse<BaseResponseFilePreviewResponse>, Error>({
+    queryKey: ['filePreview', fileId, params],
+    queryFn: () => getFilePreviewApiV1FilesFileIdPreviewGet(fileId, params),
+    enabled: !!fileId,
   });
 };
 

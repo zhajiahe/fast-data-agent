@@ -2,6 +2,7 @@ import {
   AlertCircle,
   CheckCircle2,
   Database,
+  Eye,
   FileSpreadsheet,
   MoreHorizontal,
   Plus,
@@ -14,6 +15,7 @@ import { useTranslation } from 'react-i18next';
 import { type DataSourceResponse, useDataSources, useDeleteDataSource, useSyncDataSourceSchema } from '@/api';
 import { EmptyState, LoadingState } from '@/components/common';
 import { AddDatabaseDialog } from '@/components/data-source/AddDatabaseDialog';
+import { DataPreviewDialog } from '@/components/data-source/DataPreviewDialog';
 import { UploadFileDialog } from '@/components/data-source/UploadFileDialog';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -35,6 +37,7 @@ export const DataSources = () => {
   const { toast } = useToast();
   const [showAddDatabase, setShowAddDatabase] = useState(false);
   const [showUploadFile, setShowUploadFile] = useState(false);
+  const [previewDataSource, setPreviewDataSource] = useState<DataSourceResponse | null>(null);
   const { confirm, ConfirmDialog } = useConfirmDialog();
 
   const { data: response, isLoading } = useDataSources();
@@ -176,6 +179,12 @@ export const DataSources = () => {
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
+                      {ds.source_type === 'file' && ds.file_id && (
+                        <DropdownMenuItem onClick={() => setPreviewDataSource(ds)}>
+                          <Eye className="h-4 w-4 mr-2" />
+                          {t('dataSources.previewData')}
+                        </DropdownMenuItem>
+                      )}
                       <DropdownMenuItem onClick={() => handleSyncSchema(ds.id)}>
                         <RefreshCw className="h-4 w-4 mr-2" />
                         {t('dataSources.refreshSchema')}
@@ -207,6 +216,12 @@ export const DataSources = () => {
 
       <AddDatabaseDialog open={showAddDatabase} onOpenChange={setShowAddDatabase} />
       <UploadFileDialog open={showUploadFile} onOpenChange={setShowUploadFile} />
+      <DataPreviewDialog
+        open={!!previewDataSource}
+        onOpenChange={(open) => !open && setPreviewDataSource(null)}
+        fileId={previewDataSource?.file_id || null}
+        dataSourceName={previewDataSource?.name || ''}
+      />
       <ConfirmDialog />
     </div>
   );

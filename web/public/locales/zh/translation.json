@@ -83,6 +83,7 @@
     "deleteSuccess": "数据源已删除",
     "confirmDelete": "确定要删除数据源 \"{{name}}\" 吗？",
     "refreshSchema": "刷新 Schema",
+    "previewData": "预览数据",
     "active": "正常",
     "inactive": "异常",
     "file": "文件"

@@ -236,4 +236,23 @@ class DataSourceService:
         """
         return await self.repo.get_by_ids(ids, user_id)
 
+    async def get_data_source_with_file(self, data_source_id: int, user_id: int) -> DataSource:
+        """
+        获取数据源（包含关联文件）
+
+        Args:
+            data_source_id: 数据源 ID
+            user_id: 用户 ID
+
+        Returns:
+            数据源实例
+
+        Raises:
+            NotFoundException: 数据源不存在
+        """
+        data_source = await self.repo.get_with_file(data_source_id)
+        if not data_source or data_source.user_id != user_id:
+            raise NotFoundException(msg="数据源不存在")
+        return data_source
+
 

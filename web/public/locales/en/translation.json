@@ -83,6 +83,7 @@
     "deleteSuccess": "Data source deleted",
     "confirmDelete": "Are you sure you want to delete \"{{name}}\"?",
     "refreshSchema": "Refresh Schema",
+    "previewData": "Preview Data",
     "active": "Active",
     "inactive": "Inactive",
     "file": "File"

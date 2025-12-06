@@ -99,15 +99,49 @@ async def test_data_source_connection(data_source_id: int, current_user: Current
 @router.post("/{data_source_id}/sync-schema", response_model=BaseResponse[DataSourceSchemaResponse])
 async def sync_data_source_schema(data_source_id: int, current_user: CurrentUser, db: DBSession):
     """同步数据源 Schema"""
+    from app.core.exceptions import BadRequestException
+    from app.models.data_source import DataSourceType
+    from app.schemas.data_source import ColumnSchema, TableSchema
     from app.services.db_connector import DBConnectorService
 
-    # 获取数据源
+    # 获取数据源（包含关联文件）
     service = DataSourceService(db)
-    data_source = await service.get_data_source(data_source_id, current_user.id)
+    data_source = await service.get_data_source_with_file(data_source_id, current_user.id)
 
-    # 提取 Schema
-    connector = DBConnectorService()
-    schema = await connector.extract_schema(data_source)
+    if data_source.source_type == DataSourceType.DATABASE.value:
+        # 数据库类型：使用 DBConnector 提取 schema
+        connector = DBConnectorService()
+        schema = await connector.extract_schema(data_source)
+    elif data_source.source_type == DataSourceType.FILE.value:
+        # 文件类型：从关联的 UploadedFile 获取 schema
+        if not data_source.uploaded_file:
+            raise BadRequestException(msg="文件数据源未关联文件")
+
+        uploaded_file = data_source.uploaded_file
+        if uploaded_file.status != "ready":
+            raise BadRequestException(msg="文件尚未处理完成")
+
+        # 从 columns_info 构建 ColumnSchema
+        columns = []
+        for col_info in uploaded_file.columns_info or []:
+            columns.append(
+                ColumnSchema(
+                    name=col_info.get("name", ""),
+                    data_type=col_info.get("dtype", col_info.get("type", "unknown")),
+                    nullable=col_info.get("nullable", True),
+                    primary_key=False,
+                )
+            )
+
+        # 构建单表 schema（文件作为一个表）
+        table = TableSchema(
+            name=uploaded_file.original_name,
+            columns=columns,
+            row_count=uploaded_file.row_count,
+        )
+        schema = DataSourceSchemaResponse(tables=[table])
+    else:
+        raise BadRequestException(msg=f"不支持的数据源类型: {data_source.source_type}")
 
     # 更新缓存
     await service.update_schema_cache(
