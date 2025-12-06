@@ -274,7 +274,13 @@ async def execute_sql(
 
     if result.get("success"):
         row_count = result.get("row_count", 0)
-        content = f"查询成功，返回 {row_count} 行数据"
+        columns = result.get("columns", [])
+        result_file = result.get("result_file", "")
+
+        # 构建给 LLM 的内容，包含列名以便后续工具使用
+        content = f"查询成功，返回 {row_count} 行数据\n"
+        content += f"结果文件: {result_file}\n"
+        content += f"列名: {columns}"
 
         # 限制 artifact 中的行数，避免数据过大
         rows = result.get("rows", [])
@@ -282,11 +288,11 @@ async def execute_sql(
         artifact = {
             "type": "sql",
             "sql": sql,
-            "columns": result.get("columns", []),
+            "columns": columns,
             "rows": rows[:max_rows],
             "total_rows": row_count,
             "truncated": len(rows) > max_rows,
-            "result_file": result.get("result_file"),
+            "result_file": result_file,
         }
         return content, artifact
     else:

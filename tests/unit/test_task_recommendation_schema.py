@@ -161,3 +161,4 @@ class TestGenerateFollowupRequestSchema:
                 max_count=6,  # 超出最大值
             )
 
+
