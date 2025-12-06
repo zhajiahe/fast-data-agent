@@ -105,6 +105,7 @@ class DataSourceService:
             "description": data.description,
             "source_type": data.source_type.value,
             "user_id": user_id,
+            "group_name": data.group_name,
         }
 
         # 数据库连接配置
@@ -161,6 +162,8 @@ class DataSourceService:
             update_data["name"] = data.name
         if data.description is not None:
             update_data["description"] = data.description
+        if data.group_name is not None:
+            update_data["group_name"] = data.group_name
 
         # 数据库连接配置更新
         if data.db_config:

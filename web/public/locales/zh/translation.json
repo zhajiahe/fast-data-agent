@@ -65,9 +65,11 @@
     "addDatabaseDesc": "配置数据库连接信息",
     "uploadFile": "上传文件",
     "uploadFileDesc": "上传 CSV、Excel 等数据文件",
+    "uploadFileDescMultiple": "支持批量上传多个文件，自动创建数据源分组",
     "empty": "暂无数据源",
     "emptyHint": "添加数据库连接或上传数据文件开始分析",
     "name": "名称",
+    "namePlaceholder": "数据源名称",
     "description": "描述",
     "databaseType": "数据库类型",
     "host": "主机",
@@ -82,11 +84,17 @@
     "createSuccess": "数据源创建成功",
     "deleteSuccess": "数据源已删除",
     "confirmDelete": "确定要删除数据源 \"{{name}}\" 吗？",
+    "confirmDeleteTitle": "删除确认",
     "refreshSchema": "刷新 Schema",
     "previewData": "预览数据",
     "active": "正常",
     "inactive": "异常",
-    "file": "文件"
+    "file": "文件",
+    "groupName": "分组名称",
+    "groupNamePlaceholder": "输入分组名称",
+    "newGroup": "新建分组",
+    "ungrouped": "未分组",
+    "filesCount": "{{count}} 个文件"
   },
   "sessions": {
     "title": "分析会话",
@@ -132,12 +140,17 @@
   },
   "files": {
     "dragOrClick": "拖拽文件到此处，或点击选择",
+    "dragOrClickMultiple": "拖拽文件到此处，或点击选择（支持多选）",
     "acceptedTypes": "支持格式：{{types}}",
     "selectFile": "选择文件",
+    "selectFiles": "选择文件",
     "invalidType": "不支持的文件类型",
     "upload": "上传",
+    "uploadCount": "上传 {{count}} 个文件",
     "uploading": "上传中...",
-    "uploadSuccess": "文件上传成功"
+    "uploadingFile": "正在上传 {{current}}/{{total}}",
+    "uploadSuccess": "文件上传成功",
+    "uploadSuccessMultiple": "成功上传 {{count}} 个文件"
   },
   "sessionFiles": {
     "title": "会话文件",

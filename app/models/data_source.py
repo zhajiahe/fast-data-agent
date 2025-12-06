@@ -55,6 +55,7 @@ class DataSource(Base, BaseTableMixin):
     source_type: Mapped[str] = mapped_column(
         String(20), nullable=False, default=DataSourceType.DATABASE.value, comment="数据源类型: database/file"
     )
+    group_name: Mapped[str | None] = mapped_column(String(100), nullable=True, index=True, comment="数据源分组名称")
 
     # 所属用户
     user_id: Mapped[int] = mapped_column(

@@ -562,6 +562,11 @@ export interface ColumnSchema {
 export type DataSourceCreateDescription = string | null;
 
 /**
+ * 数据源分组名称
+ */
+export type DataSourceCreateGroupName = string | null;
+
+/**
  * 数据库连接配置
  */
 export type DataSourceCreateDbConfig = DatabaseConnectionConfig | null;
@@ -584,6 +589,8 @@ export interface DataSourceCreate {
   /** 数据源描述 */
   description?: DataSourceCreateDescription;
   source_type?: DataSourceType;
+  /** 数据源分组名称 */
+  group_name?: DataSourceCreateGroupName;
   /** 数据库连接配置 */
   db_config?: DataSourceCreateDbConfig;
   /** 关联的上传文件ID */
@@ -594,6 +601,11 @@ export interface DataSourceCreate {
  * 数据源描述
  */
 export type DataSourceResponseDescription = string | null;
+
+/**
+ * 数据源分组名称
+ */
+export type DataSourceResponseGroupName = string | null;
 
 /**
  * 数据库类型
@@ -655,6 +667,8 @@ export interface DataSourceResponse {
   /** 数据源描述 */
   description?: DataSourceResponseDescription;
   source_type?: DataSourceType;
+  /** 数据源分组名称 */
+  group_name?: DataSourceResponseGroupName;
   /** 数据源ID */
   id: number;
   /** 所属用户ID */
@@ -733,6 +747,11 @@ export type DataSourceUpdateName = string | null;
 export type DataSourceUpdateDescription = string | null;
 
 /**
+ * 数据源分组名称
+ */
+export type DataSourceUpdateGroupName = string | null;
+
+/**
  * 数据库连接配置
  */
 export type DataSourceUpdateDbConfig = DatabaseConnectionConfig | null;
@@ -745,6 +764,8 @@ export interface DataSourceUpdate {
   name?: DataSourceUpdateName;
   /** 数据源描述 */
   description?: DataSourceUpdateDescription;
+  /** 数据源分组名称 */
+  group_name?: DataSourceUpdateGroupName;
   /** 数据库连接配置 */
   db_config?: DataSourceUpdateDbConfig;
 }

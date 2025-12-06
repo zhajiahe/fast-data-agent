@@ -25,16 +25,17 @@ interface UploadFileDialogProps {
 const acceptedExtensions = ['.csv', '.xls', '.xlsx', '.json', '.parquet'];
 
 /**
- * 上传文件对话框
+ * 上传文件对话框（支持多文件批量上传）
  */
 export const UploadFileDialog = ({ open, onOpenChange }: UploadFileDialogProps) => {
   const { t } = useTranslation();
   const { toast } = useToast();
 
-  const [file, setFile] = useState<File | null>(null);
-  const [name, setName] = useState('');
+  const [files, setFiles] = useState<File[]>([]);
+  const [groupName, setGroupName] = useState('');
   const [description, setDescription] = useState('');
   const [uploadProgress, setUploadProgress] = useState(0);
+  const [currentFileIndex, setCurrentFileIndex] = useState(0);
   const [isDragOver, setIsDragOver] = useState(false);
 
   // 使用生成的 API hooks
@@ -45,15 +46,7 @@ export const UploadFileDialog = ({ open, onOpenChange }: UploadFileDialogProps) 
 
   const isValidFile = (selectedFile: File): boolean => {
     const ext = `.${selectedFile.name.split('.').pop()?.toLowerCase()}`;
-    if (!acceptedExtensions.includes(ext)) {
-      toast({
-        title: t('files.invalidType'),
-        description: t('files.acceptedTypes', { types: acceptedExtensions.join(', ') }),
-        variant: 'destructive',
-      });
-      return false;
-    }
-    return true;
+    return acceptedExtensions.includes(ext);
   };
 
   const handleDragOver = (e: React.DragEvent) => {
@@ -69,53 +62,82 @@ export const UploadFileDialog = ({ open, onOpenChange }: UploadFileDialogProps) 
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault();
     setIsDragOver(false);
-    const droppedFile = e.dataTransfer.files[0];
-    if (droppedFile && isValidFile(droppedFile)) {
-      setFile(droppedFile);
-      if (!name) {
-        setName(droppedFile.name.replace(/\.[^/.]+$/, ''));
+    const droppedFiles = Array.from(e.dataTransfer.files).filter(isValidFile);
+    if (droppedFiles.length > 0) {
+      setFiles((prev) => [...prev, ...droppedFiles]);
+      if (!groupName && droppedFiles.length === 1) {
+        setGroupName(droppedFiles[0].name.replace(/\.[^/.]+$/, ''));
+      } else if (!groupName && droppedFiles.length > 1) {
+        setGroupName(t('dataSources.newGroup'));
       }
+    }
+    if (droppedFiles.length < e.dataTransfer.files.length) {
+      toast({
+        title: t('files.invalidType'),
+        description: t('files.acceptedTypes', { types: acceptedExtensions.join(', ') }),
+        variant: 'destructive',
+      });
     }
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const selectedFile = e.target.files?.[0];
-    if (selectedFile && isValidFile(selectedFile)) {
-      setFile(selectedFile);
-      if (!name) {
-        setName(selectedFile.name.replace(/\.[^/.]+$/, ''));
+    const selectedFiles = Array.from(e.target.files || []).filter(isValidFile);
+    if (selectedFiles.length > 0) {
+      setFiles((prev) => [...prev, ...selectedFiles]);
+      if (!groupName && selectedFiles.length === 1) {
+        setGroupName(selectedFiles[0].name.replace(/\.[^/.]+$/, ''));
+      } else if (!groupName && selectedFiles.length > 1) {
+        setGroupName(t('dataSources.newGroup'));
       }
     }
+    // Reset input
+    e.target.value = '';
+  };
+
+  const removeFile = (index: number) => {
+    setFiles((prev) => prev.filter((_, i) => i !== index));
   };
 
   const handleUpload = async () => {
-    if (!file || !name.trim()) return;
+    if (files.length === 0 || !groupName.trim()) return;
 
     setUploadProgress(0);
+    setCurrentFileIndex(0);
+
+    const totalFiles = files.length;
+    const progressPerFile = 100 / totalFiles;
 
     try {
-      // 1. 上传文件
-      const uploadResult = await uploadFileMutation.mutateAsync({ file });
-      setUploadProgress(50);
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        setCurrentFileIndex(i);
 
-      const fileId = uploadResult.data.data?.id;
-      if (!fileId) {
-        throw new Error('上传文件失败：未获取到文件 ID');
+        // 1. 上传文件
+        const uploadResult = await uploadFileMutation.mutateAsync({ file });
+        setUploadProgress((i + 0.5) * progressPerFile);
+
+        const fileId = uploadResult.data.data?.id;
+        if (!fileId) {
+          throw new Error(`上传文件 ${file.name} 失败：未获取到文件 ID`);
+        }
+
+        // 2. 创建文件类型数据源（使用文件名作为数据源名称，group_name 作为分组）
+        const dataSourceName = files.length === 1 ? groupName.trim() : file.name.replace(/\.[^/.]+$/, '');
+        await createDataSourceMutation.mutateAsync({
+          name: dataSourceName,
+          description: description.trim() || undefined,
+          source_type: DataSourceType.file,
+          file_id: fileId,
+          group_name: files.length > 1 ? groupName.trim() : undefined,
+        });
+
+        setUploadProgress((i + 1) * progressPerFile);
       }
-
-      // 2. 创建文件类型数据源
-      await createDataSourceMutation.mutateAsync({
-        name: name.trim(),
-        description: description.trim() || undefined,
-        source_type: DataSourceType.file,
-        file_id: fileId,
-      });
-
-      setUploadProgress(100);
 
       toast({
         title: t('common.success'),
-        description: t('files.uploadSuccess'),
+        description:
+          files.length === 1 ? t('files.uploadSuccess') : t('files.uploadSuccessMultiple', { count: files.length }),
       });
 
       handleClose();
@@ -130,10 +152,11 @@ export const UploadFileDialog = ({ open, onOpenChange }: UploadFileDialogProps) 
   };
 
   const handleClose = () => {
-    setFile(null);
-    setName('');
+    setFiles([]);
+    setGroupName('');
     setDescription('');
     setUploadProgress(0);
+    setCurrentFileIndex(0);
     onOpenChange(false);
   };
 
@@ -145,87 +168,96 @@ export const UploadFileDialog = ({ open, onOpenChange }: UploadFileDialogProps) 
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="sm:max-w-[500px]">
+      <DialogContent className="sm:max-w-[550px]">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Upload className="h-5 w-5" />
             {t('dataSources.uploadFile')}
           </DialogTitle>
-          <DialogDescription>{t('dataSources.uploadFileDesc')}</DialogDescription>
+          <DialogDescription>{t('dataSources.uploadFileDescMultiple')}</DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4">
           {/* 拖拽上传区域 */}
-          {!file ? (
-            // biome-ignore lint/a11y/useSemanticElements: 拖放区域需要 div 以支持拖放事件
-            <div
-              role="button"
-              tabIndex={0}
-              className={`border-2 border-dashed rounded-lg p-8 text-center transition-colors cursor-pointer ${
-                isDragOver
-                  ? 'border-primary bg-primary/5'
-                  : 'border-muted-foreground/25 hover:border-muted-foreground/50'
-              }`}
-              onDragOver={handleDragOver}
-              onDragLeave={handleDragLeave}
-              onDrop={handleDrop}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' || e.key === ' ') {
-                  document.getElementById('file-input')?.click();
-                }
-              }}
-              onClick={() => document.getElementById('file-input')?.click()}
-            >
-              <FileSpreadsheet className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-              <p className="text-sm text-muted-foreground mb-2">{t('files.dragOrClick')}</p>
-              <p className="text-xs text-muted-foreground mb-4">
-                {t('files.acceptedTypes', { types: acceptedExtensions.join(', ') })}
-              </p>
-              <input
-                id="file-input"
-                type="file"
-                className="hidden"
-                accept={acceptedExtensions.join(',')}
-                onChange={handleFileChange}
-              />
-              <Button type="button" variant="outline" size="sm">
-                {t('files.selectFile')}
-              </Button>
-            </div>
-          ) : (
-            <div className="border rounded-lg p-4">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <FileSpreadsheet className="h-8 w-8 text-green-500" />
-                  <div>
-                    <p className="font-medium text-sm">{file.name}</p>
-                    <p className="text-xs text-muted-foreground">{formatFileSize(file.size)}</p>
+          {/* biome-ignore lint/a11y/useSemanticElements: 拖放区域需要 div 以支持拖放事件 */}
+          <div
+            role="button"
+            tabIndex={0}
+            className={`border-2 border-dashed rounded-lg p-6 text-center transition-colors cursor-pointer ${
+              isDragOver ? 'border-primary bg-primary/5' : 'border-muted-foreground/25 hover:border-muted-foreground/50'
+            }`}
+            onDragOver={handleDragOver}
+            onDragLeave={handleDragLeave}
+            onDrop={handleDrop}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                document.getElementById('file-input')?.click();
+              }
+            }}
+            onClick={() => document.getElementById('file-input')?.click()}
+          >
+            <FileSpreadsheet className="h-10 w-10 mx-auto text-muted-foreground mb-3" />
+            <p className="text-sm text-muted-foreground mb-1">{t('files.dragOrClickMultiple')}</p>
+            <p className="text-xs text-muted-foreground mb-3">
+              {t('files.acceptedTypes', { types: acceptedExtensions.join(', ') })}
+            </p>
+            <input
+              id="file-input"
+              type="file"
+              className="hidden"
+              accept={acceptedExtensions.join(',')}
+              multiple
+              onChange={handleFileChange}
+            />
+            <Button type="button" variant="outline" size="sm">
+              {t('files.selectFiles')}
+            </Button>
+          </div>
+
+          {/* 已选择的文件列表 */}
+          {files.length > 0 && (
+            <div className="border rounded-lg divide-y max-h-[180px] overflow-y-auto">
+              {files.map((file, index) => (
+                <div key={`${file.name}-${index}`} className="flex items-center justify-between p-3">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <FileSpreadsheet className="h-6 w-6 text-green-500 shrink-0" />
+                    <div className="min-w-0">
+                      <p className="font-medium text-sm truncate">{file.name}</p>
+                      <p className="text-xs text-muted-foreground">{formatFileSize(file.size)}</p>
+                    </div>
                   </div>
+                  <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0" onClick={() => removeFile(index)}>
+                    <X className="h-4 w-4" />
+                  </Button>
                 </div>
-                <Button variant="ghost" size="icon" onClick={() => setFile(null)}>
-                  <X className="h-4 w-4" />
-                </Button>
-              </div>
-              {isUploading && (
-                <div className="mt-3">
-                  <div className="h-2 bg-muted rounded-full overflow-hidden">
-                    <div
-                      className="h-full bg-primary transition-all duration-300"
-                      style={{ width: `${uploadProgress}%` }}
-                    />
-                  </div>
-                  <p className="text-xs text-muted-foreground mt-1 text-center">
-                    {uploadProgress < 50 ? '上传中...' : '创建数据源...'}
-                  </p>
-                </div>
-              )}
+              ))}
             </div>
           )}
 
-          {/* 名称 */}
+          {/* 上传进度 */}
+          {isUploading && (
+            <div className="space-y-2">
+              <div className="h-2 bg-muted rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-primary transition-all duration-300"
+                  style={{ width: `${uploadProgress}%` }}
+                />
+              </div>
+              <p className="text-xs text-muted-foreground text-center">
+                {t('files.uploadingFile', { current: currentFileIndex + 1, total: files.length })}
+              </p>
+            </div>
+          )}
+
+          {/* 组名/数据源名称 */}
           <div className="space-y-2">
-            <Label htmlFor="name">{t('dataSources.name')}</Label>
-            <Input id="name" value={name} onChange={(e) => setName(e.target.value)} placeholder="数据源名称" />
+            <Label htmlFor="groupName">{files.length > 1 ? t('dataSources.groupName') : t('dataSources.name')}</Label>
+            <Input
+              id="groupName"
+              value={groupName}
+              onChange={(e) => setGroupName(e.target.value)}
+              placeholder={files.length > 1 ? t('dataSources.groupNamePlaceholder') : t('dataSources.namePlaceholder')}
+            />
           </div>
 
           {/* 描述 */}
@@ -245,7 +277,7 @@ export const UploadFileDialog = ({ open, onOpenChange }: UploadFileDialogProps) 
           <Button variant="outline" onClick={handleClose} disabled={isUploading}>
             {t('common.cancel')}
           </Button>
-          <Button onClick={handleUpload} disabled={!file || !name.trim() || isUploading}>
+          <Button onClick={handleUpload} disabled={files.length === 0 || !groupName.trim() || isUploading}>
             {isUploading ? (
               <>
                 <LoadingSpinner size="sm" className="mr-2 text-current" />
@@ -254,7 +286,7 @@ export const UploadFileDialog = ({ open, onOpenChange }: UploadFileDialogProps) 
             ) : (
               <>
                 <Upload className="h-4 w-4 mr-2" />
-                {t('files.upload')}
+                {files.length > 1 ? t('files.uploadCount', { count: files.length }) : t('files.upload')}
               </>
             )}
           </Button>

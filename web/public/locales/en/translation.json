@@ -65,9 +65,11 @@
     "addDatabaseDesc": "Configure database connection",
     "uploadFile": "Upload File",
     "uploadFileDesc": "Upload CSV, Excel, or other data files",
+    "uploadFileDescMultiple": "Upload multiple files at once, auto-grouped",
     "empty": "No data sources",
     "emptyHint": "Add database connection or upload files to start",
     "name": "Name",
+    "namePlaceholder": "Data source name",
     "description": "Description",
     "databaseType": "Database Type",
     "host": "Host",
@@ -82,11 +84,17 @@
     "createSuccess": "Data source created",
     "deleteSuccess": "Data source deleted",
     "confirmDelete": "Are you sure you want to delete \"{{name}}\"?",
+    "confirmDeleteTitle": "Confirm Delete",
     "refreshSchema": "Refresh Schema",
     "previewData": "Preview Data",
     "active": "Active",
     "inactive": "Inactive",
-    "file": "File"
+    "file": "File",
+    "groupName": "Group Name",
+    "groupNamePlaceholder": "Enter group name",
+    "newGroup": "New Group",
+    "ungrouped": "Ungrouped",
+    "filesCount": "{{count}} files"
   },
   "sessions": {
     "title": "Analysis Sessions",
@@ -132,12 +140,17 @@
   },
   "files": {
     "dragOrClick": "Drag files here or click to select",
+    "dragOrClickMultiple": "Drag files here or click to select (multiple)",
     "acceptedTypes": "Supported: {{types}}",
     "selectFile": "Select File",
+    "selectFiles": "Select Files",
     "invalidType": "Unsupported file type",
     "upload": "Upload",
+    "uploadCount": "Upload {{count}} files",
     "uploading": "Uploading...",
-    "uploadSuccess": "File uploaded successfully"
+    "uploadingFile": "Uploading {{current}}/{{total}}",
+    "uploadSuccess": "File uploaded successfully",
+    "uploadSuccessMultiple": "{{count}} files uploaded successfully"
   },
   "sessionFiles": {
     "title": "Session Files",

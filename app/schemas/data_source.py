@@ -16,6 +16,7 @@ class DataSourceBase(BaseModel):
     name: str = Field(..., min_length=1, max_length=100, description="数据源名称")
     description: str | None = Field(default=None, description="数据源描述")
     source_type: DataSourceType = Field(default=DataSourceType.DATABASE, description="数据源类型")
+    group_name: str | None = Field(default=None, max_length=100, description="数据源分组名称")
 
 
 class DatabaseConnectionConfig(BaseModel):
@@ -45,6 +46,7 @@ class DataSourceUpdate(BaseModel):
 
     name: str | None = Field(default=None, min_length=1, max_length=100, description="数据源名称")
     description: str | None = Field(default=None, description="数据源描述")
+    group_name: str | None = Field(default=None, max_length=100, description="数据源分组名称")
 
     # 数据库连接配置
     db_config: DatabaseConnectionConfig | None = Field(default=None, description="数据库连接配置")

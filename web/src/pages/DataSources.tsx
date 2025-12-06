@@ -1,16 +1,19 @@
 import {
   AlertCircle,
   CheckCircle2,
+  ChevronDown,
+  ChevronRight,
   Database,
   Eye,
   FileSpreadsheet,
+  FolderOpen,
   MoreHorizontal,
   Plus,
   RefreshCw,
   Trash2,
   Upload,
 } from 'lucide-react';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { type DataSourceResponse, useDataSources, useDeleteDataSource, useSyncDataSourceSchema } from '@/api';
 import { EmptyState, LoadingState } from '@/components/common';
@@ -20,6 +23,7 @@ import { UploadFileDialog } from '@/components/data-source/UploadFileDialog';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -28,6 +32,11 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { useConfirmDialog, useToast } from '@/hooks';
+
+interface GroupedDataSources {
+  groupName: string | null;
+  dataSources: DataSourceResponse[];
+}
 
 /**
  * 数据源管理页面
@@ -38,6 +47,7 @@ export const DataSources = () => {
   const [showAddDatabase, setShowAddDatabase] = useState(false);
   const [showUploadFile, setShowUploadFile] = useState(false);
   const [previewDataSource, setPreviewDataSource] = useState<DataSourceResponse | null>(null);
+  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set(['__ungrouped__']));
   const { confirm, ConfirmDialog } = useConfirmDialog();
 
   const { data: response, isLoading } = useDataSources();
@@ -45,6 +55,47 @@ export const DataSources = () => {
   const syncSchemaMutation = useSyncDataSourceSchema();
 
   const dataSources = response?.data.data?.items || [];
+
+  // 按 group_name 分组
+  const groupedDataSources = useMemo(() => {
+    const groups: Map<string, DataSourceResponse[]> = new Map();
+    const ungrouped: DataSourceResponse[] = [];
+
+    for (const ds of dataSources) {
+      if (ds.group_name) {
+        const existing = groups.get(ds.group_name) || [];
+        groups.set(ds.group_name, [...existing, ds]);
+      } else {
+        ungrouped.push(ds);
+      }
+    }
+
+    const result: GroupedDataSources[] = [];
+
+    // 先添加分组的数据源
+    for (const [groupName, items] of groups) {
+      result.push({ groupName, dataSources: items });
+    }
+
+    // 最后添加未分组的数据源
+    if (ungrouped.length > 0) {
+      result.push({ groupName: null, dataSources: ungrouped });
+    }
+
+    return result;
+  }, [dataSources]);
+
+  const toggleGroup = (groupKey: string) => {
+    setExpandedGroups((prev) => {
+      const next = new Set(prev);
+      if (next.has(groupKey)) {
+        next.delete(groupKey);
+      } else {
+        next.add(groupKey);
+      }
+      return next;
+    });
+  };
 
   const handleDelete = async (id: number, name: string) => {
     const confirmed = await confirm({
@@ -100,6 +151,66 @@ export const DataSources = () => {
     );
   };
 
+  const renderDataSourceCard = (ds: DataSourceResponse) => (
+    <Card
+      key={ds.id}
+      className="group hover:shadow-md transition-shadow cursor-pointer"
+      onClick={() => ds.source_type === 'file' && ds.file_id && setPreviewDataSource(ds)}
+    >
+      <CardHeader className="pb-3">
+        <div className="flex items-start justify-between">
+          <div className="flex items-center gap-3">
+            {getTypeIcon(ds)}
+            <div>
+              <CardTitle className="text-base">{ds.name}</CardTitle>
+              <CardDescription className="text-xs">
+                {ds.source_type === 'database' ? ds.db_type?.toUpperCase() : t('dataSources.file')}
+              </CardDescription>
+            </div>
+          </div>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <MoreHorizontal className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              {ds.source_type === 'file' && ds.file_id && (
+                <DropdownMenuItem onClick={() => setPreviewDataSource(ds)}>
+                  <Eye className="h-4 w-4 mr-2" />
+                  {t('dataSources.previewData')}
+                </DropdownMenuItem>
+              )}
+              <DropdownMenuItem onClick={() => handleSyncSchema(ds.id)}>
+                <RefreshCw className="h-4 w-4 mr-2" />
+                {t('dataSources.refreshSchema')}
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem className="text-destructive" onClick={() => handleDelete(ds.id, ds.name)}>
+                <Trash2 className="h-4 w-4 mr-2" />
+                {t('common.delete')}
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+      </CardHeader>
+      <CardContent>
+        <div className="flex items-center justify-between">
+          {getStatusBadge(ds)}
+          {ds.create_time && (
+            <span className="text-xs text-muted-foreground">{new Date(ds.create_time).toLocaleDateString()}</span>
+          )}
+        </div>
+        {ds.description && <p className="text-sm text-muted-foreground mt-3 line-clamp-2">{ds.description}</p>}
+      </CardContent>
+    </Card>
+  );
+
   return (
     <div className="container py-8 max-w-6xl">
       {/* 页面标题 */}
@@ -154,63 +265,53 @@ export const DataSources = () => {
           </CardContent>
         </Card>
       ) : (
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {dataSources.map((ds) => (
-            <Card key={ds.id} className="group hover:shadow-md transition-shadow">
-              <CardHeader className="pb-3">
-                <div className="flex items-start justify-between">
-                  <div className="flex items-center gap-3">
-                    {getTypeIcon(ds)}
-                    <div>
-                      <CardTitle className="text-base">{ds.name}</CardTitle>
-                      <CardDescription className="text-xs">
-                        {ds.source_type === 'database' ? ds.db_type?.toUpperCase() : t('dataSources.file')}
-                      </CardDescription>
-                    </div>
-                  </div>
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity"
-                      >
-                        <MoreHorizontal className="h-4 w-4" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      {ds.source_type === 'file' && ds.file_id && (
-                        <DropdownMenuItem onClick={() => setPreviewDataSource(ds)}>
-                          <Eye className="h-4 w-4 mr-2" />
-                          {t('dataSources.previewData')}
-                        </DropdownMenuItem>
+        <div className="space-y-6">
+          {groupedDataSources.map((group) => {
+            const groupKey = group.groupName || '__ungrouped__';
+            const isExpanded = expandedGroups.has(groupKey);
+
+            // 如果是分组
+            if (group.groupName) {
+              return (
+                <Collapsible key={groupKey} open={isExpanded} onOpenChange={() => toggleGroup(groupKey)}>
+                  <CollapsibleTrigger asChild>
+                    <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/50 hover:bg-muted cursor-pointer transition-colors">
+                      {isExpanded ? (
+                        <ChevronDown className="h-5 w-5 text-muted-foreground" />
+                      ) : (
+                        <ChevronRight className="h-5 w-5 text-muted-foreground" />
                       )}
-                      <DropdownMenuItem onClick={() => handleSyncSchema(ds.id)}>
-                        <RefreshCw className="h-4 w-4 mr-2" />
-                        {t('dataSources.refreshSchema')}
-                      </DropdownMenuItem>
-                      <DropdownMenuSeparator />
-                      <DropdownMenuItem className="text-destructive" onClick={() => handleDelete(ds.id, ds.name)}>
-                        <Trash2 className="h-4 w-4 mr-2" />
-                        {t('common.delete')}
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
+                      <FolderOpen className="h-5 w-5 text-amber-500" />
+                      <span className="font-medium">{group.groupName}</span>
+                      <Badge variant="secondary" className="ml-auto">
+                        {t('dataSources.filesCount', { count: group.dataSources.length })}
+                      </Badge>
+                    </div>
+                  </CollapsibleTrigger>
+                  <CollapsibleContent>
+                    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 mt-4 pl-8">
+                      {group.dataSources.map(renderDataSourceCard)}
+                    </div>
+                  </CollapsibleContent>
+                </Collapsible>
+              );
+            }
+
+            // 未分组的数据源直接显示
+            return (
+              <div key={groupKey}>
+                {groupedDataSources.length > 1 && (
+                  <div className="flex items-center gap-2 mb-4 text-muted-foreground">
+                    <Database className="h-4 w-4" />
+                    <span className="text-sm font-medium">{t('dataSources.ungrouped')}</span>
+                  </div>
+                )}
+                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                  {group.dataSources.map(renderDataSourceCard)}
                 </div>
-              </CardHeader>
-              <CardContent>
-                <div className="flex items-center justify-between">
-                  {getStatusBadge(ds)}
-                  {ds.create_time && (
-                    <span className="text-xs text-muted-foreground">
-                      {new Date(ds.create_time).toLocaleDateString()}
-                    </span>
-                  )}
-                </div>
-                {ds.description && <p className="text-sm text-muted-foreground mt-3 line-clamp-2">{ds.description}</p>}
-              </CardContent>
-            </Card>
-          ))}
+              </div>
+            );
+          })}
         </div>
       )}
 
