@@ -11,7 +11,8 @@ export interface User {
   nickname?: string;
   email?: string;
   avatar?: string;
-  [key: string]: any;
+  is_active?: boolean;
+  is_superuser?: boolean;
 }
 
 interface AuthState {

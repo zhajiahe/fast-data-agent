@@ -3,3 +3,5 @@
  */
 
 export { useToast } from './use-toast';
+export { useChatStream } from './useChatStream';
+export { useConfirmDialog } from './useConfirmDialog';

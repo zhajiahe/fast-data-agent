@@ -24,7 +24,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { useToast } from '@/hooks/use-toast';
+import { useConfirmDialog, useToast } from '@/hooks';
 
 /**
  * 数据源管理页面
@@ -34,6 +34,7 @@ export const DataSources = () => {
   const { toast } = useToast();
   const [showAddDatabase, setShowAddDatabase] = useState(false);
   const [showUploadFile, setShowUploadFile] = useState(false);
+  const { confirm, ConfirmDialog } = useConfirmDialog();
 
   // 使用生成的 API hooks
   const { data: response, isLoading, refetch } = useDataSources();
@@ -43,7 +44,15 @@ export const DataSources = () => {
   const dataSources = response?.data.data?.items || [];
 
   const handleDelete = async (id: number, name: string) => {
-    if (!confirm(t('dataSources.confirmDelete', { name }))) return;
+    const confirmed = await confirm({
+      title: t('dataSources.confirmDeleteTitle'),
+      description: t('dataSources.confirmDelete', { name }),
+      confirmText: t('common.delete'),
+      cancelText: t('common.cancel'),
+      variant: 'destructive',
+    });
+
+    if (!confirmed) return;
 
     deleteDataSourceMutation.mutate(id, {
       onSuccess: () => {
@@ -221,6 +230,9 @@ export const DataSources = () => {
       {/* 对话框 */}
       <AddDatabaseDialog open={showAddDatabase} onOpenChange={setShowAddDatabase} />
       <UploadFileDialog open={showUploadFile} onOpenChange={setShowUploadFile} />
+
+      {/* 确认对话框 */}
+      <ConfirmDialog />
     </div>
   );
 };

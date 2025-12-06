@@ -7,7 +7,31 @@ import { cn } from '@/lib/utils';
 import { DataTable } from './DataTable';
 import { PlotlyChart } from './PlotlyChart';
 
-// 本地消息类型
+// 扩展的消息类型（包含更多 artifact 属性用于展示）
+interface MessageArtifact {
+  type: string;
+  // plotly
+  chart_json?: string;
+  // table / sql
+  columns?: string[];
+  rows?: unknown[][];
+  title?: string;
+  // sql
+  sql?: string;
+  total_rows?: number;
+  truncated?: boolean;
+  result_file?: string;
+  // code
+  code?: string;
+  output?: string;
+  files_created?: string[];
+  // error
+  tool?: string;
+  error_message?: string;
+  // file
+  filename?: string;
+}
+
 interface LocalMessage {
   id: number;
   session_id: number;
@@ -15,29 +39,7 @@ interface LocalMessage {
   content: string;
   tool_call_id?: string;
   tool_name?: string;
-  artifact?: {
-    type: string;
-    // plotly
-    chart_json?: string;
-    // table / sql
-    columns?: string[];
-    rows?: unknown[][];
-    title?: string;
-    // sql
-    sql?: string;
-    total_rows?: number;
-    truncated?: boolean;
-    result_file?: string;
-    // code
-    code?: string;
-    output?: string;
-    files_created?: string[];
-    // error
-    tool?: string;
-    error_message?: string;
-    // file
-    filename?: string;
-  };
+  artifact?: MessageArtifact;
   create_time: string;
 }
 

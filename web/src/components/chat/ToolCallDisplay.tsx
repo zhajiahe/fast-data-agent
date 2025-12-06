@@ -1,12 +1,9 @@
 import { CheckCircle2, Loader2, Wrench, XCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import type { ToolCallState } from '@/types';
 
 interface ToolCallDisplayProps {
-  toolCall: {
-    id: string;
-    name: string;
-    status: 'calling' | 'executing' | 'completed' | 'error';
-  };
+  toolCall: ToolCallState;
 }
 
 const toolNameMap: Record<string, string> = {

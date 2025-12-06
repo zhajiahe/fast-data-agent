@@ -82,17 +82,19 @@ export const RecommendationPanel = ({ sessionId, onSelect }: RecommendationPanel
 
   const recommendations = response?.data.data?.items || [];
   const hasLoadedRef = useRef(false);
+  const hasDataLoaded = !!response?.data.data;
+  const isPending = generateMutation.isPending;
 
   // 首次加载时，如果没有推荐，自动生成
   useEffect(() => {
     // 只在首次加载完成且没有推荐时自动生成
-    if (!isLoading && !hasLoadedRef.current && response?.data.data) {
+    if (!isLoading && !hasLoadedRef.current && hasDataLoaded) {
       hasLoadedRef.current = true;
-      if (recommendations.length === 0 && !generateMutation.isPending) {
+      if (recommendations.length === 0 && !isPending) {
         generateMutation.mutate({});
       }
     }
-  }, [isLoading, recommendations.length, response?.data.data, generateMutation]);
+  }, [isLoading, recommendations.length, hasDataLoaded, isPending, generateMutation.mutate]);
 
   // 分离初始推荐和后续问题推荐
   const { initialRecs, followupRecs } = useMemo(() => {

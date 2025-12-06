@@ -40,7 +40,9 @@ axios.interceptors.response.use(
       storage.clearAuth();
       const currentPath = window.location.pathname;
       if (!currentPath.includes('/login') && !currentPath.includes('/register')) {
-        window.location.href = '/web/login';
+        // 使用 BASE_URL 构建正确的登录路径
+        const basePath = (import.meta.env.VITE_BASE_PATH || import.meta.env.BASE_URL || '/').replace(/\/$/, '') || '';
+        window.location.href = `${basePath}/login`;
       }
     }
 

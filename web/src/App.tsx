@@ -1,5 +1,5 @@
 import { lazy, Suspense } from 'react';
-import { Navigate, Route, BrowserRouter as Router, Routes } from 'react-router-dom';
+import { Navigate, Outlet, Route, BrowserRouter as Router, Routes } from 'react-router-dom';
 import { AppInitializer } from '@/components/AppInitializer';
 import { ChatLayout } from '@/components/ChatLayout';
 import { Layout } from '@/components/Layout';
@@ -28,6 +28,28 @@ const LoadingFallback = () => (
 );
 
 /**
+ * 带导航栏的受保护布局
+ */
+const ProtectedLayout = () => (
+  <ProtectedRoute>
+    <Layout>
+      <Outlet />
+    </Layout>
+  </ProtectedRoute>
+);
+
+/**
+ * 聊天页面的受保护布局（无导航栏）
+ */
+const ProtectedChatLayout = () => (
+  <ProtectedRoute>
+    <ChatLayout>
+      <Outlet />
+    </ChatLayout>
+  </ProtectedRoute>
+);
+
+/**
  * 应用根组件
  */
 function App() {
@@ -44,58 +66,17 @@ function App() {
             <Route path="/register" element={<Register />} />
 
             {/* 受保护的页面 - 带导航栏 */}
-            <Route
-              path="/"
-              element={
-                <ProtectedRoute>
-                  <Layout>
-                    <Dashboard />
-                  </Layout>
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/data-sources"
-              element={
-                <ProtectedRoute>
-                  <Layout>
-                    <DataSources />
-                  </Layout>
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/sessions"
-              element={
-                <ProtectedRoute>
-                  <Layout>
-                    <Sessions />
-                  </Layout>
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/settings"
-              element={
-                <ProtectedRoute>
-                  <Layout>
-                    <Settings />
-                  </Layout>
-                </ProtectedRoute>
-              }
-            />
+            <Route element={<ProtectedLayout />}>
+              <Route index element={<Dashboard />} />
+              <Route path="data-sources" element={<DataSources />} />
+              <Route path="sessions" element={<Sessions />} />
+              <Route path="settings" element={<Settings />} />
+            </Route>
 
             {/* 聊天页面 - 特殊布局（无导航栏） */}
-            <Route
-              path="/chat/:id"
-              element={
-                <ProtectedRoute>
-                  <ChatLayout>
-                    <Chat />
-                  </ChatLayout>
-                </ProtectedRoute>
-              }
-            />
+            <Route element={<ProtectedChatLayout />}>
+              <Route path="chat/:id" element={<Chat />} />
+            </Route>
 
             {/* 默认重定向 */}
             <Route path="*" element={<Navigate to="/" replace />} />

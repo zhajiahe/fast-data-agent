@@ -14,7 +14,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { useToast } from '@/hooks/use-toast';
+import { useConfirmDialog, useToast } from '@/hooks';
 
 /**
  * 会话列表页面
@@ -24,6 +24,7 @@ export const Sessions = () => {
   const { toast } = useToast();
   const navigate = useNavigate();
   const [showCreateDialog, setShowCreateDialog] = useState(false);
+  const { confirm, ConfirmDialog } = useConfirmDialog();
 
   // 使用生成的 API hooks
   const { data: response, isLoading, refetch } = useSessions();
@@ -33,7 +34,15 @@ export const Sessions = () => {
   const sessions = response?.data.data?.items || [];
 
   const handleDelete = async (id: number, name: string) => {
-    if (!confirm(t('sessions.confirmDelete', { name }))) return;
+    const confirmed = await confirm({
+      title: t('sessions.confirmDeleteTitle'),
+      description: t('sessions.confirmDelete', { name }),
+      confirmText: t('common.delete'),
+      cancelText: t('common.cancel'),
+      variant: 'destructive',
+    });
+
+    if (!confirmed) return;
 
     deleteSessionMutation.mutate(id, {
       onSuccess: () => {
@@ -90,7 +99,7 @@ export const Sessions = () => {
       { title: t('sessions.earlier'), sessions: [] },
     ];
 
-    sessionList.forEach((session) => {
+    for (const session of sessionList) {
       const date = new Date(session.create_time || '');
       date.setHours(0, 0, 0, 0);
 
@@ -103,7 +112,7 @@ export const Sessions = () => {
       } else {
         groups[3].sessions.push(session);
       }
-    });
+    }
 
     return groups.filter((g) => g.sessions.length > 0);
   };
@@ -223,6 +232,9 @@ export const Sessions = () => {
 
       {/* 创建会话对话框 */}
       <CreateSessionDialog open={showCreateDialog} onOpenChange={setShowCreateDialog} />
+
+      {/* 确认对话框 */}
+      <ConfirmDialog />
     </div>
   );
 };
