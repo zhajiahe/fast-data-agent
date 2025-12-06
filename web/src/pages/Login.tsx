@@ -39,7 +39,9 @@ export const Login = () => {
   const onSubmit = async (data: LoginFormData) => {
     loginMutation.mutate(data, {
       onSuccess: (response) => {
-        const { id, nickname, access_token, refresh_token } = response.data.data!;
+        const responseData = response.data.data;
+        if (!responseData) return;
+        const { id, nickname, access_token, refresh_token } = responseData;
         setAuth(
           {
             id: String(id),
@@ -101,7 +103,11 @@ export const Login = () => {
           <CardHeader className="space-y-1 text-center">
             {/* 移动端 Logo */}
             <div className="lg:hidden flex justify-center mb-4">
-              <img src={`${import.meta.env.BASE_URL}data_agent_logo.png`} alt="Logo" className="h-12 w-auto rounded-xl" />
+              <img
+                src={`${import.meta.env.BASE_URL}data_agent_logo.png`}
+                alt="Logo"
+                className="h-12 w-auto rounded-xl"
+              />
             </div>
             <CardTitle className="text-2xl">{t('auth.login')}</CardTitle>
             <CardDescription>{t('auth.login_subtitle')}</CardDescription>
@@ -136,7 +142,7 @@ export const Login = () => {
               </div>
 
               <Button type="submit" className="w-full" disabled={isSubmitting || loginMutation.isPending}>
-                {(isSubmitting || loginMutation.isPending) ? (
+                {isSubmitting || loginMutation.isPending ? (
                   <>
                     <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                     {t('auth.logging_in')}

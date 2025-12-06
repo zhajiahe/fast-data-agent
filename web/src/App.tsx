@@ -1,10 +1,10 @@
-import { Suspense, lazy } from 'react';
-import { Route, BrowserRouter as Router, Routes, Navigate } from 'react-router-dom';
+import { lazy, Suspense } from 'react';
+import { Navigate, Route, BrowserRouter as Router, Routes } from 'react-router-dom';
 import { AppInitializer } from '@/components/AppInitializer';
-import { Layout } from '@/components/Layout';
 import { ChatLayout } from '@/components/ChatLayout';
-import { Toaster } from '@/components/ui/toaster';
+import { Layout } from '@/components/Layout';
 import { ProtectedRoute } from '@/components/ProtectedRoute';
+import { Toaster } from '@/components/ui/toaster';
 
 // 动态导入页面组件（代码拆分）
 const Dashboard = lazy(() => import('@/pages/Dashboard').then((m) => ({ default: m.Dashboard })));

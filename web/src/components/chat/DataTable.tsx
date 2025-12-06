@@ -1,4 +1,4 @@
-import { ChevronDown, ChevronsUpDown, ChevronUp, Download, ChevronLeft, ChevronRight } from 'lucide-react';
+import { ChevronDown, ChevronLeft, ChevronRight, ChevronsUpDown, ChevronUp, Download } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -108,7 +108,7 @@ export const DataTable = ({ columns, rows, title, pageSize = 10 }: DataTableProp
             <tr>
               {columns.map((col, index) => (
                 <th
-                  key={index}
+                  key={col}
                   className="px-2 py-1.5 text-left font-medium cursor-pointer hover:bg-muted transition-colors"
                   onClick={() => handleSort(index)}
                 >
@@ -130,9 +130,12 @@ export const DataTable = ({ columns, rows, title, pageSize = 10 }: DataTableProp
           </thead>
           <tbody>
             {displayRows.map((row, rowIndex) => (
-              <tr key={rowIndex} className={cn('border-t', rowIndex % 2 === 0 ? 'bg-background' : 'bg-muted/20')}>
+              <tr
+                key={`row-${startIndex + rowIndex}`}
+                className={cn('border-t', rowIndex % 2 === 0 ? 'bg-background' : 'bg-muted/20')}
+              >
                 {row.map((cell, cellIndex) => (
-                  <td key={cellIndex} className="px-2 py-1 truncate max-w-[180px]">
+                  <td key={`cell-${startIndex + rowIndex}-${cellIndex}`} className="px-2 py-1 truncate max-w-[180px]">
                     {formatCell(cell)}
                   </td>
                 ))}

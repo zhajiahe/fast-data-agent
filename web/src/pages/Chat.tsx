@@ -1,9 +1,15 @@
+import { useQueryClient } from '@tanstack/react-query';
 import { ChevronLeft, Database, PanelRight, PanelRightClose, Send, Sparkles, StopCircle, Trash2 } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate, useParams } from 'react-router-dom';
-import { useQueryClient } from '@tanstack/react-query';
-import { useSession, useMessages, useClearMessages, type ChatMessageResponse, type AnalysisSessionDetail, generateFollowupRecommendationsApiV1SessionsSessionIdRecommendationsFollowupPost } from '@/api';
+import {
+  type AnalysisSessionDetail,
+  generateFollowupRecommendationsApiV1SessionsSessionIdRecommendationsFollowupPost,
+  useClearMessages,
+  useMessages,
+  useSession,
+} from '@/api';
 import { ChatMessage } from '@/components/chat/ChatMessage';
 import { RecommendationPanel } from '@/components/chat/RecommendationPanel';
 import { SessionFilesPanel } from '@/components/chat/SessionFilesPanel';
@@ -16,7 +22,18 @@ import { storage } from '@/utils/storage';
 
 // SSE 事件类型
 interface SSEEvent {
-  type: 'start' | 'text-start' | 'text-delta' | 'text-end' | 'tool-input-start' | 'tool-input-available' | 'tool-output-available' | 'start-step' | 'finish-step' | 'finish' | 'error';
+  type:
+    | 'start'
+    | 'text-start'
+    | 'text-delta'
+    | 'text-end'
+    | 'tool-input-start'
+    | 'tool-input-available'
+    | 'tool-output-available'
+    | 'start-step'
+    | 'finish-step'
+    | 'finish'
+    | 'error';
   messageId?: string;
   id?: string;
   delta?: string;
@@ -81,7 +98,7 @@ export const Chat = () => {
   const clearMessagesMutation = useClearMessages();
 
   const currentSession: AnalysisSessionDetail | null = sessionResponse?.data.data || null;
-  
+
   // 使用稳定引用，避免每次渲染创建新数组
   const apiMessagesItems = messagesResponse?.data.data?.items;
 
@@ -103,10 +120,10 @@ export const Chat = () => {
   useEffect(() => {
     // 生成过程中不同步
     if (isGenerating) return;
-    
+
     // 没有消息数据时不处理
     if (!apiMessagesItems) return;
-    
+
     // 转换 API 消息（包含 artifact）
     const convertedMessages = apiMessagesItems.map((m) => ({
       id: m.id,
@@ -118,12 +135,10 @@ export const Chat = () => {
       artifact: m.artifact as SSEEvent['artifact'] | undefined,
       create_time: m.create_time || new Date().toISOString(),
     }));
-    
+
     // 按 create_time 排序，确保消息顺序正确
-    convertedMessages.sort((a, b) => 
-      new Date(a.create_time).getTime() - new Date(b.create_time).getTime()
-    );
-    
+    convertedMessages.sort((a, b) => new Date(a.create_time).getTime() - new Date(b.create_time).getTime());
+
     setLocalMessages(convertedMessages);
   }, [apiMessagesItems, isGenerating]);
 
@@ -136,6 +151,7 @@ export const Chat = () => {
   }, []);
 
   // 自动滚动到底部（仅当用户在底部时）
+  // biome-ignore lint/correctness/useExhaustiveDependencies: 需要在消息/流式文本变化时滚动
   useEffect(() => {
     if (scrollRef.current && shouldAutoScrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
@@ -161,203 +177,203 @@ export const Chat = () => {
   }, []);
 
   // 发送消息
-  const handleSend = useCallback(async (messageContent?: string) => {
-    const content = (messageContent || input).trim();
-    if (!content || isGenerating) return;
+  const handleSend = useCallback(
+    async (messageContent?: string) => {
+      const content = (messageContent || input).trim();
+      if (!content || isGenerating) return;
 
-    setInput('');
-    setIsGenerating(true);
-    setStreamingText('');
+      setInput('');
+      setIsGenerating(true);
+      setStreamingText('');
 
-    // 添加用户消息到本地
-    const userMessage: LocalMessage = {
-      id: Date.now(),
-      session_id: sessionId,
-      message_type: 'human',
-      content,
-      create_time: new Date().toISOString(),
-    };
-    addMessage(userMessage);
+      // 添加用户消息到本地
+      const userMessage: LocalMessage = {
+        id: Date.now(),
+        session_id: sessionId,
+        message_type: 'human',
+        content,
+        create_time: new Date().toISOString(),
+      };
+      addMessage(userMessage);
 
-    // 创建 AbortController
-    abortControllerRef.current = new AbortController();
+      // 创建 AbortController
+      abortControllerRef.current = new AbortController();
 
-    let finalAiContent = '';
+      let finalAiContent = '';
 
-    try {
-      const token = storage.getToken();
-      const response = await fetch(`/api/v1/sessions/${sessionId}/chat`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({ content }),
-        signal: abortControllerRef.current.signal,
-      });
+      try {
+        const token = storage.getToken();
+        const response = await fetch(`/api/v1/sessions/${sessionId}/chat`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({ content }),
+          signal: abortControllerRef.current.signal,
+        });
 
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
 
-      const reader = response.body?.getReader();
-      if (!reader) throw new Error('No response body');
+        const reader = response.body?.getReader();
+        if (!reader) throw new Error('No response body');
 
-      const decoder = new TextDecoder();
-      let buffer = '';
-      let currentStreamingText = '';
+        const decoder = new TextDecoder();
+        let buffer = '';
+        let currentStreamingText = '';
 
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
 
-        buffer += decoder.decode(value, { stream: true });
-        const lines = buffer.split('\n');
-        buffer = lines.pop() || '';
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split('\n');
+          buffer = lines.pop() || '';
 
-        for (const line of lines) {
-          if (!line.startsWith('data: ')) continue;
-          const dataStr = line.slice(6);
+          for (const line of lines) {
+            if (!line.startsWith('data: ')) continue;
+            const dataStr = line.slice(6);
 
-          if (dataStr === '[DONE]') {
-            // 流结束，将 streamingText 转为正式消息
-            if (currentStreamingText) {
-              finalAiContent = currentStreamingText;
-              const aiMessage: LocalMessage = {
-                id: Date.now() + 1,
-                session_id: sessionId,
-                message_type: 'ai',
-                content: currentStreamingText,
-                create_time: new Date().toISOString(),
-              };
-              addMessage(aiMessage);
-              setStreamingText('');
-            }
-            continue;
-          }
-
-          try {
-            const event: SSEEvent = JSON.parse(dataStr);
-
-            switch (event.type) {
-              case 'text-delta':
-                if (event.delta) {
-                  currentStreamingText += event.delta;
-                  setStreamingText(currentStreamingText);
-                }
-                break;
-
-              case 'text-end':
-                // 文本块结束，将累积的文本保存为消息
-                if (currentStreamingText) {
-                  const aiMessage: LocalMessage = {
-                    id: Date.now() + Math.random(),
-                    session_id: sessionId,
-                    message_type: 'ai',
-                    content: currentStreamingText,
-                    create_time: new Date().toISOString(),
-                  };
-                  addMessage(aiMessage);
-                  finalAiContent = currentStreamingText;
-                  currentStreamingText = '';
-                  setStreamingText('');
-                }
-                break;
-
-              case 'tool-input-start':
-                setCurrentToolCall({
-                  id: event.toolCallId || '',
-                  name: event.toolName || '',
-                  status: 'calling',
-                });
-                break;
-
-              case 'tool-input-available':
-                setCurrentToolCall({
-                  id: event.toolCallId || '',
-                  name: event.toolName || '',
-                  status: 'executing',
-                });
-                break;
-
-              case 'tool-output-available': {
-                // 添加工具消息（使用唯一 ID 避免重复）
-                const toolMessageId = Date.now() + Math.random();
-                const toolMessage: LocalMessage = {
-                  id: toolMessageId,
+            if (dataStr === '[DONE]') {
+              // 流结束，将 streamingText 转为正式消息
+              if (currentStreamingText) {
+                finalAiContent = currentStreamingText;
+                const aiMessage: LocalMessage = {
+                  id: Date.now() + 1,
                   session_id: sessionId,
-                  message_type: 'tool',
-                  content: JSON.stringify(event.output),
-                  tool_call_id: event.toolCallId,
-                  tool_name: event.toolName,
-                  artifact: event.artifact,
+                  message_type: 'ai',
+                  content: currentStreamingText,
                   create_time: new Date().toISOString(),
                 };
-                addMessage(toolMessage);
-                setCurrentToolCall((prev) =>
-                  prev
-                    ? {
-                        ...prev,
-                        status: 'completed',
-                      }
-                    : null
-                );
-                break;
+                addMessage(aiMessage);
+                setStreamingText('');
               }
-
-              case 'error':
-                toast({
-                  title: t('common.error'),
-                  description: event.errorText,
-                  variant: 'destructive',
-                });
-                break;
+              continue;
             }
-          } catch {
-            console.warn('Failed to parse SSE event:', dataStr);
+
+            try {
+              const event: SSEEvent = JSON.parse(dataStr);
+
+              switch (event.type) {
+                case 'text-delta':
+                  if (event.delta) {
+                    currentStreamingText += event.delta;
+                    setStreamingText(currentStreamingText);
+                  }
+                  break;
+
+                case 'text-end':
+                  // 文本块结束，将累积的文本保存为消息
+                  if (currentStreamingText) {
+                    const aiMessage: LocalMessage = {
+                      id: Date.now() + Math.random(),
+                      session_id: sessionId,
+                      message_type: 'ai',
+                      content: currentStreamingText,
+                      create_time: new Date().toISOString(),
+                    };
+                    addMessage(aiMessage);
+                    finalAiContent = currentStreamingText;
+                    currentStreamingText = '';
+                    setStreamingText('');
+                  }
+                  break;
+
+                case 'tool-input-start':
+                  setCurrentToolCall({
+                    id: event.toolCallId || '',
+                    name: event.toolName || '',
+                    status: 'calling',
+                  });
+                  break;
+
+                case 'tool-input-available':
+                  setCurrentToolCall({
+                    id: event.toolCallId || '',
+                    name: event.toolName || '',
+                    status: 'executing',
+                  });
+                  break;
+
+                case 'tool-output-available': {
+                  // 添加工具消息（使用唯一 ID 避免重复）
+                  const toolMessageId = Date.now() + Math.random();
+                  const toolMessage: LocalMessage = {
+                    id: toolMessageId,
+                    session_id: sessionId,
+                    message_type: 'tool',
+                    content: JSON.stringify(event.output),
+                    tool_call_id: event.toolCallId,
+                    tool_name: event.toolName,
+                    artifact: event.artifact,
+                    create_time: new Date().toISOString(),
+                  };
+                  addMessage(toolMessage);
+                  setCurrentToolCall((prev) =>
+                    prev
+                      ? {
+                          ...prev,
+                          status: 'completed',
+                        }
+                      : null
+                  );
+                  break;
+                }
+
+                case 'error':
+                  toast({
+                    title: t('common.error'),
+                    description: event.errorText,
+                    variant: 'destructive',
+                  });
+                  break;
+              }
+            } catch {
+              console.warn('Failed to parse SSE event:', dataStr);
+            }
           }
         }
-      }
 
-      // 生成后续问题推荐
-      if (finalAiContent) {
-        try {
-          await generateFollowupRecommendationsApiV1SessionsSessionIdRecommendationsFollowupPost(
-            sessionId,
-            {
+        // 生成后续问题推荐
+        if (finalAiContent) {
+          try {
+            await generateFollowupRecommendationsApiV1SessionsSessionIdRecommendationsFollowupPost(sessionId, {
               conversation_context: `用户问: ${content}\n\nAI回答: ${finalAiContent}`,
               max_count: 3,
-            }
-          );
-          // 刷新推荐列表
-          queryClient.invalidateQueries({ queryKey: ['recommendations', sessionId] });
-        } catch (e) {
-          console.warn('Failed to generate followup recommendations:', e);
+            });
+            // 刷新推荐列表
+            queryClient.invalidateQueries({ queryKey: ['recommendations', sessionId] });
+          } catch (e) {
+            console.warn('Failed to generate followup recommendations:', e);
+          }
         }
+
+        // 刷新消息列表（后端已保存消息，需要同步 ID）
+        await refetchMessages();
+      } catch (err: unknown) {
+        const error = err as Error;
+        if (error.name === 'AbortError') {
+          toast({
+            title: t('chat.stopped'),
+            description: t('chat.stoppedDesc'),
+          });
+        } else {
+          toast({
+            title: t('common.error'),
+            description: error.message,
+            variant: 'destructive',
+          });
+        }
+      } finally {
+        setIsGenerating(false);
+        setCurrentToolCall(null);
+        abortControllerRef.current = null;
       }
-      
-      // 刷新消息列表（后端已保存消息，需要同步 ID）
-      await refetchMessages();
-    } catch (err: unknown) {
-      const error = err as Error;
-      if (error.name === 'AbortError') {
-        toast({
-          title: t('chat.stopped'),
-          description: t('chat.stoppedDesc'),
-        });
-      } else {
-        toast({
-          title: t('common.error'),
-          description: error.message,
-          variant: 'destructive',
-        });
-      }
-    } finally {
-      setIsGenerating(false);
-      setCurrentToolCall(null);
-      abortControllerRef.current = null;
-    }
-  }, [input, isGenerating, sessionId, addMessage, toast, t, queryClient, refetchMessages]);
+    },
+    [input, isGenerating, sessionId, addMessage, toast, t, queryClient, refetchMessages]
+  );
 
   // 停止生成
   const handleStop = () => {
@@ -380,9 +396,12 @@ export const Chat = () => {
   }, [handleSend]);
 
   // 处理推荐任务点击 - 直接发送消息
-  const handleRecommendationClick = useCallback((query: string) => {
-    handleSend(query);
-  }, [handleSend]);
+  const handleRecommendationClick = useCallback(
+    (query: string) => {
+      handleSend(query);
+    },
+    [handleSend]
+  );
 
   // 清空对话
   const handleClearMessages = useCallback(async () => {

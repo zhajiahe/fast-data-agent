@@ -1,11 +1,11 @@
+import { AlertCircle, Bot, User, Wrench } from 'lucide-react';
 import { useMemo } from 'react';
 import ReactMarkdown from 'react-markdown';
-import remarkGfm from 'remark-gfm';
 import rehypeHighlight from 'rehype-highlight';
-import { User, Bot, Wrench, AlertCircle } from 'lucide-react';
+import remarkGfm from 'remark-gfm';
 import { cn } from '@/lib/utils';
-import { PlotlyChart } from './PlotlyChart';
 import { DataTable } from './DataTable';
+import { PlotlyChart } from './PlotlyChart';
 
 // 本地消息类型
 interface LocalMessage {
@@ -129,9 +129,11 @@ export const ChatMessage = ({ message, isStreaming }: ChatMessageProps) => {
                 <DataTable
                   columns={message.artifact.columns}
                   rows={message.artifact.rows as unknown[][]}
-                  title={message.artifact.truncated 
-                    ? `结果 (前 ${message.artifact.rows.length} 行 / 共 ${message.artifact.total_rows} 行)` 
-                    : undefined}
+                  title={
+                    message.artifact.truncated
+                      ? `结果 (前 ${message.artifact.rows.length} 行 / 共 ${message.artifact.total_rows} 行)`
+                      : undefined
+                  }
                 />
               )}
             </div>
@@ -153,7 +155,9 @@ export const ChatMessage = ({ message, isStreaming }: ChatMessageProps) => {
                 </pre>
               )}
               {message.artifact.files_created && message.artifact.files_created.length > 0 && (
-                <p className="text-xs text-muted-foreground">📁 生成文件: {message.artifact.files_created.join(', ')}</p>
+                <p className="text-xs text-muted-foreground">
+                  📁 生成文件: {message.artifact.files_created.join(', ')}
+                </p>
               )}
             </div>
           </CollapsibleArtifact>
@@ -165,9 +169,7 @@ export const ChatMessage = ({ message, isStreaming }: ChatMessageProps) => {
             <div className="p-3 bg-destructive/10 border border-destructive/20 rounded-md space-y-2">
               <div className="flex items-center gap-2 text-destructive">
                 <AlertCircle className="w-4 h-4" />
-                <span className="font-medium text-sm">
-                  {message.artifact.tool || '执行'}失败
-                </span>
+                <span className="font-medium text-sm">{message.artifact.tool || '执行'}失败</span>
               </div>
               {/* 显示相关代码/SQL */}
               {(message.artifact.sql || message.artifact.code) && (
@@ -237,18 +239,12 @@ export const ChatMessage = ({ message, isStreaming }: ChatMessageProps) => {
       <div className="flex gap-3">
         {avatar}
         <div className="flex-1 min-w-0">
-          <div className="text-xs text-muted-foreground mb-1">
-            工具: {message.tool_name || message.tool_call_id}
-          </div>
+          <div className="text-xs text-muted-foreground mb-1">工具: {message.tool_name || message.tool_call_id}</div>
           {renderArtifact()}
           {!message.artifact && (
             <details className="group">
-              <summary className="cursor-pointer text-sm text-muted-foreground hover:text-foreground">
-                查看输出
-              </summary>
-              <pre className="mt-2 p-3 bg-muted rounded-lg text-xs overflow-x-auto">
-                {message.content}
-              </pre>
+              <summary className="cursor-pointer text-sm text-muted-foreground hover:text-foreground">查看输出</summary>
+              <pre className="mt-2 p-3 bg-muted rounded-lg text-xs overflow-x-auto">{message.content}</pre>
             </details>
           )}
         </div>
@@ -269,10 +265,7 @@ export const ChatMessage = ({ message, isStreaming }: ChatMessageProps) => {
             isStreaming && 'animate-pulse'
           )}
         >
-          <ReactMarkdown
-            remarkPlugins={[remarkGfm]}
-            rehypePlugins={[rehypeHighlight]}
-          >
+          <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeHighlight]}>
             {message.content || '...'}
           </ReactMarkdown>
         </div>

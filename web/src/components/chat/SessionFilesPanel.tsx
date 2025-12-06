@@ -1,12 +1,12 @@
-import { useState, useCallback } from 'react';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { Download, File, FileCode, FileImage, FileText, FolderOpen, Loader2, RefreshCw, Upload } from 'lucide-react';
+import { useCallback, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Upload, Download, FileText, FileImage, FileCode, File, RefreshCw, Loader2, FolderOpen } from 'lucide-react';
+import { listSessionFilesApiV1SessionsSessionIdFilesGet } from '@/api/fastDataAgent';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useToast } from '@/hooks/use-toast';
 import { storage } from '@/utils/storage';
-import { listSessionFilesApiV1SessionsSessionIdFilesGet } from '@/api/fastDataAgent';
 
 interface SessionFilesPanelProps {
   sessionId: number;
@@ -58,7 +58,11 @@ export const SessionFilesPanel = ({ sessionId }: SessionFilesPanelProps) => {
   const queryClient = useQueryClient();
   const [isDragging, setIsDragging] = useState(false);
 
-  const { data: filesResponse, isLoading, refetch } = useQuery({
+  const {
+    data: filesResponse,
+    isLoading,
+    refetch,
+  } = useQuery({
     queryKey: ['sessionFiles', sessionId],
     queryFn: () => listSessionFilesApiV1SessionsSessionIdFilesGet(sessionId),
     enabled: !!sessionId,
@@ -108,7 +112,7 @@ export const SessionFilesPanel = ({ sessionId }: SessionFilesPanelProps) => {
       document.body.removeChild(a);
       window.URL.revokeObjectURL(url);
     },
-    [sessionId, toast, t],
+    [sessionId, toast, t]
   );
 
   const handleDragOver = useCallback((e: React.DragEvent) => {
@@ -128,7 +132,7 @@ export const SessionFilesPanel = ({ sessionId }: SessionFilesPanelProps) => {
       const droppedFile = e.dataTransfer.files[0];
       if (droppedFile) uploadMutation.mutate(droppedFile);
     },
-    [uploadMutation],
+    [uploadMutation]
   );
 
   const handleFileSelect = useCallback(
@@ -137,7 +141,7 @@ export const SessionFilesPanel = ({ sessionId }: SessionFilesPanelProps) => {
       if (selectedFile) uploadMutation.mutate(selectedFile);
       e.target.value = '';
     },
-    [uploadMutation],
+    [uploadMutation]
   );
 
   return (
@@ -156,7 +160,8 @@ export const SessionFilesPanel = ({ sessionId }: SessionFilesPanelProps) => {
       {/* 内容区域 */}
       <ScrollArea className="flex-1">
         <div className="p-4 space-y-3">
-          {/* 上传区域 */}
+          {/* 上传区域 - 拖放区域需要 div 以支持拖放事件 */}
+          {/* biome-ignore lint/a11y/useSemanticElements: drag-drop zone */}
           <div
             className={`border-2 border-dashed rounded-lg p-4 text-center transition-colors cursor-pointer ${
               isDragging ? 'border-primary bg-primary/5' : 'border-muted-foreground/25 hover:border-muted-foreground/50'
@@ -195,7 +200,10 @@ export const SessionFilesPanel = ({ sessionId }: SessionFilesPanelProps) => {
           ) : (
             <div className="space-y-1">
               {files.map((file) => (
-                <div key={file.name} className="flex items-center justify-between p-2 rounded-lg hover:bg-muted/50 group">
+                <div
+                  key={file.name}
+                  className="flex items-center justify-between p-2 rounded-lg hover:bg-muted/50 group"
+                >
                   <div className="flex items-center gap-2 min-w-0">
                     {getFileIcon(file.name)}
                     <div className="min-w-0">

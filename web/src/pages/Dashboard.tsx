@@ -79,10 +79,7 @@ export const Dashboard = () => {
 
       {/* 快速操作 */}
       <div className="grid gap-4 md:grid-cols-2 mb-8">
-        <Card
-          className="group hover:shadow-md transition-shadow cursor-pointer"
-          onClick={() => navigate('/sessions')}
-        >
+        <Card className="group hover:shadow-md transition-shadow cursor-pointer" onClick={() => navigate('/sessions')}>
           <CardHeader>
             <div className="flex items-center justify-between">
               <div className="p-3 rounded-xl bg-gradient-to-br from-violet-500 to-purple-600">

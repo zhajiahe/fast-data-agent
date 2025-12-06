@@ -1,11 +1,11 @@
+import { zodResolver } from '@hookform/resolvers/zod';
+import { CheckCircle2, Database, Loader2, MessageSquare } from 'lucide-react';
 import { useState } from 'react';
+import { useForm } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
-import { zodResolver } from '@hookform/resolvers/zod';
-import { useForm } from 'react-hook-form';
 import { z } from 'zod';
-import { CheckCircle2, Database, Loader2, MessageSquare } from 'lucide-react';
-import { useDataSources, useCreateSession, type DataSourceResponse } from '@/api';
+import { type DataSourceResponse, useCreateSession, useDataSources } from '@/api';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -190,14 +190,19 @@ export const CreateSessionDialog = ({ open, onOpenChange }: CreateSessionDialogP
                 </div>
               )}
             </ScrollArea>
-            <p className="text-xs text-muted-foreground">{t('sessions.selectedCount', { count: selectedIds.length })}</p>
+            <p className="text-xs text-muted-foreground">
+              {t('sessions.selectedCount', { count: selectedIds.length })}
+            </p>
           </div>
 
           <DialogFooter>
             <Button type="button" variant="outline" onClick={handleClose}>
               {t('common.cancel')}
             </Button>
-            <Button type="submit" disabled={isSubmitting || selectedIds.length === 0 || createSessionMutation.isPending}>
+            <Button
+              type="submit"
+              disabled={isSubmitting || selectedIds.length === 0 || createSessionMutation.isPending}
+            >
               {(isSubmitting || createSessionMutation.isPending) && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
               {t('sessions.create')}
             </Button>

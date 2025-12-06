@@ -1,5 +1,3 @@
-import { useState } from 'react';
-import { useTranslation } from 'react-i18next';
 import {
   AlertCircle,
   CheckCircle2,
@@ -11,7 +9,9 @@ import {
   Trash2,
   Upload,
 } from 'lucide-react';
-import { useDataSources, useDeleteDataSource, useSyncDataSourceSchema, type DataSourceResponse } from '@/api';
+import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
+import { type DataSourceResponse, useDataSources, useDeleteDataSource, useSyncDataSourceSchema } from '@/api';
 import { AddDatabaseDialog } from '@/components/data-source/AddDatabaseDialog';
 import { UploadFileDialog } from '@/components/data-source/UploadFileDialog';
 import { Badge } from '@/components/ui/badge';
@@ -87,7 +87,7 @@ export const DataSources = () => {
     return <FileSpreadsheet className="h-5 w-5 text-green-500" />;
   };
 
-  const getStatusBadge = (ds: DataSourceResponse) => {
+  const getStatusBadge = (_ds: DataSourceResponse) => {
     // 暂时认为所有数据源都是活跃的
     const isActive = true;
     if (isActive) {

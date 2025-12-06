@@ -65,7 +65,7 @@ export const PlotlyChart = ({ chartJson, title }: PlotlyChartProps) => {
       font: { family: 'Inter, system-ui, sans-serif', color: 'currentColor' },
       margin: { t: 40, r: 20, b: 40, l: 50 },
     }),
-    [chartData?.layout],
+    [chartData?.layout]
   );
 
   const renderChart = useCallback(
@@ -75,10 +75,10 @@ export const PlotlyChart = ({ chartJson, title }: PlotlyChartProps) => {
         target,
         chartData.data,
         { ...baseLayout, autosize: true, ...(height ? { height } : {}) },
-        BASE_CONFIG,
+        BASE_CONFIG
       );
     },
-    [baseLayout, chartData?.data, plotlyReady],
+    [baseLayout, chartData?.data, plotlyReady]
   );
 
   // 渲染主图表
@@ -163,11 +163,7 @@ export const PlotlyChart = ({ chartJson, title }: PlotlyChartProps) => {
           <DialogHeader>
             <DialogTitle>{title || '图表'}</DialogTitle>
           </DialogHeader>
-          <div
-            ref={fullscreenChartRef}
-            className="flex-1 min-h-0 w-full"
-            style={{ height: 'calc(90vh - 100px)' }}
-          />
+          <div ref={fullscreenChartRef} className="flex-1 min-h-0 w-full" style={{ height: 'calc(90vh - 100px)' }} />
         </DialogContent>
       </Dialog>
     </>

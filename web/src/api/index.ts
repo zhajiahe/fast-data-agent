@@ -6,11 +6,7 @@
 // 初始化 axios 配置
 import './config';
 
-// 导出 hooks
-export * from './hooks';
-
 // 导出原始 API 函数（如果需要直接使用）
 export * from './fastDataAgent';
-
-
-
+// 导出 hooks
+export * from './hooks';

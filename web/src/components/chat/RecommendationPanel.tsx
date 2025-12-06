@@ -1,17 +1,17 @@
+import {
+  AlertTriangle,
+  BarChart3,
+  GitCompare,
+  MessageCircle,
+  PieChart,
+  RefreshCw,
+  Share2,
+  Sparkles,
+  TrendingUp,
+} from 'lucide-react';
 import { useEffect, useMemo, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
-import {
-  BarChart3,
-  TrendingUp,
-  GitCompare,
-  AlertTriangle,
-  Share2,
-  PieChart,
-  Sparkles,
-  RefreshCw,
-  MessageCircle,
-} from 'lucide-react';
-import { useRecommendations, useGenerateRecommendations, type TaskRecommendationResponse } from '@/api';
+import { type TaskRecommendationResponse, useGenerateRecommendations, useRecommendations } from '@/api';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 
@@ -50,12 +50,8 @@ const RecommendationCard = ({
   onSelect: (query: string) => void;
   isFollowup?: boolean;
 }) => {
-  const icon = isFollowup
-    ? categoryIcons.followup
-    : categoryIcons[rec.category] || <Sparkles className="h-4 w-4" />;
-  const color = isFollowup
-    ? categoryColors.followup
-    : categoryColors[rec.category] || 'bg-muted';
+  const icon = isFollowup ? categoryIcons.followup : categoryIcons[rec.category] || <Sparkles className="h-4 w-4" />;
+  const color = isFollowup ? categoryColors.followup : categoryColors[rec.category] || 'bg-muted';
 
   return (
     <button
@@ -66,12 +62,8 @@ const RecommendationCard = ({
       <div className="flex items-start gap-3">
         <div className={`p-1.5 rounded ${color}`}>{icon}</div>
         <div className="flex-1 min-w-0">
-          <h4 className="font-medium text-sm group-hover:text-primary transition-colors">
-            {rec.title}
-          </h4>
-          {rec.description && (
-            <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{rec.description}</p>
-          )}
+          <h4 className="font-medium text-sm group-hover:text-primary transition-colors">{rec.title}</h4>
+          {rec.description && <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{rec.description}</p>}
         </div>
       </div>
     </button>
@@ -167,12 +159,7 @@ export const RecommendationPanel = ({ sessionId, onSelect }: RecommendationPanel
           ) : (
             <div className="space-y-2">
               {(followupRecs.length > 0 ? followupRecs : initialRecs).map((rec) => (
-                <RecommendationCard
-                  key={rec.id}
-                  rec={rec}
-                  onSelect={onSelect}
-                  isFollowup={followupRecs.length > 0}
-                />
+                <RecommendationCard key={rec.id} rec={rec} onSelect={onSelect} isFollowup={followupRecs.length > 0} />
               ))}
             </div>
           )}

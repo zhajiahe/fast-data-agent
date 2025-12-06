@@ -5,8 +5,8 @@
 
 // 布局组件
 export { AppInitializer } from './AppInitializer';
-export { Layout } from './Layout';
 export { ChatLayout } from './ChatLayout';
+export { Layout } from './Layout';
 export { ProtectedRoute } from './ProtectedRoute';
 
 // UI 组件从 ui 文件夹导出

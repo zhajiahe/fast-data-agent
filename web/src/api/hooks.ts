@@ -2,74 +2,73 @@
  * API React Query Hooks
  * 封装生成的 API 函数为 React Query hooks
  */
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { AxiosResponse } from 'axios';
 
 // 导入 API 配置（初始化 axios 拦截器）
 import './config';
 
+// 导入类型
+import type {
+  AnalysisSessionCreate,
+  BaseResponseAnalysisSessionDetail,
+  BaseResponseAnalysisSessionResponse,
+  BaseResponseDataSourceResponse,
+  BaseResponseDataSourceSchemaResponse,
+  BaseResponseDataSourceTestResult,
+  BaseResponseInt,
+  BaseResponseListTaskRecommendationResponse,
+  BaseResponseNoneType,
+  BaseResponsePageResponseAnalysisSessionResponse,
+  BaseResponsePageResponseChatMessageResponse,
+  BaseResponsePageResponseDataSourceResponse,
+  BaseResponsePageResponseTaskRecommendationResponse,
+  BaseResponsePageResponseUploadedFileResponse,
+  BaseResponseTaskRecommendationResponse,
+  // Response types
+  BaseResponseToken,
+  BaseResponseUploadedFileResponse,
+  BaseResponseUserResponse,
+  BodyUploadFileApiV1FilesUploadPost,
+  DataSourceCreate,
+  GenerateRecommendationsApiV1SessionsSessionIdRecommendationsPostBody,
+  GetDataSourcesApiV1DataSourcesGetParams,
+  GetMessagesApiV1SessionsSessionIdMessagesGetParams,
+  GetRecommendationsApiV1SessionsSessionIdRecommendationsGetParams,
+  GetSessionsApiV1SessionsGetParams,
+  LoginRequest,
+  TaskRecommendationUpdate,
+  UserCreate,
+} from './fastDataAgent';
 // 导入生成的 API 函数
 import {
-  // Auth
-  loginApiV1AuthLoginPost,
-  registerApiV1AuthRegisterPost,
+  archiveSessionApiV1SessionsSessionIdArchivePost,
+  clearMessagesApiV1SessionsSessionIdMessagesDelete,
+  createDataSourceApiV1DataSourcesPost,
+  createSessionApiV1SessionsPost,
+  deleteDataSourceApiV1DataSourcesDataSourceIdDelete,
+  deleteFileApiV1FilesFileIdDelete,
+  deleteSessionApiV1SessionsSessionIdDelete,
+  generateRecommendationsApiV1SessionsSessionIdRecommendationsPost,
   getCurrentUserInfoApiV1AuthMeGet,
   // Data Sources
   getDataSourcesApiV1DataSourcesGet,
-  createDataSourceApiV1DataSourcesPost,
-  deleteDataSourceApiV1DataSourcesDataSourceIdDelete,
-  testDataSourceConnectionApiV1DataSourcesDataSourceIdTestPost,
-  syncDataSourceSchemaApiV1DataSourcesDataSourceIdSyncSchemaPost,
   // Files
   getFilesApiV1FilesGet,
-  uploadFileApiV1FilesUploadPost,
-  deleteFileApiV1FilesFileIdDelete,
-  // Sessions
-  getSessionsApiV1SessionsGet,
-  createSessionApiV1SessionsPost,
-  getSessionApiV1SessionsSessionIdGet,
-  deleteSessionApiV1SessionsSessionIdDelete,
-  archiveSessionApiV1SessionsSessionIdArchivePost,
   // Messages
   getMessagesApiV1SessionsSessionIdMessagesGet,
-  clearMessagesApiV1SessionsSessionIdMessagesDelete,
   // Recommendations
   getRecommendationsApiV1SessionsSessionIdRecommendationsGet,
-  generateRecommendationsApiV1SessionsSessionIdRecommendationsPost,
+  getSessionApiV1SessionsSessionIdGet,
+  // Sessions
+  getSessionsApiV1SessionsGet,
+  // Auth
+  loginApiV1AuthLoginPost,
+  registerApiV1AuthRegisterPost,
+  syncDataSourceSchemaApiV1DataSourcesDataSourceIdSyncSchemaPost,
+  testDataSourceConnectionApiV1DataSourcesDataSourceIdTestPost,
   updateRecommendationApiV1SessionsSessionIdRecommendationsRecommendationIdPut,
-} from './fastDataAgent';
-
-// 导入类型
-import type {
-  LoginRequest,
-  UserCreate,
-  DataSourceCreate,
-  AnalysisSessionCreate,
-  GetDataSourcesApiV1DataSourcesGetParams,
-  GetSessionsApiV1SessionsGetParams,
-  GetMessagesApiV1SessionsSessionIdMessagesGetParams,
-  GetRecommendationsApiV1SessionsSessionIdRecommendationsGetParams,
-  GenerateRecommendationsApiV1SessionsSessionIdRecommendationsPostBody,
-  TaskRecommendationUpdate,
-  BodyUploadFileApiV1FilesUploadPost,
-  // Response types
-  BaseResponseToken,
-  BaseResponseUserResponse,
-  BaseResponsePageResponseDataSourceResponse,
-  BaseResponseDataSourceResponse,
-  BaseResponseDataSourceTestResult,
-  BaseResponseDataSourceSchemaResponse,
-  BaseResponsePageResponseUploadedFileResponse,
-  BaseResponseUploadedFileResponse,
-  BaseResponsePageResponseAnalysisSessionResponse,
-  BaseResponseAnalysisSessionDetail,
-  BaseResponseAnalysisSessionResponse,
-  BaseResponseNoneType,
-  BaseResponseInt,
-  BaseResponsePageResponseChatMessageResponse,
-  BaseResponsePageResponseTaskRecommendationResponse,
-  BaseResponseListTaskRecommendationResponse,
-  BaseResponseTaskRecommendationResponse,
+  uploadFileApiV1FilesUploadPost,
 } from './fastDataAgent';
 
 // ==================== Auth Hooks ====================
@@ -187,7 +186,7 @@ export const useSession = (sessionId: number) => {
 
 export const useCreateSession = () => {
   const queryClient = useQueryClient();
-  return useMutation<AxiosResponse<BaseResponseAnalysisSessionDetail>, Error, AnalysisSessionCreate>({
+  return useMutation<AxiosResponse<BaseResponseAnalysisSessionResponse>, Error, AnalysisSessionCreate>({
     mutationFn: (data) => createSessionApiV1SessionsPost(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['sessions'] });
@@ -217,10 +216,7 @@ export const useArchiveSession = () => {
 
 // ==================== Message Hooks ====================
 
-export const useMessages = (
-  sessionId: number,
-  params?: GetMessagesApiV1SessionsSessionIdMessagesGetParams
-) => {
+export const useMessages = (sessionId: number, params?: GetMessagesApiV1SessionsSessionIdMessagesGetParams) => {
   return useQuery<AxiosResponse<BaseResponsePageResponseChatMessageResponse>, Error>({
     queryKey: ['messages', sessionId, params],
     queryFn: () => getMessagesApiV1SessionsSessionIdMessagesGet(sessionId, params),

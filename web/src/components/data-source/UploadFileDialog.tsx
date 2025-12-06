@@ -1,7 +1,8 @@
+import { FileSpreadsheet, Loader2, Upload, X } from 'lucide-react';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { FileSpreadsheet, Loader2, Upload, X } from 'lucide-react';
-import { useUploadFile, useCreateDataSource, DataSourceType } from '@/api';
+import { DataSourceType, useCreateDataSource, useUploadFile } from '@/api';
+import { Button } from '@/components/ui/button';
 import {
   Dialog,
   DialogContent,
@@ -10,7 +11,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
@@ -156,6 +156,7 @@ export const UploadFileDialog = ({ open, onOpenChange }: UploadFileDialogProps) 
         <div className="space-y-4">
           {/* 拖拽上传区域 */}
           {!file ? (
+            // biome-ignore lint/a11y/useSemanticElements: 拖放区域需要 div 以支持拖放事件
             <div
               role="button"
               tabIndex={0}
@@ -223,12 +224,7 @@ export const UploadFileDialog = ({ open, onOpenChange }: UploadFileDialogProps) 
           {/* 名称 */}
           <div className="space-y-2">
             <Label htmlFor="name">{t('dataSources.name')}</Label>
-            <Input
-              id="name"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="数据源名称"
-            />
+            <Input id="name" value={name} onChange={(e) => setName(e.target.value)} placeholder="数据源名称" />
           </div>
 
           {/* 描述 */}

@@ -1,10 +1,9 @@
-import { useState } from 'react';
-import { useTranslation } from 'react-i18next';
 import { zodResolver } from '@hookform/resolvers/zod';
+import { Database, Loader2 } from 'lucide-react';
 import { useForm } from 'react-hook-form';
+import { useTranslation } from 'react-i18next';
 import { z } from 'zod';
-import { CheckCircle2, Database, Loader2, XCircle } from 'lucide-react';
-import { useCreateDataSource, useTestDataSourceConnection, DataSourceType, DatabaseType } from '@/api';
+import { DatabaseType, DataSourceType, useCreateDataSource } from '@/api';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -25,11 +24,12 @@ interface AddDatabaseDialogProps {
   onOpenChange: (open: boolean) => void;
 }
 
-const databaseTypes: { value: typeof DatabaseType[keyof typeof DatabaseType]; label: string; defaultPort: number }[] = [
-  { value: DatabaseType.postgresql, label: 'PostgreSQL', defaultPort: 5432 },
-  { value: DatabaseType.mysql, label: 'MySQL', defaultPort: 3306 },
-  { value: DatabaseType.sqlite, label: 'SQLite', defaultPort: 0 },
-];
+const databaseTypes: { value: (typeof DatabaseType)[keyof typeof DatabaseType]; label: string; defaultPort: number }[] =
+  [
+    { value: DatabaseType.postgresql, label: 'PostgreSQL', defaultPort: 5432 },
+    { value: DatabaseType.mysql, label: 'MySQL', defaultPort: 3306 },
+    { value: DatabaseType.sqlite, label: 'SQLite', defaultPort: 0 },
+  ];
 
 const formSchema = z.object({
   name: z.string().min(1, '请输入名称').max(50, '名称最多 50 个字符'),
@@ -53,7 +53,6 @@ type FormData = z.infer<typeof formSchema>;
 export const AddDatabaseDialog = ({ open, onOpenChange }: AddDatabaseDialogProps) => {
   const { t } = useTranslation();
   const { toast } = useToast();
-  const [testStatus, setTestStatus] = useState<'idle' | 'testing' | 'success' | 'error'>('idle');
 
   const {
     register,
@@ -75,7 +74,7 @@ export const AddDatabaseDialog = ({ open, onOpenChange }: AddDatabaseDialogProps
   // 使用生成的 API hooks
   const createDataSourceMutation = useCreateDataSource();
 
-  const handleDatabaseTypeChange = (value: typeof DatabaseType[keyof typeof DatabaseType]) => {
+  const handleDatabaseTypeChange = (value: (typeof DatabaseType)[keyof typeof DatabaseType]) => {
     setValue('db_type', value as 'postgresql' | 'mysql' | 'sqlite');
     const dbTypeConfig = databaseTypes.find((t) => t.value === value);
     if (dbTypeConfig) {
@@ -90,7 +89,7 @@ export const AddDatabaseDialog = ({ open, onOpenChange }: AddDatabaseDialogProps
         description: data.description,
         source_type: DataSourceType.database,
         db_config: {
-          db_type: data.db_type as typeof DatabaseType[keyof typeof DatabaseType],
+          db_type: data.db_type as (typeof DatabaseType)[keyof typeof DatabaseType],
           host: data.host,
           port: data.port,
           database: data.database,
@@ -105,7 +104,6 @@ export const AddDatabaseDialog = ({ open, onOpenChange }: AddDatabaseDialogProps
             description: t('dataSources.createSuccess'),
           });
           reset();
-          setTestStatus('idle');
           onOpenChange(false);
         },
         onError: (err) => {
@@ -122,7 +120,6 @@ export const AddDatabaseDialog = ({ open, onOpenChange }: AddDatabaseDialogProps
   const handleOpenChange = (isOpen: boolean) => {
     if (!isOpen) {
       reset();
-      setTestStatus('idle');
     }
     onOpenChange(isOpen);
   };
@@ -203,7 +200,9 @@ export const AddDatabaseDialog = ({ open, onOpenChange }: AddDatabaseDialogProps
 
           <DialogFooter className="gap-2 sm:gap-0">
             <Button type="submit" disabled={isSubmitting || createDataSourceMutation.isPending}>
-              {(isSubmitting || createDataSourceMutation.isPending) && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              {(isSubmitting || createDataSourceMutation.isPending) && (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              )}
               {t('common.save')}
             </Button>
           </DialogFooter>

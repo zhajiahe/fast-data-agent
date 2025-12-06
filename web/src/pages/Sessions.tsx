@@ -1,17 +1,8 @@
+import { Archive, Calendar, Database, MessageSquare, MoreHorizontal, Plus, RefreshCw, Trash2 } from 'lucide-react';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
-import {
-  Archive,
-  Calendar,
-  Database,
-  MessageSquare,
-  MoreHorizontal,
-  Plus,
-  RefreshCw,
-  Trash2,
-} from 'lucide-react';
-import { useSessions, useDeleteSession, useArchiveSession, type AnalysisSessionResponse } from '@/api';
+import { type AnalysisSessionResponse, useArchiveSession, useDeleteSession, useSessions } from '@/api';
 import { CreateSessionDialog } from '@/components/session/CreateSessionDialog';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -176,7 +167,9 @@ export const Sessions = () => {
                         <div className="flex-1 min-w-0">
                           <CardTitle className="text-base truncate">{session.name}</CardTitle>
                           {session.description && (
-                            <CardDescription className="text-sm mt-1 line-clamp-1">{session.description}</CardDescription>
+                            <CardDescription className="text-sm mt-1 line-clamp-1">
+                              {session.description}
+                            </CardDescription>
                           )}
                         </div>
                         <div className="flex items-center gap-2 ml-4">
