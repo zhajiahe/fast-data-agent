@@ -56,35 +56,16 @@ export const DataSources = () => {
 
     deleteDataSourceMutation.mutate(id, {
       onSuccess: () => {
-        toast({
-          title: t('common.success'),
-          description: t('dataSources.deleteSuccess'),
-        });
+        toast({ title: t('common.success'), description: t('dataSources.deleteSuccess') });
       },
-      onError: (err) => {
-        toast({
-          title: t('common.error'),
-          description: err.message,
-          variant: 'destructive',
-        });
-      },
+      // 错误由全局处理器处理
     });
   };
 
   const handleSyncSchema = async (id: number) => {
     syncSchemaMutation.mutate(id, {
       onSuccess: () => {
-        toast({
-          title: t('common.success'),
-          description: 'Schema 同步成功',
-        });
-      },
-      onError: (err) => {
-        toast({
-          title: t('common.error'),
-          description: err.message,
-          variant: 'destructive',
-        });
+        toast({ title: t('common.success'), description: 'Schema 同步成功' });
       },
     });
   };

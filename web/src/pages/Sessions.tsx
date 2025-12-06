@@ -46,35 +46,16 @@ export const Sessions = () => {
 
     deleteSessionMutation.mutate(id, {
       onSuccess: () => {
-        toast({
-          title: t('common.success'),
-          description: t('sessions.deleteSuccess'),
-        });
+        toast({ title: t('common.success'), description: t('sessions.deleteSuccess') });
       },
-      onError: (err) => {
-        toast({
-          title: t('common.error'),
-          description: err.message,
-          variant: 'destructive',
-        });
-      },
+      // 错误由全局处理器处理
     });
   };
 
   const handleArchive = async (id: number) => {
     archiveSessionMutation.mutate(id, {
       onSuccess: () => {
-        toast({
-          title: t('common.success'),
-          description: '会话已归档',
-        });
-      },
-      onError: (err) => {
-        toast({
-          title: t('common.error'),
-          description: err.message,
-          variant: 'destructive',
-        });
+        toast({ title: t('common.success'), description: '会话已归档' });
       },
     });
   };

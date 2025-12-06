@@ -276,5 +276,4 @@ export const useUpdateRecommendation = (sessionId: number) => {
   });
 };
 
-// 导出所有类型
-export * from './fastDataAgent';
+// 类型通过 api/index.ts 从 fastDataAgent.ts 导出
