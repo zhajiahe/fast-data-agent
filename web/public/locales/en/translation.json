@@ -183,7 +183,9 @@
     "register_failed": "Registration Failed",
     "register_failed_desc": "Please try again later",
     "slogan_title": "Smart Data Analysis at Your Fingertips",
-    "slogan_desc": "Analyze data, generate insights and visualizations through natural language conversation. Let AI be your data analysis expert."
+    "slogan_desc": "Analyze data, generate insights and visualizations through natural language conversation. Let AI be your data analysis expert.",
+    "register_slogan_title": "Join Us, Start Smart Analysis",
+    "register_slogan_desc": "Create an account to use our AI-powered data analysis platform. Connect data sources, query with natural language, and generate reports instantly."
   },
   "settings": {
     "title": "Settings",

@@ -3,6 +3,5 @@
  * UI 组件直接从 @/components/ui/xxx 导入
  */
 export { AppInitializer } from './AppInitializer';
-export { ChatLayout } from './ChatLayout';
 export { Layout } from './Layout';
 export { ProtectedRoute } from './ProtectedRoute';

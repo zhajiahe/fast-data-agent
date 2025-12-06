@@ -3,6 +3,8 @@ import { useForm } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
 import { Link, useNavigate } from 'react-router-dom';
 import { z } from 'zod';
+import { AuthLayout } from '@/components/auth/AuthLayout';
+import { LoadingSpinner } from '@/components/common';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -10,7 +12,6 @@ import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { emailSchema, passwordSchema, usernameSchema } from '@/lib/validations';
 
-// 注册表单 Schema（扩展了昵称字段）
 const registerFormSchema = z
   .object({
     username: usernameSchema,
@@ -28,7 +29,6 @@ type RegisterFormData = z.infer<typeof registerFormSchema>;
 
 /**
  * 注册页面
- * 使用 React Hook Form + Zod 进行表单验证
  */
 export const Register = () => {
   const { t } = useTranslation();
@@ -45,29 +45,30 @@ export const Register = () => {
 
   const onSubmit = async (_data: RegisterFormData) => {
     try {
-      // TODO: 替换为真实的 API 调用，使用 _data 参数
+      // TODO: 替换为真实的 API 调用
       await new Promise((resolve) => setTimeout(resolve, 1000));
-
-      toast({
-        title: t('auth.register_success'),
-        description: t('auth.register_success_desc'),
-      });
+      toast({ title: t('auth.register_success'), description: t('auth.register_success_desc') });
       navigate('/login');
-    } catch (err: any) {
+    } catch (err: unknown) {
+      const error = err as Error;
       toast({
         title: t('auth.register_failed'),
-        description: err.message || t('auth.register_failed_desc'),
+        description: error.message || t('auth.register_failed_desc'),
         variant: 'destructive',
       });
     }
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-emerald-50 to-slate-100 dark:from-emerald-950 dark:to-slate-900 p-4">
-      <Card className="w-full max-w-md">
-        <CardHeader className="space-y-1">
-          <CardTitle className="text-2xl text-center">{t('auth.register')}</CardTitle>
-          <CardDescription className="text-center">{t('auth.register_subtitle')}</CardDescription>
+    <AuthLayout title={t('auth.register_slogan_title')} subtitle={t('auth.register_slogan_desc')}>
+      <Card className="w-full max-w-md border-0 shadow-none lg:shadow lg:border">
+        <CardHeader className="space-y-1 text-center">
+          {/* 移动端 Logo */}
+          <div className="lg:hidden flex justify-center mb-4">
+            <img src={`${import.meta.env.BASE_URL}data_agent_logo.png`} alt="Logo" className="h-12 w-auto rounded-xl" />
+          </div>
+          <CardTitle className="text-2xl">{t('auth.register')}</CardTitle>
+          <CardDescription>{t('auth.register_subtitle')}</CardDescription>
         </CardHeader>
         <CardContent>
           <form className="space-y-4" onSubmit={handleSubmit(onSubmit)}>
@@ -137,7 +138,14 @@ export const Register = () => {
             </div>
 
             <Button type="submit" className="w-full" disabled={isSubmitting}>
-              {isSubmitting ? t('auth.registering') : t('auth.register')}
+              {isSubmitting ? (
+                <>
+                  <LoadingSpinner size="sm" className="mr-2 text-current" />
+                  {t('auth.registering')}
+                </>
+              ) : (
+                t('auth.register')
+              )}
             </Button>
 
             <div className="text-center text-sm text-muted-foreground">
@@ -149,6 +157,6 @@ export const Register = () => {
           </form>
         </CardContent>
       </Card>
-    </div>
+    </AuthLayout>
   );
 };

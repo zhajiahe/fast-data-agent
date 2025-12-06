@@ -1,8 +1,9 @@
-import { Archive, Calendar, Database, MessageSquare, MoreHorizontal, Plus, RefreshCw, Trash2 } from 'lucide-react';
+import { Archive, Calendar, Database, MessageSquare, MoreHorizontal, Plus, Trash2 } from 'lucide-react';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import { type AnalysisSessionResponse, useArchiveSession, useDeleteSession, useSessions } from '@/api';
+import { EmptyState, LoadingState } from '@/components/common';
 import { CreateSessionDialog } from '@/components/session/CreateSessionDialog';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -26,8 +27,7 @@ export const Sessions = () => {
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const { confirm, ConfirmDialog } = useConfirmDialog();
 
-  // 使用生成的 API hooks
-  const { data: response, isLoading, refetch } = useSessions();
+  const { data: response, isLoading } = useSessions();
   const deleteSessionMutation = useDeleteSession();
   const archiveSessionMutation = useArchiveSession();
 
@@ -48,7 +48,6 @@ export const Sessions = () => {
       onSuccess: () => {
         toast({ title: t('common.success'), description: t('sessions.deleteSuccess') });
       },
-      // 错误由全局处理器处理
     });
   };
 
@@ -108,33 +107,29 @@ export const Sessions = () => {
           <h1 className="text-3xl font-bold tracking-tight">{t('sessions.title')}</h1>
           <p className="text-muted-foreground mt-1">{t('sessions.subtitle')}</p>
         </div>
-        <div className="flex gap-2">
-          <Button variant="outline" size="sm" onClick={() => refetch()}>
-            <RefreshCw className="h-4 w-4 mr-2" />
-            {t('common.refresh')}
-          </Button>
-          <Button size="sm" onClick={() => setShowCreateDialog(true)}>
-            <Plus className="h-4 w-4 mr-2" />
-            {t('sessions.create')}
-          </Button>
-        </div>
+        <Button size="sm" onClick={() => setShowCreateDialog(true)}>
+          <Plus className="h-4 w-4 mr-2" />
+          {t('sessions.create')}
+        </Button>
       </div>
 
       {/* 会话列表 */}
       {isLoading ? (
-        <div className="flex items-center justify-center py-12">
-          <RefreshCw className="h-8 w-8 animate-spin text-muted-foreground" />
-        </div>
+        <LoadingState />
       ) : sessions.length === 0 ? (
         <Card className="border-dashed">
-          <CardContent className="flex flex-col items-center justify-center py-12">
-            <MessageSquare className="h-12 w-12 text-muted-foreground mb-4" />
-            <h3 className="text-lg font-semibold mb-2">{t('sessions.empty')}</h3>
-            <p className="text-muted-foreground text-center mb-4">{t('sessions.emptyHint')}</p>
-            <Button onClick={() => setShowCreateDialog(true)}>
-              <Plus className="h-4 w-4 mr-2" />
-              {t('sessions.create')}
-            </Button>
+          <CardContent className="py-0">
+            <EmptyState
+              icon={MessageSquare}
+              title={t('sessions.empty')}
+              description={t('sessions.emptyHint')}
+              action={
+                <Button onClick={() => setShowCreateDialog(true)}>
+                  <Plus className="h-4 w-4 mr-2" />
+                  {t('sessions.create')}
+                </Button>
+              }
+            />
           </CardContent>
         </Card>
       ) : (
@@ -211,10 +206,7 @@ export const Sessions = () => {
         </div>
       )}
 
-      {/* 创建会话对话框 */}
       <CreateSessionDialog open={showCreateDialog} onOpenChange={setShowCreateDialog} />
-
-      {/* 确认对话框 */}
       <ConfirmDialog />
     </div>
   );

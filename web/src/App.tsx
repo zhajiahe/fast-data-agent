@@ -1,7 +1,6 @@
 import { lazy, Suspense } from 'react';
 import { Navigate, Outlet, Route, BrowserRouter as Router, Routes } from 'react-router-dom';
 import { AppInitializer } from '@/components/AppInitializer';
-import { ChatLayout } from '@/components/ChatLayout';
 import { Layout } from '@/components/Layout';
 import { ProtectedRoute } from '@/components/ProtectedRoute';
 import { Toaster } from '@/components/ui/toaster';
@@ -28,7 +27,7 @@ const LoadingFallback = () => (
 );
 
 /**
- * 带导航栏的受保护布局
+ * 带导航栏的受保护布局（普通页面）
  */
 const ProtectedLayout = () => (
   <ProtectedRoute>
@@ -39,13 +38,13 @@ const ProtectedLayout = () => (
 );
 
 /**
- * 聊天页面的受保护布局（无导航栏）
+ * 带导航栏的受保护布局（全屏页面，如聊天）
  */
-const ProtectedChatLayout = () => (
+const ProtectedFullHeightLayout = () => (
   <ProtectedRoute>
-    <ChatLayout>
+    <Layout fullHeight>
       <Outlet />
-    </ChatLayout>
+    </Layout>
   </ProtectedRoute>
 );
 
@@ -73,8 +72,8 @@ function App() {
               <Route path="settings" element={<Settings />} />
             </Route>
 
-            {/* 聊天页面 - 特殊布局（无导航栏） */}
-            <Route element={<ProtectedChatLayout />}>
+            {/* 聊天页面 - 带导航栏，全屏高度 */}
+            <Route element={<ProtectedFullHeightLayout />}>
               <Route path="chat/:id" element={<Chat />} />
             </Route>
 

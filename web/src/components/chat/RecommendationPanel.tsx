@@ -12,6 +12,7 @@ import {
 import { useEffect, useMemo, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { type TaskRecommendationResponse, useGenerateRecommendations, useRecommendations } from '@/api';
+import { LoadingSpinner } from '@/components/common';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 
@@ -30,14 +31,15 @@ const categoryIcons: Record<string, React.ReactNode> = {
   followup: <MessageCircle className="h-4 w-4" />,
 };
 
+// 色彩方案：使用 slate/teal/cyan 主色系 + 语义色（amber/red）
 const categoryColors: Record<string, string> = {
-  overview: 'bg-blue-500/10 text-blue-500',
-  trend: 'bg-green-500/10 text-green-500',
-  comparison: 'bg-purple-500/10 text-purple-500',
-  anomaly: 'bg-red-500/10 text-red-500',
-  correlation: 'bg-amber-500/10 text-amber-500',
-  distribution: 'bg-cyan-500/10 text-cyan-500',
-  followup: 'bg-indigo-500/10 text-indigo-500',
+  overview: 'bg-slate-500/10 text-slate-600 dark:text-slate-400',
+  trend: 'bg-teal-500/10 text-teal-600 dark:text-teal-400',
+  comparison: 'bg-cyan-500/10 text-cyan-600 dark:text-cyan-400',
+  anomaly: 'bg-red-500/10 text-red-600 dark:text-red-400',
+  correlation: 'bg-amber-500/10 text-amber-600 dark:text-amber-400',
+  distribution: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400',
+  followup: 'bg-teal-500/10 text-teal-600 dark:text-teal-400',
 };
 
 // 推荐卡片组件
@@ -133,7 +135,7 @@ export const RecommendationPanel = ({ sessionId, onSelect }: RecommendationPanel
           onClick={handleGenerate}
           disabled={generateMutation.isPending}
         >
-          <RefreshCw className={`h-4 w-4 ${generateMutation.isPending ? 'animate-spin' : ''}`} />
+          {generateMutation.isPending ? <LoadingSpinner size="sm" /> : <RefreshCw className="h-4 w-4" />}
         </Button>
       </div>
 
@@ -142,7 +144,7 @@ export const RecommendationPanel = ({ sessionId, onSelect }: RecommendationPanel
         <div className="p-4 space-y-4">
           {isLoading ? (
             <div className="flex items-center justify-center py-8">
-              <RefreshCw className="h-5 w-5 animate-spin text-muted-foreground" />
+              <LoadingSpinner size="md" />
             </div>
           ) : recommendations.length === 0 ? (
             <div className="text-center py-8">

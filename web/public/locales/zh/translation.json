@@ -183,7 +183,9 @@
     "register_failed": "注册失败",
     "register_failed_desc": "注册失败，请稍后重试",
     "slogan_title": "智能数据分析，触手可及",
-    "slogan_desc": "通过自然语言对话，轻松分析数据、生成洞察报告和可视化图表。让 AI 成为您的数据分析专家。"
+    "slogan_desc": "通过自然语言对话，轻松分析数据、生成洞察报告和可视化图表。让 AI 成为您的数据分析专家。",
+    "register_slogan_title": "加入我们，开启智能分析",
+    "register_slogan_desc": "注册账号，即可使用 AI 驱动的数据分析平台。连接数据源、自然语言查询、一键生成报告。"
   },
   "settings": {
     "title": "设置",

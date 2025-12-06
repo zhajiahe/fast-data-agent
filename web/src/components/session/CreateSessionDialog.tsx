@@ -1,11 +1,12 @@
 import { zodResolver } from '@hookform/resolvers/zod';
-import { CheckCircle2, Database, Loader2, MessageSquare } from 'lucide-react';
+import { CheckCircle2, Database, MessageSquare } from 'lucide-react';
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import { z } from 'zod';
 import { type DataSourceResponse, useCreateSession, useDataSources } from '@/api';
+import { LoadingSpinner } from '@/components/common';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -139,7 +140,7 @@ export const CreateSessionDialog = ({ open, onOpenChange }: CreateSessionDialogP
             <ScrollArea className="h-[200px] border rounded-lg">
               {isLoadingDataSources ? (
                 <div className="flex items-center justify-center h-full">
-                  <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                  <LoadingSpinner size="md" />
                 </div>
               ) : dataSources.length === 0 ? (
                 <div className="flex flex-col items-center justify-center h-full text-center p-4">
@@ -203,7 +204,9 @@ export const CreateSessionDialog = ({ open, onOpenChange }: CreateSessionDialogP
               type="submit"
               disabled={isSubmitting || selectedIds.length === 0 || createSessionMutation.isPending}
             >
-              {(isSubmitting || createSessionMutation.isPending) && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              {(isSubmitting || createSessionMutation.isPending) && (
+                <LoadingSpinner size="sm" className="mr-2 text-current" />
+              )}
               {t('sessions.create')}
             </Button>
           </DialogFooter>

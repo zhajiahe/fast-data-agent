@@ -1,7 +1,8 @@
-import { FileSpreadsheet, Loader2, Upload, X } from 'lucide-react';
+import { FileSpreadsheet, Upload, X } from 'lucide-react';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { DataSourceType, useCreateDataSource, useUploadFile } from '@/api';
+import { LoadingSpinner } from '@/components/common';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -247,7 +248,7 @@ export const UploadFileDialog = ({ open, onOpenChange }: UploadFileDialogProps) 
           <Button onClick={handleUpload} disabled={!file || !name.trim() || isUploading}>
             {isUploading ? (
               <>
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                <LoadingSpinner size="sm" className="mr-2 text-current" />
                 {t('files.uploading')}
               </>
             ) : (

@@ -26,6 +26,8 @@ import { useThemeStore } from '@/stores/themeStore';
 
 interface LayoutProps {
   children: React.ReactNode;
+  /** 是否让主内容区域占满剩余高度（用于聊天页面） */
+  fullHeight?: boolean;
 }
 
 const languages = [
@@ -35,8 +37,9 @@ const languages = [
 
 /**
  * 应用主布局组件
+ * 色彩：Logo 使用 teal 色系与主题协调
  */
-export const Layout = ({ children }: LayoutProps) => {
+export const Layout = ({ children, fullHeight = false }: LayoutProps) => {
   const location = useLocation();
   const navigate = useNavigate();
   const { theme, toggleTheme } = useThemeStore();
@@ -65,14 +68,14 @@ export const Layout = ({ children }: LayoutProps) => {
   };
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className={cn('min-h-screen bg-background', fullHeight && 'h-screen flex flex-col')}>
       {/* 顶部导航栏 */}
-      <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+      <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 shrink-0">
         <div className="container flex h-14 items-center px-4">
-          {/* Logo */}
+          {/* Logo - 使用 teal 色系 */}
           <Link to="/" className="mr-6 flex items-center space-x-2">
             <img src={`${import.meta.env.BASE_URL}data_agent_logo.png`} alt="Logo" className="h-8 w-auto rounded-lg" />
-            <span className="hidden font-bold sm:inline-block bg-gradient-to-r from-violet-600 to-purple-600 bg-clip-text text-transparent">
+            <span className="hidden font-bold sm:inline-block bg-gradient-to-r from-teal-600 to-cyan-600 bg-clip-text text-transparent">
               Fast Data Agent
             </span>
           </Link>
@@ -160,7 +163,7 @@ export const Layout = ({ children }: LayoutProps) => {
       </header>
 
       {/* 页面内容 */}
-      <main>{children}</main>
+      <main className={cn(fullHeight && 'flex-1 min-h-0')}>{children}</main>
     </div>
   );
 };

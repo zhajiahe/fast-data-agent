@@ -1,9 +1,10 @@
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Database, Loader2 } from 'lucide-react';
+import { Database } from 'lucide-react';
 import { useForm } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
 import { z } from 'zod';
 import { DatabaseType, DataSourceType, useCreateDataSource } from '@/api';
+import { LoadingSpinner } from '@/components/common';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -201,7 +202,7 @@ export const AddDatabaseDialog = ({ open, onOpenChange }: AddDatabaseDialogProps
           <DialogFooter className="gap-2 sm:gap-0">
             <Button type="submit" disabled={isSubmitting || createDataSourceMutation.isPending}>
               {(isSubmitting || createDataSourceMutation.isPending) && (
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                <LoadingSpinner size="sm" className="mr-2 text-current" />
               )}
               {t('common.save')}
             </Button>

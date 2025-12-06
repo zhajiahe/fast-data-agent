@@ -2,19 +2,20 @@ import { ArrowRight, BarChart3, Clock, Database, MessageSquare, Plus } from 'luc
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import { useDataSources, useSessions } from '@/api';
+import { EmptyState } from '@/components/common';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useAuthStore } from '@/stores/authStore';
 
 /**
  * 仪表盘页面
+ * 色彩方案：slate（数据库）、teal（会话/主品牌）、cyan（图表）
  */
 export const Dashboard = () => {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const { user } = useAuthStore();
 
-  // 使用生成的 API hooks
   const { data: dataSourcesResponse } = useDataSources({ page_size: 100 });
   const { data: sessionsResponse } = useSessions({ page_size: 5 });
 
@@ -28,24 +29,24 @@ export const Dashboard = () => {
       value: dataSources.length,
       subValue: `${dataSources.length} ${t('dashboard.active')}`,
       icon: Database,
-      color: 'text-blue-500',
-      bgColor: 'bg-blue-500/10',
+      color: 'text-slate-600 dark:text-slate-400',
+      bgColor: 'bg-slate-500/10',
     },
     {
       title: t('dashboard.totalSessions'),
       value: totalSessions,
       subValue: t('dashboard.thisWeek'),
       icon: MessageSquare,
-      color: 'text-green-500',
-      bgColor: 'bg-green-500/10',
+      color: 'text-teal-600 dark:text-teal-400',
+      bgColor: 'bg-teal-500/10',
     },
     {
       title: t('dashboard.chartsGenerated'),
       value: '-',
       subValue: t('dashboard.comingSoon'),
       icon: BarChart3,
-      color: 'text-purple-500',
-      bgColor: 'bg-purple-500/10',
+      color: 'text-cyan-600 dark:text-cyan-400',
+      bgColor: 'bg-cyan-500/10',
     },
   ];
 
@@ -77,12 +78,12 @@ export const Dashboard = () => {
         ))}
       </div>
 
-      {/* 快速操作 */}
+      {/* 快速操作 - 使用 teal/cyan 色系 */}
       <div className="grid gap-4 md:grid-cols-2 mb-8">
         <Card className="group hover:shadow-md transition-shadow cursor-pointer" onClick={() => navigate('/sessions')}>
           <CardHeader>
             <div className="flex items-center justify-between">
-              <div className="p-3 rounded-xl bg-gradient-to-br from-violet-500 to-purple-600">
+              <div className="p-3 rounded-xl bg-gradient-to-br from-teal-500 to-cyan-600">
                 <Plus className="h-6 w-6 text-white" />
               </div>
               <ArrowRight className="h-5 w-5 text-muted-foreground group-hover:translate-x-1 transition-transform" />
@@ -98,7 +99,7 @@ export const Dashboard = () => {
         >
           <CardHeader>
             <div className="flex items-center justify-between">
-              <div className="p-3 rounded-xl bg-gradient-to-br from-blue-500 to-cyan-500">
+              <div className="p-3 rounded-xl bg-gradient-to-br from-slate-600 to-slate-700">
                 <Database className="h-6 w-6 text-white" />
               </div>
               <ArrowRight className="h-5 w-5 text-muted-foreground group-hover:translate-x-1 transition-transform" />
@@ -125,13 +126,15 @@ export const Dashboard = () => {
         </CardHeader>
         <CardContent>
           {sessions.length === 0 ? (
-            <div className="text-center py-8">
-              <MessageSquare className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-              <p className="text-muted-foreground">{t('dashboard.noRecentSessions')}</p>
-              <Button variant="link" onClick={() => navigate('/sessions')}>
-                {t('dashboard.createFirstSession')}
-              </Button>
-            </div>
+            <EmptyState
+              icon={MessageSquare}
+              title={t('dashboard.noRecentSessions')}
+              action={
+                <Button variant="link" onClick={() => navigate('/sessions')}>
+                  {t('dashboard.createFirstSession')}
+                </Button>
+              }
+            />
           ) : (
             <div className="space-y-3">
               {sessions.map((session) => (
