@@ -73,20 +73,22 @@ export const Chat = () => {
       });
     },
     onStreamEnd: async (finalContent) => {
-      // 生成后续问题推荐
-      if (finalContent) {
-        try {
-          await generateFollowupRecommendationsApiV1SessionsSessionIdRecommendationsFollowupPost(sessionId, {
-            conversation_context: `用户问: ${input}\n\nAI回答: ${finalContent}`,
-            max_count: 3,
-          });
-          queryClient.invalidateQueries({ queryKey: ['recommendations', sessionId] });
-        } catch (e) {
-          console.warn('Failed to generate followup recommendations:', e);
-        }
-      }
-      // 刷新消息列表
+      // 1. 先刷新消息列表（关键路径，立即完成）
       await refetchMessages();
+
+      // 2. 后台生成后续问题推荐（非关键路径，不等待）
+      if (finalContent) {
+        generateFollowupRecommendationsApiV1SessionsSessionIdRecommendationsFollowupPost(sessionId, {
+          conversation_context: `用户问: ${input}\n\nAI回答: ${finalContent}`,
+          max_count: 3,
+        })
+          .then(() => {
+            queryClient.invalidateQueries({ queryKey: ['recommendations', sessionId] });
+          })
+          .catch((e) => {
+            console.warn('Failed to generate followup recommendations:', e);
+          });
+      }
     },
   });
 
