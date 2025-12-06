@@ -32,6 +32,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { useConfirmDialog, useToast } from '@/hooks';
+import { cn } from '@/lib/utils';
 
 interface GroupedDataSources {
   groupName: string | null;
@@ -152,29 +153,39 @@ export const DataSources = () => {
   };
 
   const renderDataSourceCard = (ds: DataSourceResponse) => (
-    <Card
-      key={ds.id}
-      className="group hover:shadow-md transition-shadow cursor-pointer"
-      onClick={() => ds.source_type === 'file' && ds.file_id && setPreviewDataSource(ds)}
-    >
+    <Card key={ds.id} className="group hover:shadow-md transition-shadow">
       <CardHeader className="pb-3">
         <div className="flex items-start justify-between">
-          <div className="flex items-center gap-3">
+          {/* 可点击区域：图标和标题 */}
+          <div
+            className={cn(
+              'flex items-center gap-3 flex-1 min-w-0',
+              ds.source_type === 'file' && ds.file_id && 'cursor-pointer hover:opacity-80 transition-opacity'
+            )}
+            onClick={() => ds.source_type === 'file' && ds.file_id && setPreviewDataSource(ds)}
+            onKeyDown={(e) => {
+              if ((e.key === 'Enter' || e.key === ' ') && ds.source_type === 'file' && ds.file_id) {
+                setPreviewDataSource(ds);
+              }
+            }}
+            tabIndex={ds.source_type === 'file' && ds.file_id ? 0 : undefined}
+            role={ds.source_type === 'file' && ds.file_id ? 'button' : undefined}
+          >
             {getTypeIcon(ds)}
-            <div>
-              <CardTitle className="text-base">{ds.name}</CardTitle>
+            <div className="min-w-0">
+              <CardTitle className="text-base truncate">{ds.name}</CardTitle>
               <CardDescription className="text-xs">
                 {ds.source_type === 'database' ? ds.db_type?.toUpperCase() : t('dataSources.file')}
               </CardDescription>
             </div>
           </div>
+          {/* 菜单按钮 - 独立于可点击区域 */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button
                 variant="ghost"
                 size="icon"
-                className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity"
-                onClick={(e) => e.stopPropagation()}
+                className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
               >
                 <MoreHorizontal className="h-4 w-4" />
               </Button>
@@ -191,9 +202,9 @@ export const DataSources = () => {
                 {t('dataSources.refreshSchema')}
               </DropdownMenuItem>
               <DropdownMenuSeparator />
-              <DropdownMenuItem className="text-destructive" onClick={() => handleDelete(ds.id, ds.name)}>
-                <Trash2 className="h-4 w-4 mr-2" />
-                {t('common.delete')}
+              <DropdownMenuItem onClick={() => handleDelete(ds.id, ds.name)}>
+                <Trash2 className="h-4 w-4 mr-2 text-destructive" />
+                <span className="text-destructive">{t('common.delete')}</span>
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
