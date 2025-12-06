@@ -29,13 +29,12 @@ const databaseTypes: { value: (typeof DatabaseType)[keyof typeof DatabaseType]; 
   [
     { value: DatabaseType.postgresql, label: 'PostgreSQL', defaultPort: 5432 },
     { value: DatabaseType.mysql, label: 'MySQL', defaultPort: 3306 },
-    { value: DatabaseType.sqlite, label: 'SQLite', defaultPort: 0 },
   ];
 
 const formSchema = z.object({
   name: z.string().min(1, '请输入名称').max(50, '名称最多 50 个字符'),
   description: z.string().max(200, '描述最多 200 个字符').optional(),
-  db_type: z.enum(['postgresql', 'mysql', 'sqlite']),
+  db_type: z.enum(['postgresql', 'mysql']),
   host: z.string().min(1, '请输入主机地址'),
   port: z
     .string()
@@ -75,8 +74,8 @@ export const AddDatabaseDialog = ({ open, onOpenChange }: AddDatabaseDialogProps
   // 使用生成的 API hooks
   const createDataSourceMutation = useCreateDataSource();
 
-  const handleDatabaseTypeChange = (value: (typeof DatabaseType)[keyof typeof DatabaseType]) => {
-    setValue('db_type', value as 'postgresql' | 'mysql' | 'sqlite');
+  const handleDatabaseTypeChange = (value: 'postgresql' | 'mysql') => {
+    setValue('db_type', value);
     const dbTypeConfig = databaseTypes.find((t) => t.value === value);
     if (dbTypeConfig) {
       setValue('port', String(dbTypeConfig.defaultPort));
