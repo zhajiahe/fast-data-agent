@@ -10,7 +10,8 @@ interface UseChatStreamOptions {
   sessionId: number;
   onMessage: (message: LocalMessage) => void;
   onError: (error: string) => void;
-  onStreamEnd?: (finalContent: string) => void;
+  /** 流结束回调，支持异步。会等待此回调完成后才将 isGenerating 设为 false */
+  onStreamEnd?: (finalContent: string) => void | Promise<void>;
 }
 
 interface UseChatStreamReturn {
@@ -133,9 +134,10 @@ export function useChatStream({
           }
         }
 
-        // 调用流结束回调
+        // 调用流结束回调，等待其完成后再结束生成状态
+        // 这确保 refetchMessages 完成后 isGenerating 才变为 false
         if (finalAiContent && onStreamEnd) {
-          onStreamEnd(finalAiContent);
+          await onStreamEnd(finalAiContent);
         }
       } catch (err: unknown) {
         const error = err as Error;

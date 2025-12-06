@@ -41,7 +41,11 @@ export const Chat = () => {
 
   // 使用生成的 API hooks
   const { data: sessionResponse } = useSession(sessionId);
-  const { data: messagesResponse, refetch: refetchMessages } = useMessages(sessionId, { page_size: 100 });
+  const {
+    data: messagesResponse,
+    refetch: refetchMessages,
+    isFetching: isMessagesFetching,
+  } = useMessages(sessionId, { page_size: 100 });
   const clearMessagesMutation = useClearMessages();
 
   const currentSession: AnalysisSessionDetail | null = sessionResponse?.data.data || null;
@@ -101,8 +105,10 @@ export const Chat = () => {
   }, [sessionId]);
 
   // 同步 API 消息到本地
+  // 只在：不生成中 且 不在刷新中 且 有数据时才同步
+  // 这样避免流结束后立即用旧数据替换，而是等 refetch 完成后一次性更新
   useEffect(() => {
-    if (isGenerating || !apiMessagesItems) return;
+    if (isGenerating || isMessagesFetching || !apiMessagesItems) return;
 
     const convertedMessages: LocalMessage[] = apiMessagesItems.map((m) => ({
       id: m.id,
@@ -117,7 +123,7 @@ export const Chat = () => {
 
     convertedMessages.sort((a, b) => new Date(a.create_time).getTime() - new Date(b.create_time).getTime());
     setLocalMessages(convertedMessages);
-  }, [apiMessagesItems, isGenerating]);
+  }, [apiMessagesItems, isGenerating, isMessagesFetching]);
 
   // 检测用户是否在底部附近
   const handleScroll = useCallback(() => {
