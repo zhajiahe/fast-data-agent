@@ -513,21 +513,17 @@ async def generate_chart(
     result = response.json()
 
     if result.get("success"):
-        chart_file = result.get("chart_file", "chart.html")
-
         # content: 给 LLM 的简短描述
         content_lines = [
             "✅ 图表生成成功",
-            "📊 图表已在前端渲染显示",
-            f"📁 文件已保存: {chart_file}",
-            "💡 用户可以在聊天界面直接查看交互式图表",
+            "📊 图表数据已发送至前端渲染",
+            "💡 用户可以在聊天界面直接查看交互式 Plotly 图表",
         ]
 
         # artifact: 完整图表数据（给前端渲染）
         artifact = {
             "type": "plotly",
-            "chart_file": chart_file,
-            "chart_json": result.get("chart_json"),  # 完整的 Plotly JSON
+            "chart_json": result.get("chart_json"),  # Plotly JSON 数据
         }
         return "\n".join(content_lines), artifact
     else:
