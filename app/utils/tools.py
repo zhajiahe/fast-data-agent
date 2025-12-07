@@ -483,6 +483,7 @@ fig = px.bar(df, x='category', y='total_sales', title='销售额分布')
 )
 async def generate_chart(
     code: str,
+    title: str,
     runtime: ToolRuntime,
 ) -> tuple[str, dict[str, Any]]:
     """
@@ -491,12 +492,13 @@ async def generate_chart(
 
     Args:
         code: 使用 Plotly 生成图表的 Python 代码，必须创建 fig 变量
+        title: 图表标题，用于在前端显示
 
     Returns:
         content: 给 LLM 看的简短描述
         artifact: 包含完整图表数据的字典（不发送给 LLM）
     """
-    runtime.stream_writer("正在生成图表...")
+    runtime.stream_writer(f"正在生成图表: {title}...")
     ctx: ChatContext = runtime.context  # type: ignore[assignment]
 
     client = get_sandbox_client()
@@ -515,7 +517,7 @@ async def generate_chart(
     if result.get("success"):
         # content: 给 LLM 的简短描述
         content_lines = [
-            "✅ 图表生成成功",
+            f"✅ 图表「{title}」生成成功",
             "📊 图表数据已发送至前端渲染",
             "💡 用户可以在聊天界面直接查看交互式 Plotly 图表",
         ]
@@ -523,6 +525,7 @@ async def generate_chart(
         # artifact: 完整图表数据（给前端渲染）
         artifact = {
             "type": "plotly",
+            "title": title,
             "chart_json": result.get("chart_json"),  # Plotly JSON 数据
         }
         return "\n".join(content_lines), artifact
@@ -531,10 +534,11 @@ async def generate_chart(
         output = result.get("output", "")
         # 给 LLM 关键错误信息（便于反思和修正）
         error_for_llm = extract_error_for_llm(error_detail)
-        content = f"❌ 图表生成失败:\n{error_for_llm}"
+        content = f"❌ 图表「{title}」生成失败:\n{error_for_llm}"
         return content, {
             "type": "error",
             "tool": "generate_chart",
+            "title": title,
             "code": code,
             "output": output,
             "error_message": error_detail,  # 完整错误信息（给前端调试用）
