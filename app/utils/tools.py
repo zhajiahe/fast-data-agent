@@ -115,11 +115,15 @@ def extract_error_for_llm(error_text: str, max_lines: int = 10) -> str:
 # ==================== 工具定义 ====================
 
 
-@tool
-async def list_local_files(runtime: ToolRuntime) -> Any:
+@tool(response_format="content_and_artifact")
+async def list_local_files(runtime: ToolRuntime) -> tuple[str, dict[str, Any]]:
     """
     列出沙盒中的文件。
     用于查看分析过程中生成的中间文件、图表、报告等。
+
+    Returns:
+        content: 文件列表摘要（给 LLM）
+        artifact: 完整文件列表（给前端）
     """
     runtime.stream_writer("正在获取文件列表...")
     ctx: ChatContext = runtime.context  # type: ignore[assignment]
@@ -129,14 +133,30 @@ async def list_local_files(runtime: ToolRuntime) -> Any:
     }
     client = get_sandbox_client()
     response = await client.get("/files", params=params)
-    return response.json()
+    result = response.json()
+
+    files = result.get("files", [])
+    if not files:
+        return "当前会话目录为空，暂无文件。", {"type": "file_list", "files": []}
+
+    # 给 LLM 的文件列表摘要
+    content_lines = [f"会话目录中共有 {len(files)} 个文件："]
+    for f in files[:10]:  # 最多显示 10 个
+        name = f.get("name", "")
+        size = f.get("size", 0)
+        size_str = f"{size / 1024:.1f}KB" if size >= 1024 else f"{size}B"
+        content_lines.append(f"  - {name} ({size_str})")
+    if len(files) > 10:
+        content_lines.append(f"  ...等共 {len(files)} 个文件")
+
+    return "\n".join(content_lines), {"type": "file_list", "files": files}
 
 
-@tool
+@tool(response_format="content_and_artifact")
 async def quick_analysis(
     data_source_id: int,
     runtime: ToolRuntime,
-) -> Any:
+) -> tuple[str, dict[str, Any]]:
     """
     快速分析数据源，返回数据概览。
     支持文件类型（CSV/Excel/JSON/Parquet）和数据库类型（MySQL/PostgreSQL/SQLite）。
@@ -146,6 +166,10 @@ async def quick_analysis(
 
     Args:
         data_source_id: 数据源 ID，从可用数据源列表中选择
+
+    Returns:
+        content: 格式化的分析摘要（给 LLM）
+        artifact: 完整分析结果（给前端）
     """
     runtime.stream_writer(f"正在分析数据源 {data_source_id}...")
     ctx: ChatContext = runtime.context  # type: ignore[assignment]
@@ -158,7 +182,8 @@ async def quick_analysis(
             break
 
     if ds_ctx is None:
-        return {"success": False, "error": f"数据源 {data_source_id} 不在当前会话的可用数据源列表中"}
+        error_msg = f"数据源 {data_source_id} 不在当前会话的可用数据源列表中"
+        return error_msg, {"type": "error", "error": error_msg}
 
     # 构建数据源信息传递给沙盒
     data_source_info: dict[str, Any] = {
@@ -196,12 +221,50 @@ async def quick_analysis(
     )
     result = response.json()
 
-    # 添加数据源名称到结果中
-    if result.get("success") and result.get("analysis"):
-        result["analysis"]["data_source_name"] = ds_ctx.name
-        result["analysis"]["data_source_id"] = ds_ctx.id
+    if not result.get("success"):
+        error_msg = result.get("error", "分析失败")
+        return f"数据源分析失败: {error_msg}", {"type": "error", "error": error_msg}
 
-    return result
+    analysis = result.get("analysis", {})
+
+    # 构建格式化的分析摘要（给 LLM）
+    content_lines = [f"## 数据源: {ds_ctx.name} (ID: {ds_ctx.id})"]
+    content_lines.append(f"- 类型: {ds_ctx.source_type}")
+    content_lines.append(f"- 行数: {analysis.get('row_count', 'N/A')}")
+    content_lines.append(f"- 列数: {analysis.get('column_count', 'N/A')}")
+
+    # 列信息
+    columns = analysis.get("columns", [])
+    if columns:
+        content_lines.append("\n### 列信息:")
+        for col in columns[:15]:  # 最多显示 15 列
+            col_name = col.get("name", "")
+            col_type = col.get("dtype", "")
+            null_count = col.get("null_count", 0)
+            null_info = f", 缺失 {null_count}" if null_count > 0 else ""
+            content_lines.append(f"  - {col_name} ({col_type}{null_info})")
+        if len(columns) > 15:
+            content_lines.append(f"  ...等共 {len(columns)} 列")
+
+    # 数值统计摘要
+    stats = analysis.get("statistics", {})
+    if stats:
+        content_lines.append("\n### 数值统计摘要:")
+        for col_name, col_stats in list(stats.items())[:5]:  # 最多显示 5 列
+            mean_val = col_stats.get("mean", "N/A")
+            min_val = col_stats.get("min", "N/A")
+            max_val = col_stats.get("max", "N/A")
+            content_lines.append(f"  - {col_name}: 均值={mean_val:.2f}, 范围=[{min_val}, {max_val}]")
+
+    # artifact 包含完整分析结果
+    artifact = {
+        "type": "analysis",
+        "data_source_name": ds_ctx.name,
+        "data_source_id": ds_ctx.id,
+        **analysis,
+    }
+
+    return "\n".join(content_lines), artifact
 
 
 @tool(
@@ -276,30 +339,44 @@ async def execute_sql(
         row_count = result.get("row_count", 0)
         columns = result.get("columns", [])
         result_file = result.get("result_file", "")
-
-        # 构建给 LLM 的内容，包含列名以便后续工具使用
-        content = f"查询成功，返回 {row_count} 行数据\n"
-        content += f"结果文件: {result_file}\n"
-        content += f"列名: {columns}"
-
-        # 限制 artifact 中的行数，避免数据过大
         rows = result.get("rows", [])
-        max_rows = 100
+
+        # 构建给 LLM 的内容
+        content_lines = [
+            "✅ SQL 查询成功",
+            f"- 返回 {row_count} 行数据",
+            f"- 结果已保存至: {result_file}",
+            f"- 列名: {', '.join(columns[:10])}{'...' if len(columns) > 10 else ''}",
+        ]
+
+        # 显示前 10 行数据预览（给 LLM 参考）
+        if rows:
+            content_lines.append("\n📊 数据预览 (前 10 行):")
+            preview_rows = rows[:10]
+            # 构建简单的表格格式
+            for i, row in enumerate(preview_rows):
+                row_str = " | ".join(str(v)[:20] for v in row)  # 每个值最多 20 字符
+                content_lines.append(f"  {i + 1}. {row_str}")
+            if row_count > 10:
+                content_lines.append(f"  ...共 {row_count} 行，完整数据请在前端查看")
+
+        # artifact 包含更多数据（给前端渲染）
+        max_rows_for_frontend = 100
         artifact = {
             "type": "sql",
             "sql": sql,
             "columns": columns,
-            "rows": rows[:max_rows],
+            "rows": rows[:max_rows_for_frontend],
             "total_rows": row_count,
-            "truncated": len(rows) > max_rows,
+            "truncated": len(rows) > max_rows_for_frontend,
             "result_file": result_file,
         }
-        return content, artifact
+        return "\n".join(content_lines), artifact
     else:
         error_detail = result.get("error", "未知错误")
         # 给 LLM 关键错误信息（便于反思和修正）
         error_for_llm = extract_error_for_llm(error_detail)
-        content = f"SQL 执行失败:\n{error_for_llm}"
+        content = f"❌ SQL 执行失败:\n{error_for_llm}"
         return content, {
             "type": "error",
             "tool": "execute_sql",
@@ -348,10 +425,19 @@ async def execute_python(
     if result.get("success"):
         output = result.get("output", "")
         files_created = result.get("files_created", [])
-        # 给 LLM 的简短描述
-        content = output[:500] if output else "代码执行成功"
+
+        # 构建给 LLM 的内容
+        content_lines = ["✅ Python 代码执行成功"]
+
+        if output:
+            # 显示输出预览（最多 500 字符）
+            output_preview = output[:500]
+            content_lines.append(f"\n📝 输出:\n{output_preview}")
+            if len(output) > 500:
+                content_lines.append("...(输出已截断，完整输出请在前端查看)")
+
         if files_created:
-            content += f"\n生成文件: {', '.join(files_created)}"
+            content_lines.append(f"\n📁 生成文件: {', '.join(files_created)}")
 
         artifact = {
             "type": "code",
@@ -359,13 +445,13 @@ async def execute_python(
             "output": output,
             "files_created": files_created,
         }
-        return content, artifact
+        return "\n".join(content_lines), artifact
     else:
         error_detail = result.get("error", "未知错误")
         output = result.get("output", "")
         # 给 LLM 关键错误信息（便于反思和修正）
         error_for_llm = extract_error_for_llm(error_detail)
-        content = f"Python 执行失败:\n{error_for_llm}"
+        content = f"❌ Python 执行失败:\n{error_for_llm}"
         return content, {
             "type": "error",
             "tool": "execute_python",
@@ -427,22 +513,29 @@ async def generate_chart(
     result = response.json()
 
     if result.get("success"):
-        # content: 给 LLM 的简短描述
-        content = f"图表已生成并保存为 {result.get('chart_file', 'chart.html')}"
+        chart_file = result.get("chart_file", "chart.html")
 
-        # artifact: 完整图表数据，不发送给 LLM
+        # content: 给 LLM 的简短描述
+        content_lines = [
+            "✅ 图表生成成功",
+            "📊 图表已在前端渲染显示",
+            f"📁 文件已保存: {chart_file}",
+            "💡 用户可以在聊天界面直接查看交互式图表",
+        ]
+
+        # artifact: 完整图表数据（给前端渲染）
         artifact = {
             "type": "plotly",
-            "chart_file": result.get("chart_file"),
+            "chart_file": chart_file,
             "chart_json": result.get("chart_json"),  # 完整的 Plotly JSON
         }
-        return content, artifact
+        return "\n".join(content_lines), artifact
     else:
         error_detail = result.get("error", "未知错误")
         output = result.get("output", "")
         # 给 LLM 关键错误信息（便于反思和修正）
         error_for_llm = extract_error_for_llm(error_detail)
-        content = f"图表生成失败:\n{error_for_llm}"
+        content = f"❌ 图表生成失败:\n{error_for_llm}"
         return content, {
             "type": "error",
             "tool": "generate_chart",
