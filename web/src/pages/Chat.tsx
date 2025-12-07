@@ -107,10 +107,10 @@ export const Chat = () => {
   }, [sessionId]);
 
   // 同步 API 消息到本地
-  // 只在：不生成中 且 不在刷新中 且 有数据时才同步
-  // 这样避免流结束后立即用旧数据替换，而是等 refetch 完成后一次性更新
+  // 只在不在刷新中且有数据时才同步
+  // 注意：不检查 isGenerating，因为 onStreamEnd 中的 refetch 需要在生成结束前完成同步
   useEffect(() => {
-    if (isGenerating || isMessagesFetching || !apiMessagesItems) return;
+    if (isMessagesFetching || !apiMessagesItems) return;
 
     const convertedMessages: LocalMessage[] = apiMessagesItems.map((m) => ({
       id: m.id,
@@ -126,7 +126,7 @@ export const Chat = () => {
 
     convertedMessages.sort((a, b) => new Date(a.create_time).getTime() - new Date(b.create_time).getTime());
     setLocalMessages(convertedMessages);
-  }, [apiMessagesItems, isGenerating, isMessagesFetching]);
+  }, [apiMessagesItems, isMessagesFetching]);
 
   // 检测用户是否在底部附近
   const handleScroll = useCallback(() => {
