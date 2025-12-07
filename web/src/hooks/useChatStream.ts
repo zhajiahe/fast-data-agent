@@ -1,17 +1,21 @@
 /**
  * 聊天 SSE 流处理 Hook
  * 封装 SSE 流的发送、解析和状态管理
+ *
+ * 设计原则：
+ * - 流式过程只更新显示状态（streamingText, currentToolCall）
+ * - 不在流式过程中创建临时消息，避免与 refetch 重复
+ * - 流结束后通过 onStreamEnd 回调统一 refetch 获取持久化消息
  */
 import { useCallback, useRef, useState } from 'react';
-import type { LocalMessage, SSEEvent, ToolCallState } from '@/types';
+import type { SSEEvent, ToolCallState } from '@/types';
 import { storage } from '@/utils/storage';
 
 interface UseChatStreamOptions {
   sessionId: number;
-  onMessage: (message: LocalMessage) => void;
   onError: (error: string) => void;
   /** 流结束回调，支持异步。会等待此回调完成后才将 isGenerating 设为 false */
-  onStreamEnd?: (finalContent: string) => void | Promise<void>;
+  onStreamEnd?: () => void | Promise<void>;
 }
 
 interface UseChatStreamReturn {
@@ -32,7 +36,6 @@ interface UseChatStreamReturn {
  */
 export function useChatStream({
   sessionId,
-  onMessage,
   onError,
   onStreamEnd,
 }: UseChatStreamOptions): UseChatStreamReturn {
@@ -55,10 +58,7 @@ export function useChatStream({
       setStreamingText('');
       setCurrentToolCall(null);
 
-      // 创建 AbortController
       abortControllerRef.current = new AbortController();
-
-      let finalAiContent = '';
       let currentText = '';
 
       try {
@@ -96,37 +96,16 @@ export function useChatStream({
             const dataStr = line.slice(6);
 
             if (dataStr === '[DONE]') {
-              // 流结束，将 streamingText 转为正式消息
-              if (currentText) {
-                finalAiContent = currentText;
-                const aiMessage: LocalMessage = {
-                  id: Date.now() + 1,
-                  session_id: sessionId,
-                  message_type: 'ai',
-                  content: currentText,
-                  create_time: new Date().toISOString(),
-                };
-                onMessage(aiMessage);
-                setStreamingText('');
-              }
+              setStreamingText('');
               continue;
             }
 
             try {
               const event: SSEEvent = JSON.parse(dataStr);
-              processSSEEvent(event, {
-                currentText,
-                sessionId,
-                onMessage,
+              currentText = processSSEEvent(event, currentText, {
                 onError,
                 setStreamingText,
                 setCurrentToolCall,
-                updateCurrentText: (text) => {
-                  currentText = text;
-                },
-                setFinalContent: (text) => {
-                  finalAiContent = text;
-                },
               });
             } catch {
               console.warn('Failed to parse SSE event:', dataStr);
@@ -134,10 +113,9 @@ export function useChatStream({
           }
         }
 
-        // 调用流结束回调，等待其完成后再结束生成状态
-        // 这确保 refetchMessages 完成后 isGenerating 才变为 false
-        if (finalAiContent && onStreamEnd) {
-          await onStreamEnd(finalAiContent);
+        // 流结束后统一 refetch 获取持久化消息
+        if (onStreamEnd) {
+          await onStreamEnd();
         }
       } catch (err: unknown) {
         const error = err as Error;
@@ -150,7 +128,7 @@ export function useChatStream({
         abortControllerRef.current = null;
       }
     },
-    [sessionId, isGenerating, onMessage, onError, onStreamEnd]
+    [sessionId, isGenerating, onError, onStreamEnd]
   );
 
   return {
@@ -164,47 +142,37 @@ export function useChatStream({
 
 /**
  * 处理单个 SSE 事件
+ * 只更新显示状态，不创建消息（消息通过流结束后 refetch 获取）
  */
-interface ProcessEventContext {
-  currentText: string;
-  sessionId: number;
-  onMessage: (message: LocalMessage) => void;
+interface ProcessEventHandlers {
   onError: (error: string) => void;
   setStreamingText: (text: string) => void;
   setCurrentToolCall: (call: ToolCallState | null) => void;
-  updateCurrentText: (text: string) => void;
-  setFinalContent: (text: string) => void;
 }
 
-function processSSEEvent(event: SSEEvent, ctx: ProcessEventContext) {
+function processSSEEvent(
+  event: SSEEvent,
+  currentText: string,
+  handlers: ProcessEventHandlers
+): string {
+  const { onError, setStreamingText, setCurrentToolCall } = handlers;
+
   switch (event.type) {
     case 'text-delta':
       if (event.delta) {
-        const newText = ctx.currentText + event.delta;
-        ctx.updateCurrentText(newText);
-        ctx.setStreamingText(newText);
+        const newText = currentText + event.delta;
+        setStreamingText(newText);
+        return newText;
       }
       break;
 
     case 'text-end':
-      // 文本块结束，将累积的文本保存为消息
-      if (ctx.currentText) {
-        const aiMessage: LocalMessage = {
-          id: Date.now() + Math.random(),
-          session_id: ctx.sessionId,
-          message_type: 'ai',
-          content: ctx.currentText,
-          create_time: new Date().toISOString(),
-        };
-        ctx.onMessage(aiMessage);
-        ctx.setFinalContent(ctx.currentText);
-        ctx.updateCurrentText('');
-        ctx.setStreamingText('');
-      }
-      break;
+      // 文本块结束，清空流式文本（消息由后端持久化，前端 refetch 获取）
+      setStreamingText('');
+      return '';
 
     case 'tool-input-start':
-      ctx.setCurrentToolCall({
+      setCurrentToolCall({
         id: event.toolCallId || '',
         name: event.toolName || '',
         status: 'calling',
@@ -212,39 +180,28 @@ function processSSEEvent(event: SSEEvent, ctx: ProcessEventContext) {
       break;
 
     case 'tool-input-available':
-      ctx.setCurrentToolCall({
+      setCurrentToolCall({
         id: event.toolCallId || '',
         name: event.toolName || '',
         status: 'executing',
       });
       break;
 
-    case 'tool-output-available': {
-      // 添加工具消息
-      const toolMessage: LocalMessage = {
-        id: Date.now() + Math.random(),
-        session_id: ctx.sessionId,
-        message_type: 'tool',
-        content: JSON.stringify(event.output),
-        tool_call_id: event.toolCallId,
-        tool_name: event.toolName,
-        artifact: event.artifact,
-        create_time: new Date().toISOString(),
-      };
-      ctx.onMessage(toolMessage);
-      // 设置工具调用为完成状态
-      ctx.setCurrentToolCall({
+    case 'tool-output-available':
+      // 工具执行完成，更新状态（消息由后端持久化，前端 refetch 获取）
+      setCurrentToolCall({
         id: event.toolCallId || '',
         name: event.toolName || '',
         status: 'completed',
       });
       break;
-    }
 
     case 'error':
       if (event.errorText) {
-        ctx.onError(event.errorText);
+        onError(event.errorText);
       }
       break;
   }
+
+  return currentText;
 }

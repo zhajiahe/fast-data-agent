@@ -62,9 +62,9 @@ export const Chat = () => {
   }, []);
 
   // 使用聊天流 hook
+  // 流式过程只更新显示状态，流结束后统一 refetch 获取持久化消息
   const { isGenerating, streamingText, currentToolCall, send, stop } = useChatStream({
     sessionId,
-    onMessage: addMessage,
     onError: (error) => {
       toast({
         title: t('common.error'),
@@ -72,23 +72,21 @@ export const Chat = () => {
         variant: 'destructive',
       });
     },
-    onStreamEnd: async (finalContent) => {
+    onStreamEnd: async () => {
       // 1. 先刷新消息列表（关键路径，立即完成）
       await refetchMessages();
 
       // 2. 后台生成后续问题推荐（非关键路径，不等待）
-      if (finalContent) {
-        generateFollowupRecommendationsApiV1SessionsSessionIdRecommendationsFollowupPost(sessionId, {
-          conversation_context: `用户问: ${input}\n\nAI回答: ${finalContent}`,
-          max_count: 3,
+      generateFollowupRecommendationsApiV1SessionsSessionIdRecommendationsFollowupPost(sessionId, {
+        conversation_context: `用户最新问题: ${input}`,
+        max_count: 3,
+      })
+        .then(() => {
+          queryClient.invalidateQueries({ queryKey: ['recommendations', sessionId] });
         })
-          .then(() => {
-            queryClient.invalidateQueries({ queryKey: ['recommendations', sessionId] });
-          })
-          .catch((e) => {
-            console.warn('Failed to generate followup recommendations:', e);
-          });
-      }
+        .catch((e) => {
+          console.warn('Failed to generate followup recommendations:', e);
+        });
     },
   });
 
@@ -119,6 +117,7 @@ export const Chat = () => {
       content: m.content,
       tool_call_id: m.tool_call_id || undefined,
       tool_name: m.name || undefined,
+      tool_calls: m.tool_calls as LocalMessage['tool_calls'],
       artifact: m.artifact as LocalMessage['artifact'],
       create_time: m.create_time || new Date().toISOString(),
     }));

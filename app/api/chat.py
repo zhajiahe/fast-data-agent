@@ -105,9 +105,10 @@ class VercelStreamBuilder:
     def text_end(self) -> str:
         """文本块结束"""
         self.text_started = False
+        current_text_id = self.text_id
         # 生成新的 text_id 用于下一个文本块
         self.text_id = f"text_{uuid.uuid4().hex}"
-        return _sse_data({"type": "text-end", "id": self.text_id})
+        return _sse_data({"type": "text-end", "id": current_text_id})
 
     def tool_input_start(self, tool_call_id: str, tool_name: str) -> str:
         """工具输入开始"""
@@ -210,6 +211,10 @@ async def _stream_chat_response(
     - finish-step/finish: 步骤/消息结束
     - error: 错误
     - [DONE]: 流结束
+
+    流模式分工：
+    - messages 模式：处理 LLM token 流（文本增量）
+    - updates 模式：仅处理工具调用结果（避免与 messages 模式重复）
     """
     from langchain_core.messages import ToolMessage
 
@@ -218,14 +223,14 @@ async def _stream_chat_response(
 
     builder = VercelStreamBuilder()
     sent_tool_outputs: set[str] = set()  # 跟踪已发送的工具输出，避免重复
+    sent_tool_inputs: set[str] = set()  # 跟踪已发送的工具输入，避免重复
 
     try:
-        # 发送消息开始
         yield builder.message_start()
         yield builder.start_step()
 
         async for chunk in chat_service.chat(content, session):
-            # 检查是否是 dict 且包含 error
+            # 错误处理
             if isinstance(chunk, dict) and "error" in chunk:
                 error_info = chunk.get("error", {})
                 error_msg = (
@@ -234,30 +239,13 @@ async def _stream_chat_response(
                 yield builder.error(error_msg)
                 continue
 
-            # 处理 tuple 格式 (message/message_chunk, metadata) - messages 模式
+            # messages 模式：处理 LLM token 流
             if isinstance(chunk, tuple):
                 message, _metadata = chunk
 
-                # AIMessageChunk 包含 tool_calls -> tool 调用
-                if isinstance(message, AIMessageChunk) and message.tool_calls:
-                    # 如果有文本在进行中，先结束它
-                    if builder.text_started:
-                        yield builder.text_end()
-
-                    for tool_call in message.tool_calls:
-                        tool_call_id = tool_call.get("id", f"call_{uuid.uuid4().hex[:8]}")
-                        tool_name = tool_call.get("name", "unknown")
-                        tool_args = tool_call.get("args", {})
-
-                        # 发送工具调用开始和完成
-                        yield builder.tool_input_start(tool_call_id, tool_name)
-                        yield builder.tool_input_available(tool_call_id, tool_name, tool_args)
-                    continue
-
-                # ToolMessage 或 ToolMessageChunk -> 工具结果
+                # ToolMessage -> 工具结果（通过 messages 模式收到的工具结果）
                 if isinstance(message, (ToolMessage, ToolMessageChunk)):
                     tool_call_id = getattr(message, "tool_call_id", None) or f"call_{uuid.uuid4().hex[:8]}"
-                    # 避免重复发送同一个工具结果
                     if tool_call_id in sent_tool_outputs:
                         continue
                     sent_tool_outputs.add(tool_call_id)
@@ -266,7 +254,6 @@ async def _stream_chat_response(
                     content_str = str(message.content) if hasattr(message, "content") else ""
                     artifact = getattr(message, "artifact", None)
 
-                    # 尝试解析 content 为 JSON
                     try:
                         output = json.loads(content_str) if content_str else {}
                     except json.JSONDecodeError:
@@ -275,16 +262,41 @@ async def _stream_chat_response(
                     yield builder.tool_output_available(tool_call_id, output, artifact, tool_name)
                     continue
 
-                # 普通 AI token -> 文本流
-                text_content = str(message.content) if hasattr(message, "content") else ""
+                # AIMessageChunk -> 文本流 + 工具调用
+                if isinstance(message, AIMessageChunk):
+                    # 1. 文本内容
+                    text_content = str(message.content) if message.content else ""
+                    if text_content:
+                        if not builder.text_started:
+                            yield builder.text_start()
+                        yield builder.text_delta(text_content)
+
+                    # 2. 工具调用
+                    if message.tool_calls:
+                        if builder.text_started:
+                            yield builder.text_end()
+
+                        for tool_call in message.tool_calls:
+                            tool_call_id = tool_call.get("id", f"call_{uuid.uuid4().hex[:8]}")
+                            if tool_call_id in sent_tool_inputs:
+                                continue
+                            sent_tool_inputs.add(tool_call_id)
+
+                            tool_name = tool_call.get("name", "unknown")
+                            tool_args = tool_call.get("args", {})
+                            yield builder.tool_input_start(tool_call_id, tool_name)
+                            yield builder.tool_input_available(tool_call_id, tool_name, tool_args)
+                    continue
+
+                # 其他消息类型
+                text_content = str(message.content) if hasattr(message, "content") and message.content else ""
                 if text_content:
-                    # 如果是第一个文本 token，先发送 text-start
                     if not builder.text_started:
                         yield builder.text_start()
                     yield builder.text_delta(text_content)
                 continue
 
-            # 处理 dict 格式 (updates 模式)
+            # updates 模式：仅处理工具结果（文本内容已通过 messages 模式处理，不再重复）
             if isinstance(chunk, dict) and chunk.get("mode") == "updates":
                 data = chunk.get("data", {})
 
@@ -297,23 +309,9 @@ async def _stream_chat_response(
                         for msg in messages:
                             serialized = _serialize_message(msg)
 
-                            # 处理工具调用
-                            if serialized.get("tool_calls"):
-                                if builder.text_started:
-                                    yield builder.text_end()
-
-                                for tool_call in serialized["tool_calls"]:
-                                    tool_call_id = tool_call.get("id", f"call_{uuid.uuid4().hex[:8]}")
-                                    tool_name = tool_call.get("name", "unknown")
-                                    tool_args = tool_call.get("args", {})
-
-                                    yield builder.tool_input_start(tool_call_id, tool_name)
-                                    yield builder.tool_input_available(tool_call_id, tool_name, tool_args)
-
-                            # 处理工具结果
-                            elif serialized.get("tool_call_id"):
+                            # 只处理工具结果（ToolMessage）
+                            if serialized.get("tool_call_id"):
                                 tool_call_id = serialized["tool_call_id"]
-                                # 避免重复发送同一个工具结果
                                 if tool_call_id in sent_tool_outputs:
                                     continue
                                 sent_tool_outputs.add(tool_call_id)
@@ -329,11 +327,10 @@ async def _stream_chat_response(
 
                                 yield builder.tool_output_available(tool_call_id, output, artifact, tool_name)
 
-        # 如果文本块未结束，结束它
+        # 结束文本块
         if builder.text_started:
             yield builder.text_end()
 
-        # 发送步骤和消息结束
         yield builder.finish_step()
         yield builder.finish()
 
@@ -341,7 +338,6 @@ async def _stream_chat_response(
         yield builder.error(str(e))
 
     finally:
-        # 发送流结束标记
         yield builder.done()
 
 
