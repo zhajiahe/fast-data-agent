@@ -3,9 +3,9 @@
  * 封装 SSE 流的发送、解析和状态管理
  *
  * 设计原则：
- * - AI 文本：流式显示（streamingText），结束后通过 refetch 获取持久化消息
- * - 工具消息：实时添加到消息列表（通过 onToolMessage），让用户看到 agent 执行过程
- * - 使用 tool_call_id 去重，避免工具消息重复
+ * - AI 文本：流式显示（streamingText），text-end 时添加临时消息，让用户看到中间输出
+ * - 工具消息：实时添加到消息列表（通过 onMessage），让用户看到 agent 执行过程
+ * - 流结束后 refetch 获取持久化消息，完全替换临时消息
  */
 import { useCallback, useRef, useState } from 'react';
 import type { LocalMessage, SSEEvent, ToolCallState } from '@/types';
@@ -13,8 +13,8 @@ import { storage } from '@/utils/storage';
 
 interface UseChatStreamOptions {
   sessionId: number;
-  /** 工具消息回调，实时显示工具执行结果 */
-  onToolMessage: (message: LocalMessage) => void;
+  /** 消息回调，添加 AI 和工具消息到列表 */
+  onMessage: (message: LocalMessage) => void;
   onError: (error: string) => void;
   /** 流结束回调，支持异步。会等待此回调完成后才将 isGenerating 设为 false */
   onStreamEnd?: () => void | Promise<void>;
@@ -38,7 +38,7 @@ interface UseChatStreamReturn {
  */
 export function useChatStream({
   sessionId,
-  onToolMessage,
+  onMessage,
   onError,
   onStreamEnd,
 }: UseChatStreamOptions): UseChatStreamReturn {
@@ -48,6 +48,8 @@ export function useChatStream({
   const abortControllerRef = useRef<AbortController | null>(null);
   // 跟踪已添加的工具消息，避免重复
   const addedToolCallsRef = useRef<Set<string>>(new Set());
+  // 临时消息计数器，用于生成唯一 ID
+  const tempMessageIdRef = useRef(0);
 
   const stop = useCallback(() => {
     if (abortControllerRef.current) {
@@ -63,6 +65,7 @@ export function useChatStream({
       setStreamingText('');
       setCurrentToolCall(null);
       addedToolCallsRef.current.clear();
+      tempMessageIdRef.current = 0;
 
       abortControllerRef.current = new AbortController();
       let currentText = '';
@@ -111,7 +114,8 @@ export function useChatStream({
               currentText = processSSEEvent(event, currentText, {
                 sessionId,
                 addedToolCalls: addedToolCallsRef.current,
-                onToolMessage,
+                getTempId: () => `temp_${++tempMessageIdRef.current}`,
+                onMessage,
                 onError,
                 setStreamingText,
                 setCurrentToolCall,
@@ -122,7 +126,7 @@ export function useChatStream({
           }
         }
 
-        // 流结束后 refetch 获取持久化消息（包括 AI 文本消息）
+        // 流结束后 refetch 获取持久化消息，替换所有临时消息
         if (onStreamEnd) {
           await onStreamEnd();
         }
@@ -137,7 +141,7 @@ export function useChatStream({
         abortControllerRef.current = null;
       }
     },
-    [sessionId, isGenerating, onToolMessage, onError, onStreamEnd]
+    [sessionId, isGenerating, onMessage, onError, onStreamEnd]
   );
 
   return {
@@ -151,13 +155,14 @@ export function useChatStream({
 
 /**
  * 处理单个 SSE 事件
- * - AI 文本：更新 streamingText 状态
- * - 工具消息：实时添加到消息列表（让用户看到 agent 执行过程）
+ * - AI 文本：流式显示，text-end 时添加临时消息
+ * - 工具消息：实时添加到消息列表
  */
 interface ProcessEventHandlers {
   sessionId: number;
   addedToolCalls: Set<string>;
-  onToolMessage: (message: LocalMessage) => void;
+  getTempId: () => string;
+  onMessage: (message: LocalMessage) => void;
   onError: (error: string) => void;
   setStreamingText: (text: string) => void;
   setCurrentToolCall: (call: ToolCallState | null) => void;
@@ -168,7 +173,7 @@ function processSSEEvent(
   currentText: string,
   handlers: ProcessEventHandlers
 ): string {
-  const { sessionId, addedToolCalls, onToolMessage, onError, setStreamingText, setCurrentToolCall } = handlers;
+  const { sessionId, addedToolCalls, getTempId, onMessage, onError, setStreamingText, setCurrentToolCall } = handlers;
 
   switch (event.type) {
     case 'text-delta':
@@ -180,7 +185,17 @@ function processSSEEvent(
       break;
 
     case 'text-end':
-      // 文本块结束，清空流式文本（AI 消息由后端持久化，前端 refetch 获取）
+      // 文本块结束，将累积的文本添加为临时 AI 消息
+      if (currentText.trim()) {
+        const aiMessage: LocalMessage = {
+          id: getTempId(), // 临时 ID，refetch 后会被替换
+          session_id: sessionId,
+          message_type: 'ai',
+          content: currentText,
+          create_time: new Date().toISOString(),
+        };
+        onMessage(aiMessage);
+      }
       setStreamingText('');
       return '';
 
@@ -207,9 +222,9 @@ function processSSEEvent(
       if (toolCallId && !addedToolCalls.has(toolCallId)) {
         addedToolCalls.add(toolCallId);
         
-        // 实时添加工具消息，让用户看到 agent 执行过程
+        // 实时添加工具消息
         const toolMessage: LocalMessage = {
-          id: `tool_${toolCallId}`,  // 使用 tool_call_id 作为临时 ID
+          id: `tool_${toolCallId}`, // 临时 ID，refetch 后会被替换
           session_id: sessionId,
           message_type: 'tool',
           content: JSON.stringify(event.output),
@@ -218,7 +233,7 @@ function processSSEEvent(
           artifact: event.artifact,
           create_time: new Date().toISOString(),
         };
-        onToolMessage(toolMessage);
+        onMessage(toolMessage);
       }
 
       // 更新工具调用状态
