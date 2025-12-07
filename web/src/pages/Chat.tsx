@@ -75,8 +75,14 @@ export const Chat = () => {
       });
     },
     onStreamEnd: async () => {
-      // 1. 刷新消息列表，获取持久化的 AI 消息（替换临时工具消息）
-      await refetchMessages();
+      // 1. 刷新消息列表，获取持久化的 AI 消息
+      // 注意：此时 isGenerating 还是 true，useEffect 不会同步
+      // 所以需要在这里直接设置 localMessages
+      const result = await refetchMessages();
+      const newItems = result.data?.data.data?.items;
+      if (newItems) {
+        setLocalMessages(convertApiMessages(newItems));
+      }
 
       // 2. 后台生成后续问题推荐（非关键路径，不等待）
       generateFollowupRecommendationsApiV1SessionsSessionIdRecommendationsFollowupPost(sessionId, {
@@ -106,13 +112,10 @@ export const Chat = () => {
     }
   }, [sessionId]);
 
-  // 同步 API 消息到本地
-  // 只在不在刷新中且有数据时才同步
-  // 注意：不检查 isGenerating，因为 onStreamEnd 中的 refetch 需要在生成结束前完成同步
-  useEffect(() => {
-    if (isMessagesFetching || !apiMessagesItems) return;
-
-    const convertedMessages: LocalMessage[] = apiMessagesItems.map((m) => ({
+  // 将 API 消息转换为本地格式的工具函数
+  const convertApiMessages = useCallback((items: typeof apiMessagesItems): LocalMessage[] => {
+    if (!items) return [];
+    const converted = items.map((m) => ({
       id: m.id,
       session_id: m.session_id,
       message_type: m.message_type as LocalMessage['message_type'],
@@ -123,10 +126,15 @@ export const Chat = () => {
       artifact: m.artifact as LocalMessage['artifact'],
       create_time: m.create_time || new Date().toISOString(),
     }));
+    converted.sort((a, b) => new Date(a.create_time).getTime() - new Date(b.create_time).getTime());
+    return converted;
+  }, []);
 
-    convertedMessages.sort((a, b) => new Date(a.create_time).getTime() - new Date(b.create_time).getTime());
-    setLocalMessages(convertedMessages);
-  }, [apiMessagesItems, isMessagesFetching]);
+  // 同步 API 消息到本地（仅在非生成状态时）
+  useEffect(() => {
+    if (isGenerating || isMessagesFetching || !apiMessagesItems) return;
+    setLocalMessages(convertApiMessages(apiMessagesItems));
+  }, [apiMessagesItems, isGenerating, isMessagesFetching, convertApiMessages]);
 
   // 检测用户是否在底部附近
   const handleScroll = useCallback(() => {
