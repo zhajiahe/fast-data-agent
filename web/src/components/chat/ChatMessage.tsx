@@ -32,13 +32,20 @@ interface MessageArtifact {
   filename?: string;
 }
 
+interface ToolCall {
+  id: string;
+  name: string;
+  args: Record<string, unknown>;
+}
+
 interface LocalMessage {
-  id: number;
+  id: number | string; // 支持数字（持久化消息）和字符串（临时工具消息）
   session_id: number;
   message_type: string;
   content: string;
   tool_call_id?: string;
   tool_name?: string;
+  tool_calls?: ToolCall[];
   artifact?: MessageArtifact;
   create_time: string;
 }
@@ -255,22 +262,38 @@ export const ChatMessage = ({ message, isStreaming }: ChatMessageProps) => {
   }
 
   // AI 消息
+  const hasContent = message.content && message.content.trim();
+  const hasToolCalls = message.tool_calls && message.tool_calls.length > 0;
+
   return (
     <div className="flex gap-3">
       {avatar}
       <div className="flex-1 min-w-0">
-        <div
-          className={cn(
-            'prose prose-sm dark:prose-invert max-w-none',
-            'prose-pre:bg-muted prose-pre:border prose-pre:rounded-lg',
-            'prose-code:before:content-none prose-code:after:content-none',
-            isStreaming && 'animate-pulse'
-          )}
-        >
-          <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeHighlight]}>
-            {message.content || '...'}
-          </ReactMarkdown>
-        </div>
+        {/* 文本内容 */}
+        {hasContent && (
+          <div
+            className={cn(
+              'prose prose-sm dark:prose-invert max-w-none',
+              'prose-pre:bg-muted prose-pre:border prose-pre:rounded-lg',
+              'prose-code:before:content-none prose-code:after:content-none',
+              isStreaming && 'animate-pulse'
+            )}
+          >
+            <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeHighlight]}>
+              {message.content}
+            </ReactMarkdown>
+          </div>
+        )}
+        {/* 工具调用提示（当没有文本但有工具调用时） */}
+        {!hasContent && hasToolCalls && (
+          <div className="text-sm text-muted-foreground italic">
+            正在调用工具: {message.tool_calls!.map((tc) => tc.name).join(', ')}
+          </div>
+        )}
+        {/* 流式占位符 */}
+        {!hasContent && !hasToolCalls && isStreaming && (
+          <div className="text-muted-foreground animate-pulse">...</div>
+        )}
         {renderArtifact()}
       </div>
     </div>

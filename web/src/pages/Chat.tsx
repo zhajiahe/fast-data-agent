@@ -62,9 +62,11 @@ export const Chat = () => {
   }, []);
 
   // 使用聊天流 hook
-  // 流式过程只更新显示状态，流结束后统一 refetch 获取持久化消息
+  // - AI 文本：流式显示，结束后 refetch 获取持久化消息
+  // - 工具消息：实时添加到消息列表，让用户看到 agent 执行过程
   const { isGenerating, streamingText, currentToolCall, send, stop } = useChatStream({
     sessionId,
+    onToolMessage: addMessage, // 实时显示工具执行结果
     onError: (error) => {
       toast({
         title: t('common.error'),
@@ -73,7 +75,7 @@ export const Chat = () => {
       });
     },
     onStreamEnd: async () => {
-      // 1. 先刷新消息列表（关键路径，立即完成）
+      // 1. 刷新消息列表，获取持久化的 AI 消息（替换临时工具消息）
       await refetchMessages();
 
       // 2. 后台生成后续问题推荐（非关键路径，不等待）

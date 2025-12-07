@@ -14,7 +14,7 @@ from collections.abc import AsyncGenerator
 from typing import Any
 
 from langchain.agents import create_agent
-from langchain_core.messages import BaseMessage, HumanMessage
+from langchain_core.messages import BaseMessage, HumanMessage, AIMessage
 from langchain_openai import ChatOpenAI
 from loguru import logger
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -367,9 +367,18 @@ class ChatService:
 
             # 保存响应消息（从完整状态中获取，无需手动聚合 token）
             if save_messages and final_messages:
-                # 过滤掉空消息和用户消息
+                # 过滤规则：
+                # 1. 排除 HumanMessage（用户消息在发送时已保存）
+                # 2. 保留有内容的消息
+                # 3. 保留有 tool_calls 的 AIMessage（即使 content 为空）
                 messages_to_save = [
-                    msg for msg in final_messages if not isinstance(msg, HumanMessage) and getattr(msg, "content", None)
+                    msg
+                    for msg in final_messages
+                    if not isinstance(msg, HumanMessage)
+                    and (
+                        getattr(msg, "content", None)  # 有内容
+                        or (isinstance(msg, AIMessage) and msg.tool_calls)  # 或有工具调用
+                    )
                 ]
                 if messages_to_save:
                     logger.debug(f"保存 {len(messages_to_save)} 条消息")

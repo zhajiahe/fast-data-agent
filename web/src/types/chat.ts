@@ -48,15 +48,26 @@ export interface SSEEvent {
 }
 
 /**
+ * 工具调用结构
+ */
+export interface ToolCall {
+  id: string;
+  name: string;
+  args: Record<string, unknown>;
+}
+
+/**
  * 本地消息类型（用于 UI 状态管理）
+ * id 支持 number（后端消息）或 string（临时工具消息，使用 tool_call_id）
  */
 export interface LocalMessage {
-  id: number;
+  id: number | string;
   session_id: number;
   message_type: 'human' | 'ai' | 'tool' | 'system';
   content: string;
   tool_call_id?: string;
   tool_name?: string;
+  tool_calls?: ToolCall[]; // AIMessage 的工具调用
   artifact?: ToolArtifact;
   create_time: string;
 }

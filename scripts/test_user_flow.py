@@ -556,7 +556,8 @@ class UserFlowTest:
             ) as response:
                 if response.status_code == 200:
                     ai_response = ""
-                    current_tool_call = None
+                    current_tool = ""
+                    text_started = False
                     
                     async for line in response.aiter_lines():
                         if line.startswith("data: "):
@@ -565,58 +566,66 @@ class UserFlowTest:
                                 break
                             try:
                                 data = json.loads(data_str)
-                                mode = data.get("mode", "")
+                                event_type = data.get("type", "")
                                 
-                                # 处理 messages 模式（流式 token）
-                                if mode == "messages":
-                                    msg_type = data.get("type", "")
-                                    content = data.get("content", "")
-                                    
-                                    # AI 文本流式输出（过滤空白内容）
-                                    if "ai" in msg_type.lower() and content and content.strip():
-                                        if not ai_response.strip():
+                                # Vercel AI SDK Data Stream Protocol 事件处理
+                                if event_type == "text-start":
+                                    text_started = True
+                                    if not ai_response:
+                                        print("🤖 AI: ", end="", flush=True)
+                                
+                                elif event_type == "text-delta":
+                                    delta = data.get("delta", "")
+                                    if delta:
+                                        if not text_started and not ai_response:
                                             print("🤖 AI: ", end="", flush=True)
-                                        print(content, end="", flush=True)
-                                        ai_response += content
-                                    
-                                    # AI 决定调用工具
-                                    if data.get("tool_calls"):
-                                        tool_calls = data["tool_calls"]
-                                        for tc in tool_calls:
-                                            if tc.get("name"):
-                                                current_tool_call = tc["name"]
-                                                print(f"\n   🔧 调用工具: {tc['name']}", end="", flush=True)
-                                    
-                                    # 工具执行结果
-                                    if data.get("tool_call_id"):
-                                        tool_name = data.get("name", "工具")
-                                        tool_content = content[:100] + "..." if len(content) > 100 else content
-                                        print(f"\n   ✅ {tool_name} 返回: {tool_content}", flush=True)
+                                            text_started = True
+                                        print(delta, end="", flush=True)
+                                        ai_response += delta
                                 
-                                # 处理 updates 模式（节点状态更新）
-                                elif mode == "updates":
-                                    node = data.get("node", "")
-                                    msgs = data.get("messages", [])
-                                    
-                                    for m in msgs:
-                                        m_type = m.get("type", "")
-                                        m_content = m.get("content", "")
-                                        
-                                        # 工具调用（完整参数）
-                                        if m.get("tool_calls"):
-                                            for tc in m["tool_calls"]:
-                                                args = tc.get("args", {})
-                                                args_str = json.dumps(args, ensure_ascii=False)[:80]
-                                                print(f" ({args_str})", flush=True)
+                                elif event_type == "text-end":
+                                    text_started = False
+                                    if ai_response:
+                                        print()  # 换行
                                 
-                                # 处理错误
-                                elif "error" in data:
-                                    print(f"\n⚠️ Error: {data['error'].get('message', data['error'])}")
+                                elif event_type == "tool-input-start":
+                                    tool_name = data.get("toolName", "unknown")
+                                    current_tool = tool_name
+                                    print(f"\n   🔧 调用工具: {tool_name}", end="", flush=True)
+                                
+                                elif event_type == "tool-input-available":
+                                    tool_input = data.get("input", {})
+                                    input_str = json.dumps(tool_input, ensure_ascii=False)
+                                    if len(input_str) > 80:
+                                        input_str = input_str[:80] + "..."
+                                    print(f" ({input_str})", flush=True)
+                                
+                                elif event_type == "tool-output-available":
+                                    tool_name = data.get("toolName", current_tool)
+                                    output = data.get("output", {})
+                                    artifact = data.get("artifact")
+                                    
+                                    # 简化输出显示
+                                    output_str = json.dumps(output, ensure_ascii=False)
+                                    if len(output_str) > 100:
+                                        output_str = output_str[:100] + "..."
+                                    
+                                    artifact_info = ""
+                                    if artifact:
+                                        artifact_type = artifact.get("type", "")
+                                        artifact_info = f" [artifact: {artifact_type}]"
+                                    
+                                    print(f"   ✅ {tool_name} 返回: {output_str}{artifact_info}", flush=True)
+                                
+                                elif event_type == "error":
+                                    error_text = data.get("errorText", "Unknown error")
+                                    print(f"\n⚠️ Error: {error_text}")
                                     
                             except json.JSONDecodeError:
                                 pass
                     
-                    print()  # 换行
+                    if ai_response and not ai_response.endswith("\n"):
+                        print()  # 确保换行
                     
                     if ai_response:
                         print(f"   (响应长度: {len(ai_response)} 字符)")
