@@ -10,6 +10,7 @@ from fastapi import FastAPI
 from loguru import logger
 
 from app.core.database import close_db, init_db
+from app.utils.tools import SandboxHttpClient
 
 
 @asynccontextmanager
@@ -46,6 +47,8 @@ async def lifespan(app: FastAPI):
     try:
         await close_db()
         logger.info("✅ 数据库连接已关闭")
+        await SandboxHttpClient.close()
+        logger.info("✅ 沙盒 HTTP 连接池已关闭")
     except Exception as e:
         logger.error(f"❌ 数据库关闭失败: {e}")
 

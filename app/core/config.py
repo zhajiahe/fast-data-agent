@@ -47,7 +47,7 @@ class Settings(BaseSettings):
     DEBUG: bool = False
 
     # CORS 配置
-    ALLOWED_ORIGINS: list[str] = ["*"]
+    ALLOWED_ORIGINS: list[str] = ["localhost:8000", "localhost:3000"]
 
     # AI/LLM 配置
     OPENAI_API_KEY: str = ""
