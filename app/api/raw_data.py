@@ -7,6 +7,9 @@ from fastapi import APIRouter, Depends, status
 from app.core.deps import CurrentUser, DBSession
 from app.models.base import BasePageQuery, BaseResponse, PageResponse
 from app.schemas.raw_data import (
+    BatchCreateFromConnectionRequest,
+    BatchCreateFromConnectionResponse,
+    BatchCreateResult,
     RawDataColumnUpdate,
     RawDataCreate,
     RawDataListQuery,
@@ -72,6 +75,41 @@ async def create_raw_data(data: RawDataCreate, current_user: CurrentUser, db: DB
         code=201,
         msg="创建原始数据成功",
         data=RawDataResponse.model_validate(item),
+    )
+
+
+@router.post(
+    "/batch-from-connection",
+    response_model=BaseResponse[BatchCreateFromConnectionResponse],
+    status_code=status.HTTP_201_CREATED,
+)
+async def batch_create_raw_data(data: BatchCreateFromConnectionRequest, current_user: CurrentUser, db: DBSession):
+    """
+    从数据库连接批量创建原始数据
+
+    用户可以一次性从一个数据库连接中选择多个表创建原始数据
+    """
+    service = RawDataService(db)
+    results = await service.batch_create_from_connection(
+        user_id=current_user.id,
+        connection_id=data.connection_id,
+        tables=[t.model_dump() for t in data.tables],
+        name_prefix=data.name_prefix,
+        auto_sync=data.auto_sync,
+    )
+
+    success_count = sum(1 for r in results if r["status"] != "error" or r["raw_data_id"] is not None)
+    failed_count = len(results) - success_count
+
+    return BaseResponse(
+        success=True,
+        code=201,
+        msg=f"批量创建原始数据完成，成功 {success_count} 条，失败 {failed_count} 条",
+        data=BatchCreateFromConnectionResponse(
+            success_count=success_count,
+            failed_count=failed_count,
+            results=[BatchCreateResult(**r) for r in results],
+        ),
     )
 
 

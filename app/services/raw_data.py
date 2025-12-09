@@ -326,3 +326,137 @@ class RawDataService:
             原始数据列表
         """
         return await self.repo.get_by_ids(ids, user_id)
+
+    async def batch_create_from_connection(
+        self,
+        user_id: int,
+        connection_id: int,
+        tables: list[dict[str, Any]],
+        name_prefix: str | None = None,
+        auto_sync: bool = True,
+    ) -> list[dict[str, Any]]:
+        """
+        从数据库连接批量创建原始数据
+
+        Args:
+            user_id: 用户 ID
+            connection_id: 数据库连接 ID
+            tables: 表列表 [{schema_name, table_name, custom_name}]
+            name_prefix: 名称前缀
+            auto_sync: 是否自动同步
+
+        Returns:
+            创建结果列表 [{raw_data_id, name, table_name, status, error_message}]
+        """
+        # 验证连接是否存在
+        connection = await self.connection_repo.get_by_id(connection_id)
+        if not connection or connection.user_id != user_id:
+            raise BadRequestException(msg="数据库连接不存在")
+
+        results: list[dict[str, Any]] = []
+
+        for table in tables:
+            schema_name = table.get("schema_name")
+            table_name = table.get("table_name", "")
+            custom_name = table.get("custom_name")
+
+            # 生成名称
+            if custom_name:
+                name = custom_name
+            elif name_prefix:
+                name = f"{name_prefix}_{table_name}"
+            else:
+                # 默认名称: connection_name.schema.table 或 connection_name.table
+                if schema_name:
+                    name = f"{connection.name}.{schema_name}.{table_name}"
+                else:
+                    name = f"{connection.name}.{table_name}"
+
+            try:
+                # 检查名称是否已存在
+                if await self.repo.name_exists(name, user_id):
+                    # 名称冲突，添加时间戳后缀
+                    name = f"{name}_{datetime.now().strftime('%Y%m%d%H%M%S')}"
+
+                # 创建原始数据
+                create_data: dict[str, Any] = {
+                    "name": name,
+                    "description": f"从 {connection.name} 导入的 {table_name} 表",
+                    "raw_type": RawDataType.DATABASE_TABLE.value,
+                    "user_id": user_id,
+                    "connection_id": connection_id,
+                    "schema_name": schema_name,
+                    "table_name": table_name,
+                    "status": "pending",
+                }
+
+                raw_data = await self.repo.create(create_data)
+
+                result: dict[str, Any] = {
+                    "raw_data_id": raw_data.id,
+                    "name": name,
+                    "table_name": table_name,
+                    "status": "created",
+                    "error_message": None,
+                }
+
+                # 自动同步列信息
+                if auto_sync:
+                    try:
+                        await self._sync_database_table(raw_data, connection)
+                        result["status"] = "ready"
+                    except Exception as sync_err:
+                        result["status"] = "error"
+                        result["error_message"] = f"同步失败: {sync_err}"
+                        # 更新原始数据状态
+                        await self.repo.update(
+                            raw_data,
+                            {"status": "error", "error_message": str(sync_err)},
+                        )
+
+                results.append(result)
+
+            except Exception as e:
+                results.append(
+                    {
+                        "raw_data_id": None,
+                        "name": name,
+                        "table_name": table_name,
+                        "status": "error",
+                        "error_message": str(e),
+                    }
+                )
+
+        return results
+
+    async def _sync_database_table(self, raw_data: RawData, connection: Any) -> None:
+        """
+        同步数据库表的列信息
+
+        Args:
+            raw_data: 原始数据实例
+            connection: 数据库连接实例
+        """
+        from app.services.db_connector import DBConnectorService
+
+        # 获取表 Schema
+        connector = DBConnectorService()
+        schema_info = await connector.get_table_schema(
+            connection,
+            schema_name=raw_data.schema_name,
+            table_name=raw_data.table_name,
+        )
+
+        columns_schema = schema_info.get("columns", [])
+        row_count = schema_info.get("row_count")
+
+        # 更新原始数据
+        await self.repo.update(
+            raw_data,
+            {
+                "status": "ready",
+                "columns_schema": columns_schema,
+                "row_count_estimate": row_count,
+                "synced_at": datetime.now().isoformat(),
+            },
+        )

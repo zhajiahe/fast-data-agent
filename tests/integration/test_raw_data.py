@@ -298,3 +298,125 @@ class TestRawDataAuth:
         response = client.get("/api/v1/raw-data")
 
         assert response.status_code in (401, 403)
+
+
+class TestRawDataBatchCreate:
+    """从数据库连接批量创建原始数据测试"""
+
+    def test_batch_create_from_connection(
+        self, client: TestClient, auth_headers: dict, test_connection: dict[str, Any]
+    ):
+        """测试从数据库连接批量创建原始数据"""
+        response = client.post(
+            "/api/v1/raw-data/batch-from-connection",
+            headers=auth_headers,
+            json={
+                "connection_id": test_connection["id"],
+                "tables": [
+                    {"table_name": "users", "schema_name": "public"},
+                    {"table_name": "sessions", "schema_name": "public"},
+                ],
+                "auto_sync": False,  # 测试时不自动同步
+            },
+        )
+
+        assert response.status_code == 201
+        data = response.json()
+        assert data["success"] is True
+        assert "success_count" in data["data"]
+        assert "failed_count" in data["data"]
+        assert "results" in data["data"]
+        assert len(data["data"]["results"]) == 2
+
+    def test_batch_create_with_custom_names(
+        self, client: TestClient, auth_headers: dict, test_connection: dict[str, Any]
+    ):
+        """测试批量创建时使用自定义名称"""
+        response = client.post(
+            "/api/v1/raw-data/batch-from-connection",
+            headers=auth_headers,
+            json={
+                "connection_id": test_connection["id"],
+                "tables": [
+                    {
+                        "table_name": "users",
+                        "schema_name": "public",
+                        "custom_name": "自定义用户表",
+                    },
+                ],
+                "auto_sync": False,
+            },
+        )
+
+        assert response.status_code == 201
+        data = response.json()
+        assert data["success"] is True
+        # 检查自定义名称
+        assert any(r["name"] == "自定义用户表" for r in data["data"]["results"])
+
+    def test_batch_create_with_prefix(
+        self, client: TestClient, auth_headers: dict, test_connection: dict[str, Any]
+    ):
+        """测试批量创建时使用名称前缀"""
+        response = client.post(
+            "/api/v1/raw-data/batch-from-connection",
+            headers=auth_headers,
+            json={
+                "connection_id": test_connection["id"],
+                "tables": [
+                    {"table_name": "raw_data", "schema_name": "public"},
+                ],
+                "name_prefix": "测试前缀",
+                "auto_sync": False,
+            },
+        )
+
+        assert response.status_code == 201
+        data = response.json()
+        assert data["success"] is True
+        # 检查名称前缀
+        assert any("测试前缀" in r["name"] for r in data["data"]["results"])
+
+    def test_batch_create_invalid_connection(
+        self, client: TestClient, auth_headers: dict
+    ):
+        """测试使用无效连接 ID 批量创建"""
+        response = client.post(
+            "/api/v1/raw-data/batch-from-connection",
+            headers=auth_headers,
+            json={
+                "connection_id": 99999,
+                "tables": [{"table_name": "test_table"}],
+                "auto_sync": False,
+            },
+        )
+
+        assert response.status_code == 400
+
+    def test_batch_create_empty_tables(
+        self, client: TestClient, auth_headers: dict, test_connection: dict[str, Any]
+    ):
+        """测试空表列表批量创建"""
+        response = client.post(
+            "/api/v1/raw-data/batch-from-connection",
+            headers=auth_headers,
+            json={
+                "connection_id": test_connection["id"],
+                "tables": [],
+            },
+        )
+
+        # 应该返回 422 验证错误（tables 需要至少一个元素）
+        assert response.status_code == 422
+
+    def test_batch_create_without_auth(self, client: TestClient):
+        """测试未认证批量创建"""
+        response = client.post(
+            "/api/v1/raw-data/batch-from-connection",
+            json={
+                "connection_id": 1,
+                "tables": [{"table_name": "test"}],
+            },
+        )
+
+        assert response.status_code in (401, 403)

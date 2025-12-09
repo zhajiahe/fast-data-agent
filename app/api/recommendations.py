@@ -81,7 +81,8 @@ async def generate_recommendations(
 
     # 验证会话权限并获取会话信息
     session_service = AnalysisSessionService(db)
-    session, data_sources = await session_service.get_session_with_data_sources(session_id, current_user.id)
+    session, data_source = await session_service.get_session_with_data_source(session_id, current_user.id)
+    data_sources = [data_source] if data_source else []
 
     repo = TaskRecommendationRepository(db)
 
@@ -132,7 +133,8 @@ async def generate_followup_recommendations(
     """
     # 验证会话权限并获取会话信息
     session_service = AnalysisSessionService(db)
-    session, data_sources = await session_service.get_session_with_data_sources(session_id, current_user.id)
+    session, data_source = await session_service.get_session_with_data_source(session_id, current_user.id)
+    data_sources = [data_source] if data_source else []
 
     repo = TaskRecommendationRepository(db)
 

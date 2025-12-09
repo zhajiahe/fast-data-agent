@@ -140,3 +140,41 @@ class RawDataPreviewResponse(BaseModel):
     rows: list[dict[str, Any]] = Field(default_factory=list, description="数据行")
     total_rows: int | None = Field(default=None, description="总行数（估算）")
     preview_at: str = Field(..., description="预览时间")
+
+
+# ==================== 批量创建 ====================
+
+
+class TableSelection(BaseModel):
+    """表选择"""
+
+    schema_name: str | None = Field(default=None, description="Schema 名称")
+    table_name: str = Field(..., min_length=1, max_length=255, description="表名")
+    custom_name: str | None = Field(default=None, description="自定义显示名称（可选）")
+
+
+class BatchCreateFromConnectionRequest(BaseModel):
+    """从数据库连接批量创建原始数据请求"""
+
+    connection_id: int = Field(..., description="数据库连接ID")
+    tables: list[TableSelection] = Field(..., min_length=1, description="要创建的表列表")
+    auto_sync: bool = Field(default=True, description="是否自动同步列信息")
+    name_prefix: str | None = Field(default=None, description="名称前缀（可选）")
+
+
+class BatchCreateResult(BaseModel):
+    """批量创建结果"""
+
+    raw_data_id: int = Field(..., description="创建的原始数据ID")
+    name: str = Field(..., description="原始数据名称")
+    table_name: str = Field(..., description="表名")
+    status: str = Field(..., description="状态: created/syncing/ready/error")
+    error_message: str | None = Field(default=None, description="错误信息（如果有）")
+
+
+class BatchCreateFromConnectionResponse(BaseModel):
+    """从数据库连接批量创建原始数据响应"""
+
+    success_count: int = Field(..., description="成功创建的数量")
+    failed_count: int = Field(..., description="失败的数量")
+    results: list[BatchCreateResult] = Field(default_factory=list, description="每个表的创建结果")

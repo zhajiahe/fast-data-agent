@@ -9,6 +9,7 @@
 
 from typing import Any
 
+import pytest
 from starlette.testclient import TestClient
 
 
@@ -18,14 +19,14 @@ class TestSessionCRUD:
     def test_create_session(
         self, client: TestClient, auth_headers: dict, test_data_source: dict[str, Any]
     ):
-        """测试创建会话"""
+        """测试创建会话（关联单个数据源）"""
         response = client.post(
             "/api/v1/sessions",
             headers=auth_headers,
             json={
                 "name": "New Analysis Session",
                 "description": "测试创建的分析会话",
-                "data_source_ids": [test_data_source["id"]],
+                "data_source_id": test_data_source["id"],  # 单个数据源ID
             },
         )
 
@@ -33,8 +34,9 @@ class TestSessionCRUD:
         data = response.json()
         assert data["success"] is True
         assert data["data"]["name"] == "New Analysis Session"
+        assert data["data"]["data_source_id"] == test_data_source["id"]
 
-    def test_create_session_no_data_sources(self, client: TestClient, auth_headers: dict):
+    def test_create_session_no_data_source(self, client: TestClient, auth_headers: dict):
         """测试创建会话（不关联数据源）"""
         response = client.post(
             "/api/v1/sessions",
@@ -42,7 +44,7 @@ class TestSessionCRUD:
             json={
                 "name": "Empty Session",
                 "description": "空会话",
-                # 不提供 data_source_ids，默认为空列表
+                # 不提供 data_source_id，默认为 None
             },
         )
 
@@ -50,22 +52,24 @@ class TestSessionCRUD:
         data = response.json()
         assert data["success"] is True
         assert data["data"]["name"] == "Empty Session"
+        assert data["data"]["data_source_id"] is None
 
-    def test_create_session_empty_data_sources(self, client: TestClient, auth_headers: dict):
-        """测试创建会话（空数据源列表）"""
+    def test_create_session_with_null_data_source(self, client: TestClient, auth_headers: dict):
+        """测试创建会话（显式传 null）"""
         response = client.post(
             "/api/v1/sessions",
             headers=auth_headers,
             json={
-                "name": "Empty Source Session",
-                "description": "空会话",
-                "data_source_ids": [],  # 显式空列表
+                "name": "Null Source Session",
+                "description": "无数据源会话",
+                "data_source_id": None,  # 显式传 null
             },
         )
 
         assert response.status_code == 201
         data = response.json()
         assert data["success"] is True
+        assert data["data"]["data_source_id"] is None
 
     def test_create_session_invalid_data_source(self, client: TestClient, auth_headers: dict):
         """测试创建会话（无效的数据源 ID）"""
@@ -74,7 +78,7 @@ class TestSessionCRUD:
             headers=auth_headers,
             json={
                 "name": "Invalid Session",
-                "data_source_ids": [99999],
+                "data_source_id": 99999,  # 无效 ID
             },
         )
 
@@ -160,7 +164,7 @@ class TestSessionCRUD:
             headers=auth_headers,
             json={
                 "name": "To Delete Session",
-                "data_source_ids": [test_data_source["id"]],
+                "data_source_id": test_data_source["id"],  # 单个数据源
             },
         )
         session_id = create_response.json()["data"]["id"]
@@ -177,10 +181,10 @@ class TestSessionCRUD:
         assert get_response.status_code == 404
 
 
-class TestSessionDataSources:
-    """会话数据源管理测试"""
+class TestSessionDataSource:
+    """会话数据源管理测试（单数据源）"""
 
-    def test_update_session_data_sources(
+    def test_update_session_data_source(
         self,
         client: TestClient,
         auth_headers: dict,
@@ -207,23 +211,25 @@ class TestSessionDataSources:
         )
         new_ds_id = ds_response.json()["data"]["id"]
 
-        # 更新会话的数据源
+        # 更新会话的数据源（单个）
         response = client.put(
             f"/api/v1/sessions/{session_id}",
             headers=auth_headers,
-            json={"data_source_ids": [new_ds_id]},
+            json={"data_source_id": new_ds_id},
         )
 
         assert response.status_code == 200
+        data = response.json()
+        assert data["data"]["data_source_id"] == new_ds_id
 
-    def test_session_with_multiple_data_sources(
+    def test_session_switch_data_source(
         self,
         client: TestClient,
         auth_headers: dict,
         test_data_source: dict[str, Any],
         test_raw_data: dict[str, Any],
     ):
-        """测试创建包含多个数据源的会话"""
+        """测试会话切换数据源"""
         # 创建另一个数据源
         ds_response = client.post(
             "/api/v1/data-sources",
@@ -241,19 +247,28 @@ class TestSessionDataSources:
         )
         second_ds_id = ds_response.json()["data"]["id"]
 
-        # 创建带多个数据源的会话
-        response = client.post(
+        # 创建带第一个数据源的会话
+        create_response = client.post(
             "/api/v1/sessions",
             headers=auth_headers,
             json={
-                "name": "Multi-Source Session",
-                "data_source_ids": [test_data_source["id"], second_ds_id],
+                "name": "Switch Source Session",
+                "data_source_id": test_data_source["id"],
             },
         )
+        assert create_response.status_code == 201
+        session_id = create_response.json()["data"]["id"]
 
-        assert response.status_code == 201
+        # 切换到第二个数据源
+        response = client.put(
+            f"/api/v1/sessions/{session_id}",
+            headers=auth_headers,
+            json={"data_source_id": second_ds_id},
+        )
+
+        assert response.status_code == 200
         data = response.json()
-        assert data["success"] is True
+        assert data["data"]["data_source_id"] == second_ds_id
 
 
 class TestSessionMessages:

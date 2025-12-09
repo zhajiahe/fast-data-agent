@@ -57,9 +57,9 @@ async def get_session(
 ):
     """获取单个会话详情（包含数据源信息）"""
     service = AnalysisSessionService(db)
-    session, data_sources = await service.get_session_with_data_sources(session_id, current_user.id)
+    session, data_source = await service.get_session_with_data_source(session_id, current_user.id)
 
-    # 构建响应
+    # 构建响应（data_source_id 是 computed field，会自动从 data_source_ids 计算）
     response = AnalysisSessionDetail(
         id=session.id,
         user_id=session.user_id,
@@ -71,7 +71,7 @@ async def get_session(
         message_count=session.message_count,
         create_time=session.create_time,
         update_time=session.update_time,
-        data_sources=[DataSourceResponse.model_validate(ds) for ds in data_sources],
+        data_source=DataSourceResponse.model_validate(data_source) if data_source else None,
     )
 
     return BaseResponse[AnalysisSessionDetail](success=True, code=200, msg="获取会话成功", data=response)

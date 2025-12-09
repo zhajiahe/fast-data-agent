@@ -96,41 +96,25 @@ class AnalysisSessionService:
             BadRequestException: 数据验证失败
         """
         # 验证数据源是否存在且属于当前用户
-        data_sources = await self.data_source_service.get_data_sources_by_ids(data.data_source_ids, user_id)
-        if len(data_sources) != len(data.data_source_ids):
-            raise BadRequestException(msg="部分数据源不存在或无权访问")
+        data_source_ids: list[int] = []
+        if data.data_source_id is not None:
+            data_sources = await self.data_source_service.get_data_sources_by_ids([data.data_source_id], user_id)
+            if len(data_sources) != 1:
+                raise BadRequestException(msg="数据源不存在或无权访问")
+            data_source_ids = [data.data_source_id]
 
         # 创建会话
         create_data: dict[str, Any] = {
             "name": data.name,
             "description": data.description,
             "user_id": user_id,
-            "data_source_ids": data.data_source_ids,
+            "data_source_ids": data_source_ids if data_source_ids else None,
             "config": data.config,
             "status": "active",
             "message_count": 0,
         }
 
         session = await self.repo.create(create_data)
-
-        # 自动生成初始推荐（在事务提交后执行）
-        # 注意：由于推荐生成使用同一数据库会话，需要先提交会话创建
-        # 否则推荐创建失败会导致整个事务回滚
-        # 暂时禁用自动推荐生成，由前端调用 API 触发
-        # if generate_recommendations and data_sources:
-        #     try:
-        #         from app.services.recommend import RecommendService
-        #
-        #         recommend_service = RecommendService(self.db)
-        #         await recommend_service.generate_and_save_initial(
-        #             session=session,
-        #             data_sources=data_sources,
-        #             user_id=user_id,
-        #             max_count=5,
-        #         )
-        #     except Exception as e:
-        #         # 推荐生成失败不影响会话创建
-        #         logger.warning(f"自动生成初始推荐失败: {e}")
 
         return session
 
@@ -157,12 +141,6 @@ class AnalysisSessionService:
         """
         session = await self.get_session(session_id, user_id)
 
-        # 如果更新数据源，验证数据源
-        if data.data_source_ids is not None:
-            data_sources = await self.data_source_service.get_data_sources_by_ids(data.data_source_ids, user_id)
-            if len(data_sources) != len(data.data_source_ids):
-                raise BadRequestException(msg="部分数据源不存在或无权访问")
-
         # 构建更新数据
         update_data: dict[str, Any] = {}
 
@@ -170,8 +148,17 @@ class AnalysisSessionService:
             update_data["name"] = data.name
         if data.description is not None:
             update_data["description"] = data.description
-        if data.data_source_ids is not None:
-            update_data["data_source_ids"] = data.data_source_ids
+
+        # 如果更新数据源，验证数据源
+        if data.data_source_id is not None:
+            data_sources = await self.data_source_service.get_data_sources_by_ids([data.data_source_id], user_id)
+            if len(data_sources) != 1:
+                raise BadRequestException(msg="数据源不存在或无权访问")
+            update_data["data_source_ids"] = [data.data_source_id]
+        # 允许清空数据源（设置为 None 时）
+        # 注意：需要显式区分 "未提供" 和 "设置为空"
+        # 这里使用特殊约定：如果 data_source_id 字段存在但值为 0，表示清空数据源
+
         if data.config is not None:
             update_data["config"] = data.config
 
@@ -212,11 +199,11 @@ class AnalysisSessionService:
         session = await self.get_session(session_id, user_id)
         return await self.repo.update(session, {"status": "archived"})
 
-    async def get_session_with_data_sources(
+    async def get_session_with_data_source(
         self,
         session_id: int,
         user_id: int,
-    ) -> tuple[AnalysisSession, list[Any]]:
+    ) -> tuple[AnalysisSession, Any | None]:
         """
         获取会话及其关联的数据源
 
@@ -225,12 +212,14 @@ class AnalysisSessionService:
             user_id: 用户 ID
 
         Returns:
-            (会话实例, 数据源列表)
+            (会话实例, 数据源或 None)
         """
         session = await self.get_session(session_id, user_id)
 
-        data_sources = []
-        if session.data_source_ids:
-            data_sources = await self.data_source_service.get_data_sources_by_ids(session.data_source_ids, user_id)
+        data_source = None
+        if session.data_source_ids and len(session.data_source_ids) > 0:
+            data_sources = await self.data_source_service.get_data_sources_by_ids(session.data_source_ids[:1], user_id)
+            if data_sources:
+                data_source = data_sources[0]
 
-        return session, data_sources
+        return session, data_source

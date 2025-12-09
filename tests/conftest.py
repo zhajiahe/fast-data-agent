@@ -213,9 +213,9 @@ def test_session(
     client: TestClient, auth_headers: dict[str, str], test_data_source: dict[str, Any]
 ) -> Generator[dict[str, Any], None, None]:
     """
-    创建测试用的会话
+    创建测试用的会话（单数据源）
     """
-    data_source_ids = [test_data_source["id"]] if test_data_source.get("id") else []
+    data_source_id = test_data_source.get("id")
 
     response = client.post(
         "/api/v1/sessions",
@@ -223,7 +223,7 @@ def test_session(
         json={
             "name": "Test Session",
             "description": "测试会话",
-            "data_source_ids": data_source_ids,
+            "data_source_id": data_source_id,  # 单个数据源
         },
     )
 
