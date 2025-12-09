@@ -6,6 +6,7 @@
 
 from typing import Any
 
+from loguru import logger
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.exceptions import BadRequestException, NotFoundException
@@ -97,11 +98,13 @@ class AnalysisSessionService:
         """
         # 验证数据源是否存在且属于当前用户
         data_source_ids: list[int] = []
+        data_source = None
         if data.data_source_id is not None:
             data_sources = await self.data_source_service.get_data_sources_by_ids([data.data_source_id], user_id)
             if len(data_sources) != 1:
                 raise BadRequestException(msg="数据源不存在或无权访问")
             data_source_ids = [data.data_source_id]
+            data_source = data_sources[0]
 
         # 创建会话
         create_data: dict[str, Any] = {
@@ -116,7 +119,130 @@ class AnalysisSessionService:
 
         session = await self.repo.create(create_data)
 
+        # 初始化沙盒中的 DuckDB 文件
+        await self._init_session_duckdb(user_id, session.id, data_source)
+
         return session
+
+    async def _init_session_duckdb(
+        self,
+        user_id: int,
+        session_id: int,
+        data_source: Any | None,
+    ) -> None:
+        """
+        初始化会话的 DuckDB 文件
+
+        Args:
+            user_id: 用户 ID
+            session_id: 会话 ID
+            data_source: 数据源（可选）
+        """
+        from app.utils.tools import get_sandbox_client
+
+        try:
+            client = get_sandbox_client()
+
+            # 构建初始化请求
+            init_request: dict[str, Any] = {}
+
+            if data_source:
+                # 获取数据源的 RawData 列表
+                raw_data_list = await self._build_raw_data_configs(data_source)
+
+                init_request = {
+                    "data_source": {
+                        "id": data_source.id,
+                        "name": data_source.name,
+                        "raw_data_list": raw_data_list,
+                    }
+                }
+
+            # 调用沙盒 API 初始化 DuckDB
+            response = await client.post(
+                "/init_session",
+                params={"user_id": user_id, "thread_id": session_id},
+                json=init_request,
+            )
+
+            result = response.json()
+            if not result.get("success"):
+                logger.warning(f"Failed to init session DuckDB: {result.get('error')}")
+            else:
+                logger.info(
+                    f"Session DuckDB initialized: session_id={session_id}, views={result.get('views_created', [])}"
+                )
+
+        except Exception as e:
+            # 初始化 DuckDB 失败不影响会话创建
+            logger.warning(f"Failed to init session DuckDB: {e}")
+
+    async def _build_raw_data_configs(self, data_source: Any) -> list[dict[str, Any]]:
+        """
+        构建 RawData 配置列表
+
+        Args:
+            data_source: 数据源
+
+        Returns:
+            RawData 配置列表
+        """
+        from app.repositories.raw_data import RawDataRepository
+
+        raw_data_configs: list[dict[str, Any]] = []
+        raw_data_repo = RawDataRepository(self.db)
+
+        # 获取数据源关联的 RawData
+        if not data_source.raw_mappings:
+            return raw_data_configs
+
+        for mapping in data_source.raw_mappings:
+            if not mapping.is_enabled:
+                continue
+
+            raw_data = await raw_data_repo.get_by_id(mapping.raw_data_id)
+            if not raw_data:
+                continue
+
+            config: dict[str, Any] = {
+                "id": raw_data.id,
+                "name": raw_data.name,
+                "raw_type": raw_data.raw_type,
+            }
+
+            if raw_data.raw_type == "database_table":
+                # 数据库表类型：需要获取连接信息
+                if raw_data.connection:
+                    conn = raw_data.connection
+                    config.update(
+                        {
+                            "db_type": conn.db_type,
+                            "host": conn.host,
+                            "port": conn.port,
+                            "database": conn.database,
+                            "username": conn.username,
+                            "password": conn.password,  # 注意：这里传递的是加密后的密码，沙盒需要解密
+                            "schema_name": raw_data.schema_name,
+                            "table_name": raw_data.table_name,
+                            "custom_sql": raw_data.custom_sql,
+                        }
+                    )
+
+            elif raw_data.raw_type == "file":
+                # 文件类型：需要获取 MinIO 信息
+                if raw_data.uploaded_file:
+                    file = raw_data.uploaded_file
+                    config.update(
+                        {
+                            "file_type": file.file_type,
+                            "object_key": file.object_key,
+                            "bucket_name": file.bucket_name or "data-agent",
+                        }
+                    )
+
+            raw_data_configs.append(config)
+
+        return raw_data_configs
 
     async def update_session(
         self,
@@ -143,6 +269,8 @@ class AnalysisSessionService:
 
         # 构建更新数据
         update_data: dict[str, Any] = {}
+        data_source_changed = False
+        new_data_source = None
 
         if data.name is not None:
             update_data["name"] = data.name
@@ -155,15 +283,18 @@ class AnalysisSessionService:
             if len(data_sources) != 1:
                 raise BadRequestException(msg="数据源不存在或无权访问")
             update_data["data_source_ids"] = [data.data_source_id]
-        # 允许清空数据源（设置为 None 时）
-        # 注意：需要显式区分 "未提供" 和 "设置为空"
-        # 这里使用特殊约定：如果 data_source_id 字段存在但值为 0，表示清空数据源
+            data_source_changed = True
+            new_data_source = data_sources[0]
 
         if data.config is not None:
             update_data["config"] = data.config
 
         if update_data:
             session = await self.repo.update(session, update_data)
+
+        # 如果数据源变更，重新初始化 DuckDB
+        if data_source_changed:
+            await self._init_session_duckdb(user_id, session_id, new_data_source)
 
         return session
 

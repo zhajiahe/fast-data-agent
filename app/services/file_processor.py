@@ -1,13 +1,10 @@
 """
 文件处理器服务
 
-处理 CSV、Excel、JSON、Parquet、SQLite 文件的解析和元数据提取
+处理 CSV、Excel、JSON、Parquet 文件的解析和元数据提取
 """
 
-import sqlite3
-import tempfile
 from io import BytesIO
-from pathlib import Path
 from typing import Any
 
 import pandas as pd
@@ -27,9 +24,6 @@ class FileProcessorService:
         ".xls": FileType.EXCEL,
         ".json": FileType.JSON,
         ".parquet": FileType.PARQUET,
-        ".db": FileType.SQLITE,
-        ".sqlite": FileType.SQLITE,
-        ".sqlite3": FileType.SQLITE,
     }
 
     # MIME 类型映射
@@ -38,8 +32,6 @@ class FileProcessorService:
         "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": FileType.EXCEL,
         "application/vnd.ms-excel": FileType.EXCEL,
         "application/json": FileType.JSON,
-        "application/x-sqlite3": FileType.SQLITE,
-        "application/vnd.sqlite3": FileType.SQLITE,
         "application/octet-stream": None,  # 需要通过扩展名判断
     }
 
@@ -87,10 +79,6 @@ class FileProcessorService:
             包含元数据和预览数据的字典
         """
         try:
-            # SQLite 文件需要特殊处理
-            if file_type == FileType.SQLITE:
-                return await cls._parse_sqlite(data, preview_rows)
-
             df = cls._read_dataframe(data, file_type)
 
             # 提取列信息
@@ -136,91 +124,6 @@ class FileProcessorService:
         except Exception as e:
             logger.error(f"File parsing failed: {e}")
             raise BadRequestException(msg=f"文件解析失败: {str(e)}") from e
-
-    @classmethod
-    async def _parse_sqlite(cls, data: bytes, preview_rows: int = 100) -> dict[str, Any]:
-        """
-        解析 SQLite 数据库文件
-
-        Args:
-            data: SQLite 文件内容
-            preview_rows: 预览行数
-
-        Returns:
-            包含表信息和预览数据的字典
-        """
-        # 写入临时文件
-        with tempfile.NamedTemporaryFile(suffix=".db", delete=False) as f:
-            f.write(data)
-            temp_path = f.name
-
-        try:
-            conn = sqlite3.connect(temp_path)
-            cursor = conn.cursor()
-
-            # 获取所有表名
-            cursor.execute("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name")
-            tables = [row[0] for row in cursor.fetchall()]
-
-            if not tables:
-                raise BadRequestException(msg="SQLite 数据库中没有表")
-
-            # 获取第一个表的信息作为主要数据（与其他文件类型保持一致）
-            main_table = tables[0]
-
-            # 获取行数
-            cursor.execute(f"SELECT COUNT(*) FROM '{main_table}'")  # noqa: S608
-            row_count = cursor.fetchone()[0]
-
-            # 获取列信息
-            cursor.execute(f"PRAGMA table_info('{main_table}')")  # noqa: S608
-            columns_meta = cursor.fetchall()
-
-            columns_info = []
-            for col in columns_meta:
-                col_name = col[1]
-                col_type = col[2] or "TEXT"
-                nullable = col[3] == 0  # notnull 字段
-
-                # 简化类型
-                col_type_upper = col_type.upper()
-                if "INT" in col_type_upper:
-                    simple_type = "integer"
-                elif "REAL" in col_type_upper or "FLOAT" in col_type_upper or "DOUBLE" in col_type_upper:
-                    simple_type = "float"
-                elif "BLOB" in col_type_upper:
-                    simple_type = "binary"
-                else:
-                    simple_type = "string"
-
-                columns_info.append(
-                    {
-                        "name": col_name,
-                        "dtype": col_type,
-                        "type": simple_type,
-                        "nullable": nullable,
-                    }
-                )
-
-            # 获取预览数据
-            cursor.execute(f"SELECT * FROM '{main_table}' LIMIT {preview_rows}")  # noqa: S608
-            rows = cursor.fetchall()
-            column_names = [col[1] for col in columns_meta]
-            preview_data = [dict(zip(column_names, row, strict=False)) for row in rows]
-
-            conn.close()
-
-            return {
-                "row_count": row_count,
-                "column_count": len(columns_meta),
-                "columns_info": columns_info,
-                "preview_data": preview_data,
-                "tables": tables,  # 额外信息：所有表名
-                "main_table": main_table,
-            }
-        finally:
-            # 清理临时文件
-            Path(temp_path).unlink(missing_ok=True)
 
     @classmethod
     def _convert_to_native_types(cls, data: list[dict[str, Any]]) -> list[dict[str, Any]]:

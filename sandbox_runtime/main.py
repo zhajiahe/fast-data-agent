@@ -69,7 +69,6 @@ class DuckDBConnectionManager:
             conn.execute(f"SET extension_directory='{self._extensions_dir}';")
             # 预安装常用扩展
             conn.execute("INSTALL httpfs;")
-            conn.execute("INSTALL sqlite;")
             conn.close()
             self._extensions_loaded = True
             logger.info("DuckDB 扩展预加载完成")
@@ -165,7 +164,7 @@ class DataSourceInfo(BaseModel):
     bucket_name: str | None = None  # MinIO bucket 名称
 
     # 数据库类型数据源 (source_type="database")
-    db_type: str | None = None  # mysql, postgresql, sqlite
+    db_type: str | None = None  # mysql, postgresql
     host: str | None = None
     port: int | None = None
     database: str | None = None
@@ -186,6 +185,49 @@ class CodeExecutionResult(BaseModel):
     output: str
     error: str | None = None
     files_created: list[str] = []  # 执行过程中创建的文件
+
+
+# ==================== 会话初始化模型 ====================
+
+
+class RawDataConfig(BaseModel):
+    """原始数据配置"""
+
+    id: int
+    name: str  # 用于创建 VIEW 的名称
+    raw_type: str  # "database_table" 或 "file"
+
+    # 数据库表类型配置
+    db_type: str | None = None  # mysql, postgresql
+    host: str | None = None
+    port: int | None = None
+    database: str | None = None
+    username: str | None = None
+    password: str | None = None
+    schema_name: str | None = None
+    table_name: str | None = None
+    custom_sql: str | None = None
+
+    # 文件类型配置
+    file_type: str | None = None  # csv, excel, json, parquet
+    object_key: str | None = None
+    bucket_name: str | None = None
+
+
+class DataSourceConfig(BaseModel):
+    """数据源配置"""
+
+    id: int
+    name: str
+    raw_data_list: list[RawDataConfig]
+    # 字段映射：{target_field: {raw_data_id: source_field}}
+    field_mappings: dict[str, dict[int, str]] | None = None
+
+
+class InitSessionRequest(BaseModel):
+    """初始化会话请求"""
+
+    data_source: DataSourceConfig | None = None
 
 
 # ==================== 辅助函数 ====================
@@ -287,6 +329,150 @@ async def startup_event():
 async def health_check():
     """A simple health check endpoint to confirm the server is running."""
     return {"status": "ok", "message": "Sandbox Runtime is active."}
+
+
+# ==================== 会话初始化 ====================
+
+
+@app.post("/init_session", summary="Initialize session DuckDB with data source")
+async def init_session(
+    request: InitSessionRequest,
+    user_id: int = Query(..., description="User ID"),
+    thread_id: int = Query(..., description="Thread/Session ID"),
+):
+    """
+    初始化会话的 DuckDB 文件。
+
+    创建一个持久化的 DuckDB 文件，并根据数据源配置：
+    - 安装并加载必要的扩展 (postgres, mysql, httpfs)
+    - ATTACH 外部数据库
+    - 为每个 RawData 创建 VIEW
+    """
+    import duckdb
+
+    session_dir = ensure_session_dir(user_id, thread_id)
+    duckdb_path = session_dir / "session.duckdb"
+
+    try:
+        # 创建/打开 DuckDB 文件
+        conn = duckdb.connect(str(duckdb_path))
+
+        # 设置扩展目录
+        extensions_dir = SANDBOX_ROOT / "duckdb_extensions"
+        extensions_dir.mkdir(parents=True, exist_ok=True)
+        conn.execute(f"SET extension_directory='{extensions_dir}';")
+
+        views_created: list[str] = []
+        errors: list[str] = []
+
+        # 如果没有数据源，只创建空的 DuckDB 文件
+        if not request.data_source:
+            conn.close()
+            return {
+                "success": True,
+                "message": "Session DuckDB initialized (no data source)",
+                "duckdb_path": str(duckdb_path),
+                "views_created": [],
+                "errors": [],
+            }
+
+        ds = request.data_source
+
+        # 处理每个 RawData
+        for raw_data in ds.raw_data_list:
+            try:
+                view_name = f"{raw_data.name}"  # 使用 RawData 名称作为 VIEW 名称
+
+                if raw_data.raw_type == "database_table":
+                    # 数据库表类型：ATTACH 数据库并创建 VIEW
+                    if raw_data.db_type == "postgresql":
+                        conn.execute("INSTALL postgres; LOAD postgres;")
+                        conn_str = (
+                            f"host={raw_data.host} "
+                            f"port={raw_data.port} "
+                            f"dbname={raw_data.database} "
+                            f"user={raw_data.username} "
+                            f"password={raw_data.password}"
+                        )
+                        attach_name = f"pg_{raw_data.id}"
+                        conn.execute(f"ATTACH '{conn_str}' AS {attach_name} (TYPE POSTGRES, READ_ONLY);")
+
+                        # 构建源表名
+                        if raw_data.custom_sql:
+                            # 使用自定义 SQL
+                            conn.execute(f'CREATE OR REPLACE VIEW "{view_name}" AS {raw_data.custom_sql}')
+                        else:
+                            # 使用 schema.table
+                            schema = raw_data.schema_name or "public"
+                            table = raw_data.table_name
+                            conn.execute(f'CREATE OR REPLACE VIEW "{view_name}" AS SELECT * FROM {attach_name}.{schema}.{table}')
+
+                    elif raw_data.db_type == "mysql":
+                        conn.execute("INSTALL mysql; LOAD mysql;")
+                        conn_str = (
+                            f"host={raw_data.host} "
+                            f"port={raw_data.port} "
+                            f"database={raw_data.database} "
+                            f"user={raw_data.username} "
+                            f"password={raw_data.password}"
+                        )
+                        attach_name = f"mysql_{raw_data.id}"
+                        conn.execute(f"ATTACH '{conn_str}' AS {attach_name} (TYPE MYSQL, READ_ONLY);")
+
+                        if raw_data.custom_sql:
+                            conn.execute(f'CREATE OR REPLACE VIEW "{view_name}" AS {raw_data.custom_sql}')
+                        else:
+                            table = raw_data.table_name
+                            conn.execute(f'CREATE OR REPLACE VIEW "{view_name}" AS SELECT * FROM {attach_name}.{table}')
+
+                    views_created.append(view_name)
+
+                elif raw_data.raw_type == "file":
+                    # 文件类型：通过 S3/httpfs 创建 VIEW
+                    conn.execute("LOAD httpfs;")
+                    conn.execute(f"SET s3_endpoint='{MINIO_ENDPOINT}';")
+                    conn.execute(f"SET s3_access_key_id='{MINIO_ACCESS_KEY}';")
+                    conn.execute(f"SET s3_secret_access_key='{MINIO_SECRET_KEY}';")
+                    conn.execute("SET s3_url_style='path';")
+                    conn.execute(f"SET s3_use_ssl={'true' if MINIO_SECURE else 'false'};")
+
+                    s3_url = f"s3://{raw_data.bucket_name}/{raw_data.object_key}"
+
+                    if raw_data.file_type == "csv":
+                        conn.execute(f'CREATE OR REPLACE VIEW "{view_name}" AS SELECT * FROM read_csv_auto(\'{s3_url}\', header=True)')
+                    elif raw_data.file_type == "parquet":
+                        conn.execute(f'CREATE OR REPLACE VIEW "{view_name}" AS SELECT * FROM parquet_scan(\'{s3_url}\')')
+                    elif raw_data.file_type == "json":
+                        conn.execute(f'CREATE OR REPLACE VIEW "{view_name}" AS SELECT * FROM read_json_auto(\'{s3_url}\')')
+                    elif raw_data.file_type == "excel":
+                        conn.execute("INSTALL spatial; LOAD spatial;")
+                        conn.execute(f'CREATE OR REPLACE VIEW "{view_name}" AS SELECT * FROM st_read(\'{s3_url}\')')
+
+                    views_created.append(view_name)
+
+            except Exception as e:
+                error_msg = f"Failed to create view for {raw_data.name}: {str(e)}"
+                logger.warning(error_msg)
+                errors.append(error_msg)
+
+        conn.close()
+
+        logger.info(f"Session DuckDB initialized: user_id={user_id}, thread_id={thread_id}, views={len(views_created)}")
+
+        return {
+            "success": True,
+            "message": f"Session DuckDB initialized with {len(views_created)} views",
+            "duckdb_path": str(duckdb_path),
+            "views_created": views_created,
+            "errors": errors,
+        }
+
+    except Exception as e:
+        import traceback
+
+        error_traceback = traceback.format_exc()
+        logger.exception(f"Failed to initialize session DuckDB: {e}")
+        return {"success": False, "error": f"{str(e)}\n\n{error_traceback}"}
 
 
 # ==================== 重置操作 ====================
@@ -644,25 +830,6 @@ async def execute_sql(
                                 conn.execute(f'CREATE OR REPLACE VIEW "{view_name}" AS SELECT * FROM parquet_scan(\'{s3_url}\')')
                             elif ds.file_type == "json":
                                 conn.execute(f'CREATE OR REPLACE VIEW "{view_name}" AS SELECT * FROM read_json_auto(\'{s3_url}\')')
-                            elif ds.file_type == "sqlite":
-                                # SQLite 需要先下载到本地
-                                sqlite_path = session_dir / f"sqlite_{ds.object_key.replace('/', '_')}"
-                                if not sqlite_path.exists():
-                                    # 下载 SQLite 文件
-                                    from minio import Minio
-                                    client = Minio(
-                                        MINIO_ENDPOINT,
-                                        access_key=MINIO_ACCESS_KEY,
-                                        secret_key=MINIO_SECRET_KEY,
-                                        secure=MINIO_SECURE,
-                                    )
-                                    client.fget_object(ds.bucket_name, ds.object_key, str(sqlite_path))
-                                
-                                conn.execute(f"ATTACH '{sqlite_path}' AS sqlite_{ds.id} (TYPE SQLITE, READ_ONLY);")
-                                # 获取 SQLite 中的表并创建 VIEW
-                                tables = conn.execute(f"SHOW TABLES FROM sqlite_{ds.id}").fetchall()
-                                for (table_name,) in tables:
-                                    conn.execute(f'CREATE OR REPLACE VIEW "{view_name}_{table_name}" AS SELECT * FROM sqlite_{ds.id}.{table_name}')
                         except Exception as e:
                             logger.warning(f"Failed to create view for {ds.name}: {e}")
 
@@ -736,8 +903,6 @@ def get_db_connection_string(ds: DataSourceInfo) -> str:
         return f"postgresql://{ds.username}:{ds.password}@{ds.host}:{ds.port}/{ds.database}"
     elif ds.db_type == "mysql":
         return f"mysql://{ds.username}:{ds.password}@{ds.host}:{ds.port}/{ds.database}"
-    elif ds.db_type == "sqlite":
-        return f"sqlite://{ds.database}"
     else:
         raise ValueError(f"Unsupported database type: {ds.db_type}")
 
@@ -809,182 +974,6 @@ def setup_duckdb_extensions_dir(conn) -> None:
     conn.execute(f"SET extension_directory='{extensions_dir}';")
 
 
-async def analyze_sqlite_from_s3(conn, s3_url: str, user_id: int, thread_id: int) -> dict[str, Any]:
-    """
-    从 S3 下载 SQLite 文件并分析。
-    
-    SQLite 文件不能直接从 S3 读取，需要先下载到本地。
-    使用 Python 从 MinIO 下载文件。
-    """
-    # 解析 S3 URL
-    # s3://bucket/key -> http://endpoint/bucket/key
-    parts = s3_url.replace("s3://", "").split("/", 1)
-    bucket = parts[0]
-    key = parts[1] if len(parts) > 1 else ""
-    
-    # 下载文件到会话目录
-    session_dir = ensure_session_dir(user_id, thread_id)
-    sqlite_path = session_dir / f"sqlite_{key.replace('/', '_')}"
-    
-    logger.info(f"Downloading SQLite from S3: {s3_url} to {sqlite_path}")
-    
-    # 如果文件已存在且有效，直接使用
-    if sqlite_path.exists() and sqlite_path.stat().st_size > 0:
-        logger.info(f"Using cached SQLite file: {sqlite_path}")
-    else:
-        try:
-            # 使用 minio 包下载文件（如果可用）
-            try:
-                from minio import Minio
-                
-                client = Minio(
-                    MINIO_ENDPOINT,
-                    access_key=MINIO_ACCESS_KEY,
-                    secret_key=MINIO_SECRET_KEY,
-                    secure=MINIO_SECURE,
-                )
-                
-                client.fget_object(bucket, key, str(sqlite_path))
-                logger.info(f"Downloaded SQLite via minio SDK")
-            except ImportError:
-                logger.warning("minio SDK not available, trying boto3...")
-                
-                # 备用方案：使用 boto3
-                try:
-                    import boto3
-                    from botocore.config import Config
-                    
-                    s3_client = boto3.client(
-                        's3',
-                        endpoint_url=f"{'https' if MINIO_SECURE else 'http'}://{MINIO_ENDPOINT}",
-                        aws_access_key_id=MINIO_ACCESS_KEY,
-                        aws_secret_access_key=MINIO_SECRET_KEY,
-                        config=Config(signature_version='s3v4'),
-                    )
-                    
-                    s3_client.download_file(bucket, key, str(sqlite_path))
-                    logger.info(f"Downloaded SQLite via boto3")
-                except ImportError:
-                    logger.warning("boto3 not available, trying direct HTTP with signature...")
-                    
-                    # 最后的备用方案：使用 DuckDB 查询二进制并写入文件
-                    try:
-                        result = conn.execute(f"SELECT content FROM read_blob('{s3_url}')").fetchone()
-                        if result and result[0]:
-                            with open(sqlite_path, 'wb') as f:
-                                f.write(result[0])
-                            logger.info(f"Downloaded SQLite via DuckDB read_blob")
-                        else:
-                            raise ValueError("Empty blob result")
-                    except Exception as e3:
-                        logger.error(f"All download methods failed: {e3}")
-                        return {
-                            "error": f"Failed to download SQLite file: {str(e3)}",
-                            "row_count": 0,
-                            "column_count": 0,
-                            "columns": [],
-                        }
-                        
-        except Exception as e:
-            logger.error(f"Failed to download SQLite: {e}")
-            return {
-                "error": f"Failed to download SQLite file: {str(e)}",
-                "row_count": 0,
-                "column_count": 0,
-                "columns": [],
-            }
-    
-    # 检查文件是否存在且有效
-    if not sqlite_path.exists() or sqlite_path.stat().st_size == 0:
-        return {
-            "error": "SQLite file download failed or file is empty",
-            "row_count": 0,
-            "column_count": 0,
-            "columns": [],
-        }
-    
-    # 分析 SQLite 数据库
-    try:
-        conn.execute(f"ATTACH '{sqlite_path}' AS sqlite_db (TYPE SQLITE, READ_ONLY);")
-    except Exception as e:
-        return {
-            "error": f"Failed to attach SQLite database: {str(e)}",
-            "row_count": 0,
-            "column_count": 0,
-            "columns": [],
-        }
-    
-    # 获取所有表 - 使用 DuckDB 的方式列出附加数据库中的表
-    try:
-        # DuckDB 方式：使用 SHOW TABLES
-        tables_result = conn.execute("SHOW TABLES FROM sqlite_db").fetchall()
-    except Exception as e1:
-        logger.warning(f"SHOW TABLES failed: {e1}")
-        try:
-            # 备用方案：使用 duckdb_tables() 函数
-            tables_result = conn.execute(
-                "SELECT table_name FROM duckdb_tables() WHERE database_name = 'sqlite_db'"
-            ).fetchall()
-        except Exception as e2:
-            logger.warning(f"duckdb_tables() failed: {e2}")
-            # 最后方案：尝试直接查询 information_schema
-            try:
-                tables_result = conn.execute(
-                    "SELECT table_name FROM information_schema.tables WHERE table_catalog = 'sqlite_db'"
-                ).fetchall()
-            except Exception as e3:
-                logger.error(f"All table listing methods failed: {e3}")
-                return {
-                    "error": f"Failed to inspect SQLite tables: {str(e3)}",
-                    "row_count": 0,
-                    "column_count": 0,
-                    "columns": [],
-                }
-    
-    tables_info = []
-    total_rows = 0
-    total_columns = 0
-    all_columns: list[dict[str, Any]] = []
-    
-    for (table_name,) in tables_result:
-        try:
-            # 获取行数
-            row_count = conn.execute(f"SELECT COUNT(*) FROM sqlite_db.{table_name}").fetchone()[0]
-            
-            # 获取列信息 - 使用 DuckDB 的 DESCRIBE 而不是 PRAGMA
-            try:
-                columns_meta = conn.execute(f"DESCRIBE sqlite_db.{table_name}").fetchall()
-                columns = [{"name": col[0], "dtype": col[1]} for col in columns_meta]
-            except Exception:
-                # 备用方案：查询一行数据来获取列信息
-                sample = conn.execute(f"SELECT * FROM sqlite_db.{table_name} LIMIT 1")
-                columns = [{"name": desc[0], "dtype": "UNKNOWN"} for desc in sample.description] if sample.description else []
-            
-            tables_info.append({
-                "table_name": table_name,
-                "row_count": int(row_count),
-                "column_count": len(columns),
-                "columns": columns,
-            })
-            
-            # 累计第一个表的信息作为主要统计
-            if not all_columns:
-                total_rows = row_count
-                total_columns = len(columns)
-                all_columns = columns
-        except Exception as e:
-            logger.warning(f"Failed to analyze table {table_name}: {e}")
-    
-    return {
-        "row_count": int(total_rows),
-        "column_count": total_columns,
-        "columns": all_columns,
-        "missing_values": {},
-        "tables": tables_info,
-        "table_count": len(tables_result),
-    }
-
-
 @app.post("/quick_analysis", summary="Quick data analysis")
 async def quick_analysis(
     request: QuickAnalysisRequest,
@@ -1033,9 +1022,6 @@ async def quick_analysis(
                 load_query = f"CREATE OR REPLACE TEMP VIEW data_preview AS SELECT * FROM st_read('{s3_url}')"
                 conn.execute(load_query)
                 analysis = analyze_data_with_duckdb(conn, "data_preview")
-            elif file_type == "sqlite":
-                # SQLite 文件需要先下载到本地
-                analysis = await analyze_sqlite_from_s3(conn, s3_url, user_id, thread_id)
             else:
                 return {"success": False, "error": f"Unsupported file type: {file_type}"}
 
@@ -1062,8 +1048,6 @@ async def quick_analysis(
                 conn.execute("INSTALL mysql; LOAD mysql;")
                 conn_str = f"host={ds.host} port={ds.port} database={ds.database} user={ds.username} password={ds.password}"
                 conn.execute(f"ATTACH '{conn_str}' AS external_db (TYPE MYSQL, READ_ONLY);")
-            elif ds.db_type == "sqlite":
-                conn.execute(f"ATTACH '{ds.database}' AS external_db (TYPE SQLITE, READ_ONLY);")
             else:
                 return {"success": False, "error": f"Unsupported database type: {ds.db_type}"}
 

@@ -23,7 +23,6 @@ class DBConnectorService:
     DRIVER_MAP = {
         DatabaseType.MYSQL: "mysql+pymysql",
         DatabaseType.POSTGRESQL: "postgresql+psycopg2",
-        DatabaseType.SQLITE: "sqlite",
     }
 
     def _build_connection_url(self, connection: DatabaseConnection) -> str:
@@ -41,10 +40,6 @@ class DBConnectorService:
 
         if not driver:
             raise BadRequestException(msg=f"不支持的数据库类型: {db_type}")
-
-        # SQLite 特殊处理
-        if db_type == DatabaseType.SQLITE:
-            return f"{driver}:///{connection.database}"
 
         # 构建标准 URL
         url = f"{driver}://{connection.username}:{connection.password}@{connection.host}:{connection.port}/{connection.database}"

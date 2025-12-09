@@ -18,7 +18,6 @@ class DatabaseType(str, Enum):
 
     MYSQL = "mysql"
     POSTGRESQL = "postgresql"
-    SQLITE = "sqlite"
 
 
 class DatabaseConnection(Base, BaseTableMixin):
@@ -40,7 +39,7 @@ class DatabaseConnection(Base, BaseTableMixin):
     )
 
     # 连接配置
-    db_type: Mapped[str] = mapped_column(String(20), nullable=False, comment="数据库类型: mysql/postgresql/sqlite")
+    db_type: Mapped[str] = mapped_column(String(20), nullable=False, comment="数据库类型: mysql/postgresql")
     host: Mapped[str] = mapped_column(String(255), nullable=False, comment="数据库主机")
     port: Mapped[int] = mapped_column(Integer, nullable=False, comment="数据库端口")
     database: Mapped[str] = mapped_column(String(100), nullable=False, comment="数据库名")
