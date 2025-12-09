@@ -18,7 +18,7 @@ class AnalysisSessionBase(BaseModel):
 class AnalysisSessionCreate(AnalysisSessionBase):
     """创建分析会话请求"""
 
-    data_source_ids: list[int] = Field(..., min_length=1, description="关联的数据源ID列表")
+    data_source_ids: list[int] = Field(default_factory=list, description="关联的数据源ID列表（可选）")
     config: dict[str, Any] | None = Field(default=None, description="会话配置")
 
 

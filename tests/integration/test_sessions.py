@@ -34,20 +34,38 @@ class TestSessionCRUD:
         assert data["success"] is True
         assert data["data"]["name"] == "New Analysis Session"
 
-    def test_create_session_empty_data_sources(self, client: TestClient, auth_headers: dict):
-        """测试创建会话（空数据源列表）"""
+    def test_create_session_no_data_sources(self, client: TestClient, auth_headers: dict):
+        """测试创建会话（不关联数据源）"""
         response = client.post(
             "/api/v1/sessions",
             headers=auth_headers,
             json={
                 "name": "Empty Session",
                 "description": "空会话",
-                "data_source_ids": [],  # 空列表
+                # 不提供 data_source_ids，默认为空列表
             },
         )
 
-        # API 可能要求至少一个数据源，或者接受空列表
-        assert response.status_code in (201, 422)
+        assert response.status_code == 201
+        data = response.json()
+        assert data["success"] is True
+        assert data["data"]["name"] == "Empty Session"
+
+    def test_create_session_empty_data_sources(self, client: TestClient, auth_headers: dict):
+        """测试创建会话（空数据源列表）"""
+        response = client.post(
+            "/api/v1/sessions",
+            headers=auth_headers,
+            json={
+                "name": "Empty Source Session",
+                "description": "空会话",
+                "data_source_ids": [],  # 显式空列表
+            },
+        )
+
+        assert response.status_code == 201
+        data = response.json()
+        assert data["success"] is True
 
     def test_create_session_invalid_data_source(self, client: TestClient, auth_headers: dict):
         """测试创建会话（无效的数据源 ID）"""
