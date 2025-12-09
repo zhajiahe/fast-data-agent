@@ -254,7 +254,14 @@ async def quick_analysis(
             mean_val = col_stats.get("mean", "N/A")
             min_val = col_stats.get("min", "N/A")
             max_val = col_stats.get("max", "N/A")
-            content_lines.append(f"  - {col_name}: 均值={mean_val:.2f}, 范围=[{min_val}, {max_val}]")
+
+            def _fmt_num(value: Any) -> str:
+                """安全格式化，避免非数值类型导致格式化异常。"""
+                return f"{value:.2f}" if isinstance(value, (int, float)) else str(value)
+
+            content_lines.append(
+                f"  - {col_name}: 均值={_fmt_num(mean_val)}, 范围=[{_fmt_num(min_val)}, {_fmt_num(max_val)}]"
+            )
 
     # artifact 包含完整分析结果
     artifact = {
