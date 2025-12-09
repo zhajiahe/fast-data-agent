@@ -375,6 +375,73 @@ class TestDataSourceOperations:
         assert response.status_code == 404
 
 
+class TestDataSourceSuggestMappings:
+    """字段映射建议测试"""
+
+    def test_suggest_mappings(
+        self, client: TestClient, auth_headers: dict, test_raw_data: dict[str, Any]
+    ):
+        """测试字段映射建议"""
+        # 确保 raw_data 有 columns_schema（需要先同步）
+        raw_data_id = test_raw_data["id"]
+
+        # 请求映射建议
+        response = client.post(
+            "/api/v1/data-sources/suggest-mappings",
+            headers=auth_headers,
+            json={
+                "target_fields": [
+                    {"name": "id", "data_type": "integer"},
+                    {"name": "name", "data_type": "string"},
+                    {"name": "value", "data_type": "float"},
+                ],
+                "raw_data_ids": [raw_data_id],
+            },
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["success"] is True
+        assert "suggestions" in data["data"]
+
+    def test_suggest_mappings_empty_raw_data(self, client: TestClient, auth_headers: dict):
+        """测试空原始数据列表的映射建议"""
+        response = client.post(
+            "/api/v1/data-sources/suggest-mappings",
+            headers=auth_headers,
+            json={
+                "target_fields": [
+                    {"name": "id", "data_type": "integer"},
+                ],
+                "raw_data_ids": [99999],  # 不存在的 ID
+            },
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["success"] is True
+        assert data["data"]["suggestions"] == []
+
+    def test_suggest_target_fields(
+        self, client: TestClient, auth_headers: dict, test_raw_data: dict[str, Any]
+    ):
+        """测试从原始数据推断目标字段"""
+        raw_data_id = test_raw_data["id"]
+
+        response = client.post(
+            "/api/v1/data-sources/suggest-target-fields",
+            headers=auth_headers,
+            json={
+                "raw_data_ids": [raw_data_id],
+            },
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["success"] is True
+        assert "fields" in data["data"]
+
+
 class TestDataSourceAuth:
     """数据源认证测试"""
 

@@ -109,3 +109,51 @@ class DataSourcePreviewResponse(BaseModel):
     rows: list[dict[str, Any]] = Field(default_factory=list, description="合并后的数据行")
     source_stats: dict[str, int] = Field(default_factory=dict, description="各 Raw 源的行数统计")
     preview_at: str = Field(..., description="预览时间")
+
+
+# ==================== 字段映射建议 ====================
+
+
+class SuggestMappingsRequest(BaseModel):
+    """字段映射建议请求"""
+
+    target_fields: list[TargetField] = Field(..., min_length=1, description="目标字段列表")
+    raw_data_ids: list[int] = Field(..., min_length=1, description="原始数据ID列表")
+
+
+class FieldMappingSuggestionResponse(BaseModel):
+    """单个字段映射建议"""
+
+    target_field: str = Field(..., description="目标字段名")
+    source_field: str = Field(..., description="推荐的源字段名")
+    raw_data_id: int = Field(..., description="来源 RawData ID")
+    raw_data_name: str = Field(..., description="来源 RawData 名称")
+    confidence: float = Field(..., ge=0, le=1, description="匹配置信度 (0-1)")
+    reason: str = Field(..., description="推荐理由")
+
+
+class SuggestMappingsResponse(BaseModel):
+    """字段映射建议响应"""
+
+    suggestions: list[FieldMappingSuggestionResponse] = Field(default_factory=list, description="字段映射建议列表")
+
+
+class SuggestTargetFieldsRequest(BaseModel):
+    """从原始数据推断目标字段请求"""
+
+    raw_data_ids: list[int] = Field(..., min_length=1, description="原始数据ID列表")
+
+
+class SuggestedTargetField(BaseModel):
+    """推荐的目标字段"""
+
+    name: str = Field(..., description="字段名")
+    data_type: str = Field(..., description="数据类型")
+    description: str | None = Field(default=None, description="字段描述")
+    source_count: int = Field(default=1, description="出现在多少个数据源中")
+
+
+class SuggestTargetFieldsResponse(BaseModel):
+    """推断目标字段响应"""
+
+    fields: list[SuggestedTargetField] = Field(default_factory=list, description="推荐的目标字段列表")

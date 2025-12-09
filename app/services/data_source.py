@@ -277,3 +277,64 @@ class DataSourceService:
             数据源列表
         """
         return await self.repo.get_by_ids(ids, user_id)
+
+    async def refresh_schema_cache(self, data_source_id: int, user_id: int) -> DataSource:
+        """
+        刷新数据源的 Schema 缓存
+
+        从关联的 RawData 重新获取列信息并合并
+
+        Args:
+            data_source_id: 数据源 ID
+            user_id: 用户 ID
+
+        Returns:
+            更新后的数据源实例
+        """
+        # 获取数据源（包含映射）
+        data_source = await self.get_data_source_with_mappings(data_source_id, user_id)
+
+        # 收集所有 RawData 的列信息
+        all_columns: dict[str, dict[str, Any]] = {}  # normalized_name -> column_info
+        raw_data_info: list[dict[str, Any]] = []
+
+        if data_source.raw_mappings:
+            for mapping in data_source.raw_mappings:
+                if not mapping.is_enabled or not mapping.raw_data:
+                    continue
+
+                raw_data = mapping.raw_data
+                columns = raw_data.columns_schema or []
+
+                raw_data_info.append(
+                    {
+                        "id": raw_data.id,
+                        "name": raw_data.name,
+                        "raw_type": raw_data.raw_type,
+                        "column_count": len(columns),
+                        "status": raw_data.status,
+                    }
+                )
+
+                for col in columns:
+                    col_name = col.get("name", "")
+                    normalized = col_name.lower()
+
+                    if normalized not in all_columns:
+                        all_columns[normalized] = {
+                            "name": col_name,
+                            "data_type": col.get("data_type", "unknown"),
+                            "nullable": col.get("nullable", True),
+                            "sources": [],
+                        }
+
+                    all_columns[normalized]["sources"].append(raw_data.name)
+
+        # 构建 schema_cache
+        schema_cache: dict[str, Any] = {
+            "columns": list(all_columns.values()),
+            "raw_data_sources": raw_data_info,
+            "synced_at": datetime.now().isoformat(),
+        }
+
+        return await self.repo.update(data_source, {"schema_cache": schema_cache})

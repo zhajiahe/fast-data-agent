@@ -13,7 +13,13 @@ from app.schemas.data_source import (
     DataSourcePreviewResponse,
     DataSourceResponse,
     DataSourceUpdate,
+    FieldMappingSuggestionResponse,
     RawMappingResponse,
+    SuggestedTargetField,
+    SuggestMappingsRequest,
+    SuggestMappingsResponse,
+    SuggestTargetFieldsRequest,
+    SuggestTargetFieldsResponse,
     TargetField,
 )
 from app.services.data_source import DataSourceService
@@ -188,4 +194,160 @@ async def preview_data_source(
             source_stats={},
             preview_at=datetime.now().isoformat(),
         ),
+    )
+
+
+@router.post("/suggest-mappings", response_model=BaseResponse[SuggestMappingsResponse])
+async def suggest_field_mappings(
+    request: SuggestMappingsRequest,
+    current_user: CurrentUser,
+    db: DBSession,
+):
+    """
+    智能字段映射建议
+
+    根据目标字段和原始数据的列信息，推荐最佳的字段映射关系。
+    基于字段名相似度、同义词匹配和数据类型兼容性进行匹配。
+    """
+    from app.repositories.raw_data import RawDataRepository
+    from app.services.field_mapping import FieldMappingService
+
+    # 获取所有指定的 RawData
+    raw_data_repo = RawDataRepository(db)
+    raw_data_list = await raw_data_repo.get_by_ids(request.raw_data_ids, current_user.id)
+
+    if not raw_data_list:
+        return BaseResponse(
+            success=True,
+            code=200,
+            msg="未找到匹配的原始数据",
+            data=SuggestMappingsResponse(suggestions=[]),
+        )
+
+    # 构建原始数据源信息
+    raw_data_sources = [
+        {
+            "id": rd.id,
+            "name": rd.name,
+            "columns_schema": rd.columns_schema,
+        }
+        for rd in raw_data_list
+    ]
+
+    # 构建目标字段信息
+    target_fields = [f.model_dump() for f in request.target_fields]
+
+    # 获取建议
+    mapping_service = FieldMappingService()
+    suggestions = mapping_service.suggest_mappings(target_fields, raw_data_sources)
+
+    return BaseResponse(
+        success=True,
+        code=200,
+        msg="获取字段映射建议成功",
+        data=SuggestMappingsResponse(
+            suggestions=[
+                FieldMappingSuggestionResponse(
+                    target_field=s.target_field,
+                    source_field=s.source_field,
+                    raw_data_id=s.raw_data_id,
+                    raw_data_name=s.raw_data_name,
+                    confidence=s.confidence,
+                    reason=s.reason,
+                )
+                for s in suggestions
+            ]
+        ),
+    )
+
+
+@router.post("/suggest-target-fields", response_model=BaseResponse[SuggestTargetFieldsResponse])
+async def suggest_target_fields(
+    request: SuggestTargetFieldsRequest,
+    current_user: CurrentUser,
+    db: DBSession,
+):
+    """
+    从原始数据推断目标字段
+
+    分析多个 RawData 的列结构，合并推断出最佳的目标字段定义。
+    """
+    from app.repositories.raw_data import RawDataRepository
+    from app.services.field_mapping import FieldMappingService
+
+    # 获取所有指定的 RawData
+    raw_data_repo = RawDataRepository(db)
+    raw_data_list = await raw_data_repo.get_by_ids(request.raw_data_ids, current_user.id)
+
+    if not raw_data_list:
+        return BaseResponse(
+            success=True,
+            code=200,
+            msg="未找到匹配的原始数据",
+            data=SuggestTargetFieldsResponse(fields=[]),
+        )
+
+    # 构建原始数据源信息
+    raw_data_sources = [
+        {
+            "id": rd.id,
+            "name": rd.name,
+            "columns_schema": rd.columns_schema,
+        }
+        for rd in raw_data_list
+    ]
+
+    # 获取推荐的目标字段
+    mapping_service = FieldMappingService()
+    suggested_fields = mapping_service.suggest_target_fields_from_raw(raw_data_sources)
+
+    return BaseResponse(
+        success=True,
+        code=200,
+        msg="推断目标字段成功",
+        data=SuggestTargetFieldsResponse(
+            fields=[
+                SuggestedTargetField(
+                    name=f["name"],
+                    data_type=f["data_type"],
+                    description=f.get("description"),
+                    source_count=f.get("source_count", 1),
+                )
+                for f in suggested_fields
+            ]
+        ),
+    )
+
+
+@router.post("/{data_source_id}/refresh-schema", response_model=BaseResponse[DataSourceResponse])
+async def refresh_data_source_schema(
+    data_source_id: int,
+    current_user: CurrentUser,
+    db: DBSession,
+):
+    """
+    刷新数据源 Schema
+
+    重新从各 RawData 获取列信息并更新 schema_cache
+    """
+    from app.core.exceptions import NotFoundException
+
+    service = DataSourceService(db)
+
+    # 验证数据源存在
+    data_source = await service.get_data_source_with_mappings(data_source_id, current_user.id)
+    if not data_source:
+        raise NotFoundException(msg="数据源不存在")
+
+    # 刷新 schema
+    await service.refresh_schema_cache(data_source_id, current_user.id)
+
+    # 重新获取
+    item = await service.get_data_source_with_mappings(data_source_id, current_user.id)
+
+    return BaseResponse(
+        success=True,
+        code=200,
+        msg="刷新 Schema 成功",
+        data=_build_response(item, include_mappings=True),
     )
