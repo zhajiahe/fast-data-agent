@@ -14,46 +14,12 @@ from collections.abc import AsyncGenerator
 from typing import Any
 
 from langchain.agents import create_agent
-from langchain_core.messages import BaseMessage, HumanMessage, AIMessage
+from langchain_core.messages import AIMessage, BaseMessage, HumanMessage
 from langchain_openai import ChatOpenAI
 from loguru import logger
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
-
-# ==================== LLM 实例缓存 ====================
-
-
-class LLMCache:
-    """
-    LLM 实例缓存
-    - 避免重复创建 LLM 实例的开销（~180ms）
-    - 按温度参数缓存不同实例
-    """
-
-    _instances: dict[float, ChatOpenAI] = {}
-
-    @classmethod
-    def get(cls, temperature: float = 0.0) -> ChatOpenAI:
-        """获取或创建 LLM 实例"""
-        if temperature not in cls._instances:
-            cls._instances[temperature] = ChatOpenAI(
-                model=settings.LLM_MODEL,
-                temperature=temperature,
-                api_key=settings.OPENAI_API_KEY,  # type: ignore[arg-type]
-                base_url=settings.OPENAI_API_BASE,
-                timeout=60,
-                streaming=True,
-            )
-            logger.debug(f"创建 LLM 实例: temperature={temperature}")
-        return cls._instances[temperature]
-
-    @classmethod
-    def clear(cls) -> None:
-        """清空缓存"""
-        cls._instances.clear()
-
-
 from app.models.data_source import DataSource
 from app.models.message import ChatMessage
 from app.models.session import AnalysisSession
@@ -98,8 +64,16 @@ class ChatService:
         ]
 
     def _get_llm(self, *, temperature: float = 0.0):
-        """获取 LLM 实例（使用缓存）"""
-        return LLMCache.get(temperature)
+        """获取 LLM 实例（每次新建，避免全局共享状态）"""
+        logger.debug(f"创建 LLM 实例: temperature={temperature}")
+        return ChatOpenAI(
+            model=settings.LLM_MODEL,
+            temperature=temperature,
+            api_key=settings.OPENAI_API_KEY,  # type: ignore[arg-type]
+            base_url=settings.OPENAI_API_BASE,
+            timeout=60,
+            streaming=True,
+        )
 
     def _format_data_sources(self, data_sources: list[DataSource]) -> str:
         """格式化数据源信息供 LLM 使用"""
@@ -388,6 +362,7 @@ class ChatService:
                     await self.db.commit()
 
         except Exception as e:
+            logger.exception("聊天流处理失败: {}", e)
             yield {
                 "error": {"message": str(e), "type": type(e).__name__},
             }
