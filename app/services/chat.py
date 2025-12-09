@@ -28,6 +28,7 @@ from app.repositories.message import ChatMessageRepository
 from app.utils.tools import (
     ChatContext,
     DataSourceContext,
+    RawDataContext,
     execute_python,
     execute_sql,
     generate_chart,
@@ -84,18 +85,19 @@ class ChatService:
         for ds in data_sources:
             # 基础信息
             lines.append(f"- **{ds.name}** (ID: {ds.id})")
-            lines.append(f"  - 类型: {ds.source_type}")
+            if ds.category:
+                lines.append(f"  - 分类: {ds.category}")
             lines.append(f'  - SQL 访问: `SELECT * FROM "{ds.name}" LIMIT 10`')
             if ds.description:
                 lines.append(f"  - 描述: {ds.description}")
-            if ds.schema_cache:
-                tables = ds.schema_cache.get("tables", [])
-                if tables:
-                    table_names = [t.get("name", "") for t in tables[:5]]
-                    info = ", ".join(table_names)
-                    if len(tables) > 5:
-                        info += f" 等共 {len(tables)} 个表"
-                    lines.append(f"  - 包含表: {info}")
+
+            # 目标字段
+            if ds.target_fields:
+                field_names = [f.get("name", "") for f in ds.target_fields[:5]]
+                info = ", ".join(field_names)
+                if len(ds.target_fields) > 5:
+                    info += f" 等共 {len(ds.target_fields)} 个字段"
+                lines.append(f"  - 字段: {info}")
 
         return "\n".join(lines)
 
@@ -190,26 +192,54 @@ class ChatService:
         """将 DataSource 模型转换为 DataSourceContext"""
         contexts = []
         for ds in data_sources:
-            # 构建基础参数
+            # 构建原始数据上下文列表
+            raw_data_list: list[RawDataContext] = []
+            if ds.raw_mappings:
+                for mapping in ds.raw_mappings:
+                    raw = mapping.raw_data
+                    if not raw:
+                        continue
+
+                    raw_ctx_data: dict[str, Any] = {
+                        "id": raw.id,
+                        "name": raw.name,
+                        "raw_type": raw.raw_type,
+                    }
+
+                    if raw.raw_type == "file" and raw.uploaded_file:
+                        raw_ctx_data.update(
+                            {
+                                "file_type": raw.uploaded_file.file_type,
+                                "object_key": raw.uploaded_file.object_key,
+                                "bucket_name": raw.uploaded_file.bucket_name,
+                            }
+                        )
+                    elif raw.raw_type == "database_table" and raw.connection:
+                        raw_ctx_data.update(
+                            {
+                                "connection_id": raw.connection_id,
+                                "db_type": raw.connection.db_type,
+                                "host": raw.connection.host,
+                                "port": raw.connection.port,
+                                "database": raw.connection.database,
+                                "username": raw.connection.username,
+                                "password": raw.connection.password,
+                                "schema_name": raw.schema_name,
+                                "table_name": raw.table_name,
+                            }
+                        )
+
+                    raw_data_list.append(RawDataContext(**raw_ctx_data))
+
+            # 构建数据源上下文
             ctx_data: dict[str, Any] = {
                 "id": ds.id,
                 "name": ds.name,
-                "source_type": ds.source_type,
+                "description": ds.description,
+                "category": ds.category,
+                "raw_data_list": raw_data_list,
+                "target_fields": ds.target_fields,
             }
-
-            if ds.source_type == "file" and ds.uploaded_file:
-                # 文件类型数据源
-                ctx_data["file_type"] = ds.uploaded_file.file_type
-                ctx_data["object_key"] = ds.uploaded_file.object_key
-                ctx_data["bucket_name"] = ds.uploaded_file.bucket_name
-            elif ds.source_type == "database":
-                # 数据库类型数据源
-                ctx_data["db_type"] = ds.db_type
-                ctx_data["host"] = ds.host
-                ctx_data["port"] = ds.port
-                ctx_data["database"] = ds.database
-                ctx_data["username"] = ds.username
-                ctx_data["password"] = ds.password
 
             contexts.append(DataSourceContext(**ctx_data))
 
@@ -278,7 +308,7 @@ class ChatService:
         Yields:
             流式 (message, metadata) 元组，或 error dict
         """
-        # 获取会话关联的数据源
+        # 获取会话关联的数据源（包含 raw_mappings）
         data_source_ids = session.data_source_ids or []
         data_sources: list[DataSource] = []
         if data_source_ids:

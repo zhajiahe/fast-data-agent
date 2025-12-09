@@ -277,12 +277,12 @@ async def _stream_chat_response(
                             yield builder.text_end()
 
                         for tool_call in message.tool_calls:
-                            tool_call_id = tool_call.get("id", f"call_{uuid.uuid4().hex[:8]}")
+                            tool_call_id = tool_call.get("id") or f"call_{uuid.uuid4().hex[:8]}"
                             if tool_call_id in sent_tool_inputs:
                                 continue
                             sent_tool_inputs.add(tool_call_id)
 
-                            tool_name = tool_call.get("name", "unknown")
+                            tool_name = tool_call.get("name") or "unknown"
                             tool_args = tool_call.get("args", {})
                             yield builder.tool_input_start(tool_call_id, tool_name)
                             yield builder.tool_input_available(tool_call_id, tool_name, tool_args)

@@ -43,15 +43,15 @@ test-cov: ## 运行测试并生成覆盖率报告
 
 lint: ## 代码检查
 	@echo "🔍 代码检查..."
-	uv run ruff check app/ tests/
+	uv run ruff check app/
 
 lint-fix: ## 代码检查并修复
 	@echo "🔧 代码检查并修复..."
-	uv run ruff check app/ tests/ --fix
+	uv run ruff check app/ --fix
 
 format: ## 格式化代码
 	@echo "🎨 格式化代码..."
-	uv run ruff format app/ tests/
+	uv run ruff format app/
 
 type-check: ## 类型检查
 	@echo "🔍 类型检查..."

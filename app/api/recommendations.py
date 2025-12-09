@@ -15,8 +15,8 @@ from app.schemas.recommendation import (
     TaskRecommendationResponse,
     TaskRecommendationUpdate,
 )
-from app.services.session import AnalysisSessionService
 from app.services.recommend import RecommendService
+from app.services.session import AnalysisSessionService
 
 router = APIRouter(prefix="/sessions/{session_id}/recommendations", tags=["recommendations"])
 

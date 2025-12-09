@@ -4,12 +4,12 @@
 
 from typing import Any
 
-from fastapi import APIRouter, Depends, File, UploadFile, status
+from fastapi import APIRouter, Depends, UploadFile, status
 from fastapi.responses import StreamingResponse
 
 from app.core.deps import CurrentUser, DBSession
 from app.models.base import BasePageQuery, BaseResponse, PageResponse
-from app.utils.tools import get_sandbox_client
+from app.schemas.data_source import DataSourceResponse
 from app.schemas.session import (
     AnalysisSessionCreate,
     AnalysisSessionDetail,
@@ -17,8 +17,8 @@ from app.schemas.session import (
     AnalysisSessionResponse,
     AnalysisSessionUpdate,
 )
-from app.schemas.data_source import DataSourceResponse
 from app.services.session import AnalysisSessionService
+from app.utils.tools import get_sandbox_client
 
 router = APIRouter(prefix="/sessions", tags=["sessions"])
 
@@ -36,14 +36,16 @@ async def get_sessions(
         user_id=current_user.id,
         query_params=query_params,
         page_num=page_query.page_num,
-        page_size=page_query.page_size, 
+        page_size=page_query.page_size,
     )
     data_list = [AnalysisSessionResponse.model_validate(item) for item in items]
     return BaseResponse[PageResponse[AnalysisSessionResponse]](
         success=True,
         code=200,
         msg="获取会话列表成功",
-        data=PageResponse[AnalysisSessionResponse](page_num=page_query.page_num, page_size=page_query.page_size, total=total, items=data_list),
+        data=PageResponse[AnalysisSessionResponse](
+            page_num=page_query.page_num, page_size=page_query.page_size, total=total, items=data_list
+        ),
     )
 
 

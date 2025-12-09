@@ -1,9 +1,8 @@
 """
 数据源模型
 
-支持两种类型的数据源：
-1. 数据库连接 (database) - MySQL, PostgreSQL, SQLite 等
-2. 上传文件 (file) - CSV, Excel, JSON 等
+数据源层：基于多个原始数据(RawData)构建的统一数据入口，
+支持字段映射和聚合，为 AI 分析提供清晰的逻辑视图。
 """
 
 from enum import Enum
@@ -15,19 +14,13 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.models.base import Base, BaseTableMixin
 
 
-class DataSourceType(str, Enum):
-    """数据源类型"""
+class DataSourceCategory(str, Enum):
+    """数据源分类"""
 
-    DATABASE = "database"  # 数据库连接
-    FILE = "file"  # 上传文件
-
-
-class DatabaseType(str, Enum):
-    """数据库类型"""
-
-    MYSQL = "mysql"
-    POSTGRESQL = "postgresql"
-    SQLITE = "sqlite"
+    FACT = "fact"  # 事实类
+    DIMENSION = "dimension"  # 维度类
+    EVENT = "event"  # 事件类
+    OTHER = "other"  # 其他
 
 
 class FileType(str, Enum):
@@ -44,7 +37,7 @@ class DataSource(Base, BaseTableMixin):
     """
     数据源配置表
 
-    存储用户配置的数据库连接或上传文件的元信息
+    基于多个 RawData 构建，支持字段映射和聚合
     """
 
     __tablename__ = "data_sources"
@@ -52,41 +45,74 @@ class DataSource(Base, BaseTableMixin):
     # 基本信息
     name: Mapped[str] = mapped_column(String(100), nullable=False, comment="数据源名称")
     description: Mapped[str | None] = mapped_column(Text, nullable=True, comment="数据源描述")
-    source_type: Mapped[str] = mapped_column(
-        String(20), nullable=False, default=DataSourceType.DATABASE.value, comment="数据源类型: database/file"
+    category: Mapped[str | None] = mapped_column(
+        String(20), nullable=True, comment="数据源分类: fact/dimension/event/other"
     )
-    group_name: Mapped[str | None] = mapped_column(String(100), nullable=True, index=True, comment="数据源分组名称")
 
     # 所属用户
     user_id: Mapped[int] = mapped_column(
         Integer, ForeignKey("users.id"), nullable=False, index=True, comment="所属用户ID"
     )
 
-    # 数据库连接配置 (source_type=database 时使用)
-    db_type: Mapped[str | None] = mapped_column(String(20), nullable=True, comment="数据库类型")
-    host: Mapped[str | None] = mapped_column(String(255), nullable=True, comment="数据库主机")
-    port: Mapped[int | None] = mapped_column(Integer, nullable=True, comment="数据库端口")
-    database: Mapped[str | None] = mapped_column(String(100), nullable=True, comment="数据库名")
-    username: Mapped[str | None] = mapped_column(String(100), nullable=True, comment="用户名")
-    password: Mapped[str | None] = mapped_column(String(255), nullable=True, comment="加密密码")
-    extra_params: Mapped[dict | None] = mapped_column(JSONB, nullable=True, comment="额外连接参数(JSON)")
-
-    # 文件配置 (source_type=file 时使用，关联到 UploadedFile)
-    file_id: Mapped[int | None] = mapped_column(
-        Integer, ForeignKey("uploaded_files.id"), nullable=True, comment="关联的上传文件ID"
+    # 目标字段定义（统一后的逻辑字段）
+    # 格式: [{name: string, data_type: string, description?: string}]
+    target_fields: Mapped[dict | None] = mapped_column(
+        JSONB, nullable=True, comment="目标字段定义(JSON): [{name, data_type, description}]"
     )
 
-    # 元数据缓存（表结构、字段信息等）
+    # 元数据缓存（合并后的表结构、统计信息等）
     schema_cache: Mapped[dict | None] = mapped_column(JSONB, nullable=True, comment="表结构缓存(JSON)")
 
-    # 记忆（关于数据源的记忆）
+    # 记忆（关于数据源的记忆，供 AI 使用）
     insights: Mapped[dict | None] = mapped_column(JSONB, nullable=True, comment="数据源记忆(JSON)")
 
     # 关系
     user: Mapped["User"] = relationship("User", back_populates="data_sources")  # type: ignore  # noqa: F821
-    uploaded_file: Mapped["UploadedFile | None"] = relationship(  # type: ignore  # noqa: F821
-        "UploadedFile", back_populates="data_source"
+
+    # 关联多个 RawData（通过中间表）
+    raw_mappings: Mapped[list["DataSourceRawMapping"]] = relationship(
+        "DataSourceRawMapping", back_populates="data_source", cascade="all, delete-orphan"
     )
 
     def __repr__(self) -> str:
-        return f"<DataSource(id={self.id}, name={self.name}, type={self.source_type})>"
+        return f"<DataSource(id={self.id}, name={self.name})>"
+
+
+class DataSourceRawMapping(Base, BaseTableMixin):
+    """
+    数据源与原始数据的映射表
+
+    存储每个 RawData 到 DataSource 目标字段的映射关系
+    """
+
+    __tablename__ = "data_source_raw_mappings"
+
+    # 关联
+    data_source_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("data_sources.id"), nullable=False, index=True, comment="数据源ID"
+    )
+    raw_data_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("raw_data.id"), nullable=False, index=True, comment="原始数据ID"
+    )
+
+    # 字段映射配置
+    # 格式: {"target_field": "source_field_or_expression", ...}
+    # 例如: {"order_id": "id", "customer_id": "customer_id", "discount": null}
+    field_mappings: Mapped[dict] = mapped_column(
+        JSONB, nullable=False, default=dict, comment="字段映射(JSON): {target_field: source_field/expression}"
+    )
+
+    # 映射顺序（用于合并时的优先级）
+    priority: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=0, comment="映射优先级（数值越大优先级越高）"
+    )
+
+    # 是否启用
+    is_enabled: Mapped[bool] = mapped_column(default=True, comment="是否启用该映射")
+
+    # 关系
+    data_source: Mapped["DataSource"] = relationship("DataSource", back_populates="raw_mappings")
+    raw_data: Mapped["RawData"] = relationship("RawData", back_populates="data_source_mappings")  # type: ignore  # noqa: F821
+
+    def __repr__(self) -> str:
+        return f"<DataSourceRawMapping(ds_id={self.data_source_id}, raw_id={self.raw_data_id})>"

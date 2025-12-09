@@ -74,7 +74,7 @@ class ChatMessageRepository(BaseRepository[ChatMessage]):
         query = delete(ChatMessage).where(ChatMessage.session_id == session_id)
         result = await self.db.execute(query)
         await self.db.flush()
-        return result.rowcount or 0
+        return getattr(result, "rowcount", 0) or 0
 
     async def save_langchain_message(
         self,

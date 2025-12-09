@@ -18,13 +18,13 @@ from pydantic import BaseModel, Field, ValidationError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
-from app.models.session import AnalysisSession
 from app.models.data_source import DataSource
 from app.models.recommendation import (
     RecommendationCategory,
     RecommendationSourceType,
     TaskRecommendation,
 )
+from app.models.session import AnalysisSession
 from app.repositories.recommendation import TaskRecommendationRepository
 
 # ==================== 数据模型 ====================
@@ -146,7 +146,7 @@ class RecommendService:
 
         if not schema_info:
             # 如果没有 Schema 信息，尝试使用数据源名称生成推荐
-            logger.warning(f"数据源没有 Schema 缓存，使用数据源名称生成推荐")
+            logger.warning("数据源没有 Schema 缓存，使用数据源名称生成推荐")
             return self._get_recommendations_without_schema(data_sources)
 
         # 使用 LLM 生成推荐
@@ -218,8 +218,8 @@ class RecommendService:
         for ds in data_sources:
             if ds.schema_cache:
                 schema_info[ds.name] = {
-                    "type": ds.source_type,
-                    "db_type": ds.db_type,
+                    "category": ds.category,
+                    "target_fields": ds.target_fields,
                     "tables": ds.schema_cache.get("tables", []),
                 }
         return schema_info
@@ -401,33 +401,17 @@ class RecommendService:
         )
         priority += 1
 
-        # 检查数据源类型生成相应推荐
-        has_file = any(ds.source_type == "file" for ds in data_sources)
-        has_db = any(ds.source_type == "database" for ds in data_sources)
-
-        if has_file:
-            recommendations.append(
-                RecommendationItem(
-                    title="查看文件数据预览",
-                    description="预览文件内容，了解数据格式和字段类型",
-                    category=RecommendationCategory.OVERVIEW.value,
-                    priority=priority,
-                    source_type=RecommendationSourceType.INITIAL.value,
-                )
+        # 添加通用推荐
+        recommendations.append(
+            RecommendationItem(
+                title="查看数据预览",
+                description="预览数据内容，了解数据格式和字段类型",
+                category=RecommendationCategory.OVERVIEW.value,
+                priority=priority,
+                source_type=RecommendationSourceType.INITIAL.value,
             )
-            priority += 1
-
-        if has_db:
-            recommendations.append(
-                RecommendationItem(
-                    title="查看数据库表结构",
-                    description="了解数据库中的表和字段信息",
-                    category=RecommendationCategory.OVERVIEW.value,
-                    priority=priority,
-                    source_type=RecommendationSourceType.INITIAL.value,
-                )
-            )
-            priority += 1
+        )
+        priority += 1
 
         recommendations.append(
             RecommendationItem(

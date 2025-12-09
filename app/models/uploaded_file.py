@@ -48,8 +48,9 @@ class UploadedFile(Base, BaseTableMixin):
 
     # 关系
     user: Mapped["User"] = relationship("User", back_populates="uploaded_files")  # type: ignore  # noqa: F821
-    data_source: Mapped["DataSource | None"] = relationship(  # type: ignore  # noqa: F821
-        "DataSource", back_populates="uploaded_file", uselist=False
+    # 关联原始数据（一个文件对应一个 RawData）
+    raw_data: Mapped["RawData | None"] = relationship(  # type: ignore  # noqa: F821
+        "RawData", back_populates="uploaded_file", uselist=False
     )
 
     def __repr__(self) -> str:

@@ -48,25 +48,43 @@ def get_sandbox_client() -> httpx.AsyncClient:
     return SandboxHttpClient.get_client()
 
 
-class DataSourceContext(BaseModel):
-    """数据源上下文信息"""
+class RawDataContext(BaseModel):
+    """原始数据上下文信息"""
 
     id: int
     name: str
-    source_type: str  # "file" 或 "database"
+    raw_type: str  # "database_table" 或 "file"
 
     # 文件类型
     file_type: str | None = None
     object_key: str | None = None
     bucket_name: str | None = None
 
-    # 数据库类型
+    # 数据库表类型
+    connection_id: int | None = None
     db_type: str | None = None
     host: str | None = None
     port: int | None = None
     database: str | None = None
     username: str | None = None
     password: str | None = None
+    schema_name: str | None = None
+    table_name: str | None = None
+
+
+class DataSourceContext(BaseModel):
+    """数据源上下文信息"""
+
+    id: int
+    name: str
+    description: str | None = None
+    category: str | None = None
+
+    # 关联的原始数据
+    raw_data_list: list[RawDataContext] = Field(default_factory=list)
+
+    # 目标字段定义
+    target_fields: list[dict[str, Any]] | None = None
 
 
 class ChatContext(BaseModel):
@@ -185,30 +203,35 @@ async def quick_analysis(
         error_msg = f"数据源 {data_source_id} 不在当前会话的可用数据源列表中"
         return error_msg, {"type": "error", "error": error_msg}
 
-    # 构建数据源信息传递给沙盒
-    data_source_info: dict[str, Any] = {
-        "source_type": ds_ctx.source_type,
-    }
+    if not ds_ctx.raw_data_list:
+        error_msg = f"数据源 {ds_ctx.name} 没有关联的原始数据"
+        return error_msg, {"type": "error", "error": error_msg}
 
-    if ds_ctx.source_type == "file":
-        data_source_info.update(
-            {
-                "file_type": ds_ctx.file_type,
-                "object_key": ds_ctx.object_key,
-                "bucket_name": ds_ctx.bucket_name,
-            }
-        )
-    elif ds_ctx.source_type == "database":
-        data_source_info.update(
-            {
-                "db_type": ds_ctx.db_type,
-                "host": ds_ctx.host,
-                "port": ds_ctx.port,
-                "database": ds_ctx.database,
-                "username": ds_ctx.username,
-                "password": ds_ctx.password,
-            }
-        )
+    # 使用第一个原始数据进行分析（简化处理）
+    raw = ds_ctx.raw_data_list[0]
+
+    # 构建数据源信息传递给沙盒
+    data_source_info: dict[str, Any] = {}
+
+    if raw.raw_type == "file":
+        data_source_info = {
+            "source_type": "file",
+            "file_type": raw.file_type,
+            "object_key": raw.object_key,
+            "bucket_name": raw.bucket_name,
+        }
+    elif raw.raw_type == "database_table":
+        data_source_info = {
+            "source_type": "database",
+            "db_type": raw.db_type,
+            "host": raw.host,
+            "port": raw.port,
+            "database": raw.database,
+            "username": raw.username,
+            "password": raw.password,
+            "schema_name": raw.schema_name,
+            "table_name": raw.table_name,
+        }
 
     client = get_sandbox_client()
     response = await client.post(
@@ -229,7 +252,7 @@ async def quick_analysis(
 
     # 构建格式化的分析摘要（给 LLM）
     content_lines = [f"## 数据源: {ds_ctx.name} (ID: {ds_ctx.id})"]
-    content_lines.append(f"- 类型: {ds_ctx.source_type}")
+    content_lines.append(f"- 原始数据: {raw.name}")
     content_lines.append(f"- 行数: {analysis.get('row_count', 'N/A')}")
     content_lines.append(f"- 列数: {analysis.get('column_count', 'N/A')}")
 
@@ -313,20 +336,21 @@ async def execute_sql(
     # 构建数据源信息列表传递给沙盒
     data_sources_info = []
     for ds in ctx.data_sources:
-        ds_info: dict[str, Any] = {
-            "id": ds.id,
-            "name": ds.name,
-            "source_type": ds.source_type,
-        }
-        if ds.source_type == "file":
-            ds_info.update(
-                {
-                    "file_type": ds.file_type,
-                    "object_key": ds.object_key,
-                    "bucket_name": ds.bucket_name,
-                }
-            )
-        data_sources_info.append(ds_info)
+        for raw in ds.raw_data_list:
+            ds_info: dict[str, Any] = {
+                "id": ds.id,
+                "name": ds.name,
+            }
+            if raw.raw_type == "file":
+                ds_info.update(
+                    {
+                        "source_type": "file",
+                        "file_type": raw.file_type,
+                        "object_key": raw.object_key,
+                        "bucket_name": raw.bucket_name,
+                    }
+                )
+            data_sources_info.append(ds_info)
 
     client = get_sandbox_client()
     response = await client.post(

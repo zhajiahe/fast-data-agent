@@ -9,14 +9,50 @@ from app.models.base import BasePageQuery, BaseResponse, PageResponse
 from app.schemas.data_source import (
     DataSourceCreate,
     DataSourceListQuery,
+    DataSourcePreviewRequest,
+    DataSourcePreviewResponse,
     DataSourceResponse,
-    DataSourceSchemaResponse,
-    DataSourceTestResult,
     DataSourceUpdate,
+    RawMappingResponse,
+    TargetField,
 )
 from app.services.data_source import DataSourceService
 
 router = APIRouter(prefix="/data-sources", tags=["data-sources"])
+
+
+def _build_response(data_source, include_mappings: bool = False) -> DataSourceResponse:
+    """构建数据源响应"""
+    raw_mappings = None
+    if include_mappings and data_source.raw_mappings:
+        raw_mappings = [
+            RawMappingResponse(
+                id=m.id,
+                raw_data_id=m.raw_data_id,
+                raw_data_name=m.raw_data.name if m.raw_data else None,
+                field_mappings=m.field_mappings,
+                priority=m.priority,
+                is_enabled=m.is_enabled,
+            )
+            for m in data_source.raw_mappings
+        ]
+
+    target_fields = None
+    if data_source.target_fields:
+        target_fields = [TargetField.model_validate(f) for f in data_source.target_fields]
+
+    return DataSourceResponse(
+        id=data_source.id,
+        user_id=data_source.user_id,
+        name=data_source.name,
+        description=data_source.description,
+        category=data_source.category,
+        target_fields=target_fields,
+        schema_cache=data_source.schema_cache,
+        raw_mappings=raw_mappings,
+        create_time=data_source.create_time,
+        update_time=data_source.update_time,
+    )
 
 
 @router.get("", response_model=BaseResponse[PageResponse[DataSourceResponse]])
@@ -34,21 +70,31 @@ async def get_data_sources(
         page_num=page_query.page_num,
         page_size=page_query.page_size,
     )
-    data_list = [DataSourceResponse.model_validate(item) for item in items]
+    data_list = [_build_response(item) for item in items]
     return BaseResponse(
         success=True,
         code=200,
         msg="获取数据源列表成功",
-        data=PageResponse(page_num=page_query.page_num, page_size=page_query.page_size, total=total, items=data_list),
+        data=PageResponse(
+            page_num=page_query.page_num,
+            page_size=page_query.page_size,
+            total=total,
+            items=data_list,
+        ),
     )
 
 
 @router.get("/{data_source_id}", response_model=BaseResponse[DataSourceResponse])
 async def get_data_source(data_source_id: int, current_user: CurrentUser, db: DBSession):
-    """获取单个数据源详情"""
+    """获取单个数据源详情（包含映射信息）"""
     service = DataSourceService(db)
-    item = await service.get_data_source(data_source_id, current_user.id)
-    return BaseResponse(success=True, code=200, msg="获取数据源成功", data=DataSourceResponse.model_validate(item))
+    item = await service.get_data_source_with_mappings(data_source_id, current_user.id)
+    return BaseResponse(
+        success=True,
+        code=200,
+        msg="获取数据源成功",
+        data=_build_response(item, include_mappings=True),
+    )
 
 
 @router.post("", response_model=BaseResponse[DataSourceResponse], status_code=status.HTTP_201_CREATED)
@@ -56,7 +102,14 @@ async def create_data_source(data: DataSourceCreate, current_user: CurrentUser, 
     """创建数据源"""
     service = DataSourceService(db)
     item = await service.create_data_source(current_user.id, data)
-    return BaseResponse(success=True, code=201, msg="创建数据源成功", data=DataSourceResponse.model_validate(item))
+    # 重新获取以包含映射关系
+    item = await service.get_data_source_with_mappings(item.id, current_user.id)
+    return BaseResponse(
+        success=True,
+        code=201,
+        msg="创建数据源成功",
+        data=_build_response(item, include_mappings=True),
+    )
 
 
 @router.put("/{data_source_id}", response_model=BaseResponse[DataSourceResponse])
@@ -68,8 +121,15 @@ async def update_data_source(
 ):
     """更新数据源"""
     service = DataSourceService(db)
-    item = await service.update_data_source(data_source_id, current_user.id, data)
-    return BaseResponse(success=True, code=200, msg="更新数据源成功", data=DataSourceResponse.model_validate(item))
+    await service.update_data_source(data_source_id, current_user.id, data)
+    # 重新获取以包含映射关系
+    item = await service.get_data_source_with_mappings(data_source_id, current_user.id)
+    return BaseResponse(
+        success=True,
+        code=200,
+        msg="更新数据源成功",
+        data=_build_response(item, include_mappings=True),
+    )
 
 
 @router.delete("/{data_source_id}", response_model=BaseResponse[None])
@@ -80,104 +140,52 @@ async def delete_data_source(data_source_id: int, current_user: CurrentUser, db:
     return BaseResponse(success=True, code=200, msg="删除数据源成功", data=None)
 
 
-@router.post("/{data_source_id}/test", response_model=BaseResponse[DataSourceTestResult])
-async def test_data_source_connection(data_source_id: int, current_user: CurrentUser, db: DBSession):
-    """测试数据源连接"""
-    from app.services.db_connector import DBConnectorService
+@router.post("/{data_source_id}/preview", response_model=BaseResponse[DataSourcePreviewResponse])
+async def preview_data_source(
+    data_source_id: int,
+    current_user: CurrentUser,
+    db: DBSession,
+    request: DataSourcePreviewRequest | None = None,
+):
+    """
+    预览数据源（合并后的数据）
+
+    根据字段映射，从各 RawData 获取数据并合并展示
+    """
+    from datetime import datetime
+
+    from app.core.exceptions import BadRequestException
+
+    if request is None:
+        request = DataSourcePreviewRequest()
 
     # 获取数据源
     service = DataSourceService(db)
-    data_source = await service.get_data_source(data_source_id, current_user.id)
+    data_source = await service.get_data_source_with_mappings(data_source_id, current_user.id)
 
-    # 测试连接
-    connector = DBConnectorService()
-    result = await connector.test_connection(data_source)
+    if not data_source.target_fields:
+        raise BadRequestException(msg="数据源未定义目标字段")
 
-    return BaseResponse(success=True, code=200, msg="测试完成", data=result)
+    if not data_source.raw_mappings:
+        raise BadRequestException(msg="数据源未配置原始数据映射")
 
+    # TODO: 实现合并预览逻辑
+    # 1. 遍历每个 raw_mapping
+    # 2. 从对应的 RawData 获取数据
+    # 3. 根据 field_mappings 进行字段转换
+    # 4. 合并所有数据
 
-@router.post("/{data_source_id}/sync-schema", response_model=BaseResponse[DataSourceSchemaResponse])
-async def sync_data_source_schema(data_source_id: int, current_user: CurrentUser, db: DBSession):
-    """同步数据源 Schema"""
-    from app.core.exceptions import BadRequestException
-    from app.models.data_source import DataSourceType
-    from app.schemas.data_source import ColumnSchema, TableSchema
-    from app.services.db_connector import DBConnectorService
-
-    # 获取数据源（包含关联文件）
-    service = DataSourceService(db)
-    data_source = await service.get_data_source_with_file(data_source_id, current_user.id)
-
-    if data_source.source_type == DataSourceType.DATABASE.value:
-        # 数据库类型：使用 DBConnector 提取 schema
-        connector = DBConnectorService()
-        schema = await connector.extract_schema(data_source)
-    elif data_source.source_type == DataSourceType.FILE.value:
-        # 文件类型：从关联的 UploadedFile 获取 schema
-        if not data_source.uploaded_file:
-            raise BadRequestException(msg="文件数据源未关联文件")
-
-        uploaded_file = data_source.uploaded_file
-        if uploaded_file.status != "ready":
-            raise BadRequestException(msg="文件尚未处理完成")
-
-        # 从 columns_info 构建 ColumnSchema
-        columns = []
-        for col_info in uploaded_file.columns_info or []:
-            columns.append(
-                ColumnSchema(
-                    name=col_info.get("name", ""),
-                    data_type=col_info.get("dtype", col_info.get("type", "unknown")),
-                    nullable=col_info.get("nullable", True),
-                    primary_key=False,
-                )
-            )
-
-        # 构建单表 schema（文件作为一个表）
-        table = TableSchema(
-            name=uploaded_file.original_name,
-            columns=columns,
-            row_count=uploaded_file.row_count,
-        )
-        schema = DataSourceSchemaResponse(tables=[table])
-    else:
-        raise BadRequestException(msg=f"不支持的数据源类型: {data_source.source_type}")
-
-    # 更新缓存
-    await service.update_schema_cache(
-        data_source_id, current_user.id, {"tables": [t.model_dump() for t in schema.tables]}
-    )
-
-    return BaseResponse(success=True, code=200, msg="Schema 同步成功", data=schema)
-
-
-@router.get("/{data_source_id}/schema", response_model=BaseResponse[DataSourceSchemaResponse])
-async def get_data_source_schema(data_source_id: int, current_user: CurrentUser, db: DBSession):
-    """获取数据源 Schema（从缓存）"""
-    from datetime import datetime
-
-    from app.schemas.data_source import DataSourceSchemaResponse, TableSchema
-
-    service = DataSourceService(db)
-    data_source = await service.get_data_source(data_source_id, current_user.id)
-
-    if not data_source.schema_cache:
-        return BaseResponse(
-            success=True,
-            code=200,
-            msg="Schema 缓存为空，请先同步",
-            data=DataSourceSchemaResponse(tables=[], synced_at=None),
-        )
-
-    tables = [TableSchema.model_validate(t) for t in data_source.schema_cache.get("tables", [])]
-    synced_at_str = data_source.schema_cache.get("synced_at")
-    synced_at = datetime.fromisoformat(synced_at_str) if synced_at_str else None
+    # 暂时返回空数据
+    columns = [TargetField.model_validate(f) for f in data_source.target_fields]
 
     return BaseResponse(
         success=True,
         code=200,
-        msg="获取 Schema 成功",
-        data=DataSourceSchemaResponse(tables=tables, synced_at=synced_at),
+        msg="预览成功",
+        data=DataSourcePreviewResponse(
+            columns=columns,
+            rows=[],
+            source_stats={},
+            preview_at=datetime.now().isoformat(),
+        ),
     )
-
-

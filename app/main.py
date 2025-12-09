@@ -14,7 +14,9 @@ from loguru import logger
 
 from app.api.chat import router as chat_router
 from app.api.data_sources import router as data_sources_router
+from app.api.database_connections import router as database_connections_router
 from app.api.files import router as files_router
+from app.api.raw_data import router as raw_data_router
 from app.api.recommendations import router as recommendations_router
 from app.api.sessions import router as sessions_router
 from app.api.users import auth_router
@@ -76,6 +78,12 @@ app.include_router(auth_router, prefix="/api/v1")
 
 # 注册用户路由
 app.include_router(users_router, prefix="/api/v1")
+
+# 注册数据库连接路由
+app.include_router(database_connections_router, prefix="/api/v1")
+
+# 注册原始数据路由
+app.include_router(raw_data_router, prefix="/api/v1")
 
 # 注册数据源路由
 app.include_router(data_sources_router, prefix="/api/v1")

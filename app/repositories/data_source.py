@@ -4,11 +4,11 @@
 封装数据源相关的数据库操作
 """
 
-from sqlalchemy import or_, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from app.models.data_source import DataSource, DataSourceType
+from app.models.data_source import DataSource, DataSourceCategory, DataSourceRawMapping
 from app.repositories.base import BaseRepository
 
 
@@ -25,17 +25,7 @@ class DataSourceRepository(BaseRepository[DataSource]):
         skip: int = 0,
         limit: int = 100,
     ) -> list[DataSource]:
-        """
-        获取用户的数据源列表
-
-        Args:
-            user_id: 用户 ID
-            skip: 跳过的记录数
-            limit: 返回的最大记录数
-
-        Returns:
-            数据源列表
-        """
+        """获取用户的数据源列表"""
         return await self.get_all(skip=skip, limit=limit, filters={"user_id": user_id})
 
     async def search(
@@ -43,7 +33,7 @@ class DataSourceRepository(BaseRepository[DataSource]):
         user_id: int,
         *,
         keyword: str | None = None,
-        source_type: DataSourceType | None = None,
+        category: DataSourceCategory | None = None,
         skip: int = 0,
         limit: int = 100,
     ) -> tuple[list[DataSource], int]:
@@ -53,39 +43,36 @@ class DataSourceRepository(BaseRepository[DataSource]):
         Args:
             user_id: 用户 ID
             keyword: 搜索关键词
-            source_type: 数据源类型
+            category: 数据源分类
             skip: 跳过的记录数
             limit: 返回的最大记录数
 
         Returns:
             (数据源列表, 总数) 元组
         """
-        from sqlalchemy import func
-
         # 基础查询
-        query = select(DataSource).where(DataSource.user_id == user_id, DataSource.deleted == 0)
-        count_query = select(DataSource).where(DataSource.user_id == user_id, DataSource.deleted == 0)
+        base_filter = [DataSource.user_id == user_id, DataSource.deleted == 0]
 
         # 关键词搜索
         if keyword:
-            keyword_filter = or_(
-                DataSource.name.like(f"%{keyword}%"),
-                DataSource.description.like(f"%{keyword}%"),
+            base_filter.append(
+                or_(
+                    DataSource.name.like(f"%{keyword}%"),
+                    DataSource.description.like(f"%{keyword}%"),
+                )
             )
-            query = query.where(keyword_filter)
-            count_query = count_query.where(keyword_filter)
 
-        # 类型过滤
-        if source_type:
-            query = query.where(DataSource.source_type == source_type.value)
-            count_query = count_query.where(DataSource.source_type == source_type.value)
+        # 分类过滤
+        if category:
+            base_filter.append(DataSource.category == category.value)
 
         # 获取总数
-        count_result = await self.db.execute(select(func.count()).select_from(count_query.subquery()))
+        count_query = select(func.count()).select_from(DataSource).where(*base_filter)
+        count_result = await self.db.execute(count_query)
         total = count_result.scalar() or 0
 
         # 分页查询
-        query = query.order_by(DataSource.create_time.desc()).offset(skip).limit(limit)
+        query = select(DataSource).where(*base_filter).order_by(DataSource.create_time.desc()).offset(skip).limit(limit)
         result = await self.db.execute(query)
         items = list(result.scalars().all())
 
@@ -93,18 +80,18 @@ class DataSourceRepository(BaseRepository[DataSource]):
 
     async def get_by_ids(self, ids: list[int], user_id: int) -> list[DataSource]:
         """
-        根据 ID 列表获取数据源（包含关联的 uploaded_file）
+        根据 ID 列表获取数据源（包含关联的 raw_mappings）
 
         Args:
             ids: ID 列表
-            user_id: 用户 ID（确保只能获取自己的数据源）
+            user_id: 用户 ID
 
         Returns:
             数据源列表
         """
         query = (
             select(DataSource)
-            .options(selectinload(DataSource.uploaded_file))  # 预加载文件关系
+            .options(selectinload(DataSource.raw_mappings).selectinload(DataSourceRawMapping.raw_data))
             .where(
                 DataSource.id.in_(ids),
                 DataSource.user_id == user_id,
@@ -114,18 +101,26 @@ class DataSourceRepository(BaseRepository[DataSource]):
         result = await self.db.execute(query)
         return list(result.scalars().all())
 
-    async def name_exists(self, name: str, user_id: int, exclude_id: int | None = None) -> bool:
+    async def get_with_mappings(self, id: int) -> DataSource | None:
         """
-        检查数据源名称是否已存在
+        获取数据源（包含关联的 raw_mappings 和 raw_data）
 
         Args:
-            name: 数据源名称
-            user_id: 用户 ID
-            exclude_id: 排除的 ID
+            id: 数据源 ID
 
         Returns:
-            是否存在
+            数据源实例或 None
         """
+        query = (
+            select(DataSource)
+            .options(selectinload(DataSource.raw_mappings).selectinload(DataSourceRawMapping.raw_data))
+            .where(DataSource.id == id, DataSource.deleted == 0)
+        )
+        result = await self.db.execute(query)
+        return result.scalar_one_or_none()
+
+    async def name_exists(self, name: str, user_id: int, exclude_id: int | None = None) -> bool:
+        """检查数据源名称是否已存在"""
         query = select(DataSource).where(
             DataSource.name == name,
             DataSource.user_id == user_id,
@@ -136,20 +131,40 @@ class DataSourceRepository(BaseRepository[DataSource]):
         result = await self.db.execute(query)
         return result.scalar_one_or_none() is not None
 
-    async def get_with_file(self, id: int) -> DataSource | None:
-        """
-        获取数据源（包含关联的 uploaded_file）
 
-        Args:
-            id: 数据源 ID
+class DataSourceRawMappingRepository(BaseRepository[DataSourceRawMapping]):
+    """数据源-原始数据映射数据访问层"""
 
-        Returns:
-            数据源实例或 None
-        """
+    def __init__(self, db: AsyncSession):
+        super().__init__(DataSourceRawMapping, db)
+
+    async def get_by_data_source(self, data_source_id: int) -> list[DataSourceRawMapping]:
+        """获取数据源的所有映射"""
         query = (
-            select(DataSource)
-            .options(selectinload(DataSource.uploaded_file))
-            .where(DataSource.id == id, DataSource.deleted == 0)
+            select(DataSourceRawMapping)
+            .options(selectinload(DataSourceRawMapping.raw_data))
+            .where(
+                DataSourceRawMapping.data_source_id == data_source_id,
+                DataSourceRawMapping.deleted == 0,
+            )
+            .order_by(DataSourceRawMapping.priority.desc())
         )
         result = await self.db.execute(query)
-        return result.scalar_one_or_none()
+        return list(result.scalars().all())
+
+    async def delete_by_data_source(self, data_source_id: int) -> int:
+        """删除数据源的所有映射（软删除）"""
+        query = select(DataSourceRawMapping).where(
+            DataSourceRawMapping.data_source_id == data_source_id,
+            DataSourceRawMapping.deleted == 0,
+        )
+        result = await self.db.execute(query)
+        mappings = result.scalars().all()
+
+        count = 0
+        for mapping in mappings:
+            mapping.deleted = 1
+            count += 1
+
+        await self.db.flush()
+        return count

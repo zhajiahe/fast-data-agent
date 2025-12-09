@@ -6,8 +6,10 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.models.base import Base, BaseTableMixin
 
 if TYPE_CHECKING:
-    from app.models.session import AnalysisSession
     from app.models.data_source import DataSource
+    from app.models.database_connection import DatabaseConnection
+    from app.models.raw_data import RawData
+    from app.models.session import AnalysisSession
     from app.models.uploaded_file import UploadedFile
 
 
@@ -32,6 +34,14 @@ class User(Base, BaseTableMixin):
     )
     analysis_sessions: Mapped[list["AnalysisSession"]] = relationship(
         "AnalysisSession", back_populates="user", cascade="all, delete-orphan"
+    )
+    # 新增：数据库连接
+    database_connections: Mapped[list["DatabaseConnection"]] = relationship(
+        "DatabaseConnection", back_populates="user", cascade="all, delete-orphan"
+    )
+    # 新增：原始数据
+    raw_data_list: Mapped[list["RawData"]] = relationship(
+        "RawData", back_populates="user", cascade="all, delete-orphan"
     )
 
     def __repr__(self) -> str:

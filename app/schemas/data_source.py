@@ -7,7 +7,24 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 
-from app.models.data_source import DatabaseType, DataSourceType
+from app.models.data_source import DataSourceCategory
+
+
+class TargetField(BaseModel):
+    """目标字段定义"""
+
+    name: str = Field(..., min_length=1, max_length=100, description="字段名")
+    data_type: str = Field(..., description="数据类型")
+    description: str | None = Field(default=None, description="字段描述")
+
+
+class FieldMapping(BaseModel):
+    """单个 Raw 的字段映射"""
+
+    raw_data_id: int = Field(..., description="原始数据ID")
+    mappings: dict[str, str | None] = Field(..., description="字段映射: {target_field: source_field_or_null}")
+    priority: int = Field(default=0, description="优先级（数值越大优先级越高）")
+    is_enabled: bool = Field(default=True, description="是否启用")
 
 
 class DataSourceBase(BaseModel):
@@ -15,30 +32,16 @@ class DataSourceBase(BaseModel):
 
     name: str = Field(..., min_length=1, max_length=100, description="数据源名称")
     description: str | None = Field(default=None, description="数据源描述")
-    source_type: DataSourceType = Field(default=DataSourceType.DATABASE, description="数据源类型")
-    group_name: str | None = Field(default=None, max_length=100, description="数据源分组名称")
-
-
-class DatabaseConnectionConfig(BaseModel):
-    """数据库连接配置"""
-
-    db_type: DatabaseType = Field(..., description="数据库类型")
-    host: str = Field(..., min_length=1, max_length=255, description="数据库主机")
-    port: int = Field(..., ge=1, le=65535, description="数据库端口")
-    database: str = Field(..., min_length=1, max_length=100, description="数据库名")
-    username: str = Field(..., min_length=1, max_length=100, description="用户名")
-    password: str = Field(..., min_length=1, max_length=255, description="密码")
-    extra_params: dict[str, Any] | None = Field(default=None, description="额外连接参数")
+    category: DataSourceCategory | None = Field(default=None, description="数据源分类")
 
 
 class DataSourceCreate(DataSourceBase):
     """创建数据源请求"""
 
-    # 数据库连接配置（source_type=database 时必填）
-    db_config: DatabaseConnectionConfig | None = Field(default=None, description="数据库连接配置")
-
-    # 文件数据源配置（source_type=file 时必填）
-    file_id: int | None = Field(default=None, description="关联的上传文件ID")
+    # 目标字段定义
+    target_fields: list[TargetField] = Field(default_factory=list, description="目标字段定义")
+    # Raw 数据映射
+    raw_mappings: list[FieldMapping] = Field(default_factory=list, description="原始数据字段映射")
 
 
 class DataSourceUpdate(BaseModel):
@@ -46,10 +49,23 @@ class DataSourceUpdate(BaseModel):
 
     name: str | None = Field(default=None, min_length=1, max_length=100, description="数据源名称")
     description: str | None = Field(default=None, description="数据源描述")
-    group_name: str | None = Field(default=None, max_length=100, description="数据源分组名称")
+    category: DataSourceCategory | None = Field(default=None, description="数据源分类")
 
-    # 数据库连接配置
-    db_config: DatabaseConnectionConfig | None = Field(default=None, description="数据库连接配置")
+    # 更新目标字段
+    target_fields: list[TargetField] | None = Field(default=None, description="目标字段定义")
+    # 更新 Raw 映射
+    raw_mappings: list[FieldMapping] | None = Field(default=None, description="原始数据字段映射")
+
+
+class RawMappingResponse(BaseModel):
+    """Raw 映射响应"""
+
+    id: int = Field(..., description="映射ID")
+    raw_data_id: int = Field(..., description="原始数据ID")
+    raw_data_name: str | None = Field(default=None, description="原始数据名称")
+    field_mappings: dict[str, str | None] = Field(default_factory=dict, description="字段映射")
+    priority: int = Field(default=0, description="优先级")
+    is_enabled: bool = Field(default=True, description="是否启用")
 
 
 class DataSourceResponse(DataSourceBase):
@@ -58,18 +74,14 @@ class DataSourceResponse(DataSourceBase):
     id: int = Field(..., description="数据源ID")
     user_id: int = Field(..., description="所属用户ID")
 
-    # 数据库配置（不返回密码）
-    db_type: DatabaseType | None = Field(default=None, description="数据库类型")
-    host: str | None = Field(default=None, description="数据库主机")
-    port: int | None = Field(default=None, description="数据库端口")
-    database: str | None = Field(default=None, description="数据库名")
-    username: str | None = Field(default=None, description="用户名")
-
-    # 文件配置
-    file_id: int | None = Field(default=None, description="关联的上传文件ID")
+    # 目标字段
+    target_fields: list[TargetField] | None = Field(default=None, description="目标字段定义")
 
     # Schema 缓存
     schema_cache: dict[str, Any] | None = Field(default=None, description="表结构缓存")
+
+    # Raw 映射
+    raw_mappings: list[RawMappingResponse] | None = Field(default=None, description="原始数据映射")
 
     create_time: datetime | None = Field(default=None, description="创建时间")
     update_time: datetime | None = Field(default=None, description="更新时间")
@@ -81,40 +93,19 @@ class DataSourceListQuery(BaseModel):
     """数据源列表查询参数"""
 
     keyword: str | None = Field(default=None, description="搜索关键词")
-    source_type: DataSourceType | None = Field(default=None, description="数据源类型")
+    category: DataSourceCategory | None = Field(default=None, description="数据源分类")
 
 
-class DataSourceTestResult(BaseModel):
-    """数据源连接测试结果"""
+class DataSourcePreviewRequest(BaseModel):
+    """数据源预览请求（合并后的数据）"""
 
-    success: bool = Field(..., description="是否连接成功")
-    message: str = Field(..., description="测试结果消息")
-    latency_ms: int | None = Field(default=None, description="连接延迟（毫秒）")
+    limit: int = Field(default=100, ge=1, le=1000, description="预览行数")
 
 
-class TableSchema(BaseModel):
-    """表结构"""
+class DataSourcePreviewResponse(BaseModel):
+    """数据源预览响应"""
 
-    name: str = Field(..., description="表名")
-    columns: list["ColumnSchema"] = Field(default_factory=list, description="列信息")
-    row_count: int | None = Field(default=None, description="行数（估算）")
-    comment: str | None = Field(default=None, description="表注释")
-
-
-class ColumnSchema(BaseModel):
-    """列结构"""
-
-    name: str = Field(..., description="列名")
-    data_type: str = Field(..., description="数据类型")
-    nullable: bool = Field(default=True, description="是否可空")
-    primary_key: bool = Field(default=False, description="是否主键")
-    comment: str | None = Field(default=None, description="列注释")
-
-
-class DataSourceSchemaResponse(BaseModel):
-    """数据源 Schema 响应"""
-
-    tables: list[TableSchema] = Field(default_factory=list, description="表列表")
-    synced_at: datetime | None = Field(default=None, description="同步时间")
-
-
+    columns: list[TargetField] = Field(default_factory=list, description="字段定义")
+    rows: list[dict[str, Any]] = Field(default_factory=list, description="合并后的数据行")
+    source_stats: dict[str, int] = Field(default_factory=dict, description="各 Raw 源的行数统计")
+    preview_at: str = Field(..., description="预览时间")
