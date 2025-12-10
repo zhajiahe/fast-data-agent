@@ -46,6 +46,12 @@ class Settings(BaseSettings):
     APP_NAME: str = "Fast Data Agent"
     DEBUG: bool = False
 
+    # 默认管理员账号（用于初始化系统时创建）
+    DEFAULT_ADMIN_USERNAME: str = "admin"
+    DEFAULT_ADMIN_EMAIL: str = "admin@example.com"
+    DEFAULT_ADMIN_NICKNAME: str = "Admin"
+    DEFAULT_ADMIN_PASSWORD: str = "admin123"
+
     # CORS 配置
     ALLOWED_ORIGINS: list[str] = ["localhost:8000", "localhost:3000"]
 

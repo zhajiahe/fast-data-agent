@@ -1,7 +1,7 @@
 // @ts-nocheck
 import { zodResolver } from '@hookform/resolvers/zod';
 import { CheckCircle2, ChevronDown, ChevronRight, Database, FolderOpen, MessageSquare } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
@@ -28,6 +28,7 @@ import { cn } from '@/lib/utils';
 interface CreateSessionDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  initialSelectedIds?: number[];
 }
 
 interface GroupedDataSources {
@@ -46,7 +47,7 @@ type FormData = z.infer<typeof formSchema>;
 /**
  * 创建会话对话框
  */
-export const CreateSessionDialog = ({ open, onOpenChange }: CreateSessionDialogProps) => {
+export const CreateSessionDialog = ({ open, onOpenChange, initialSelectedIds = [] }: CreateSessionDialogProps) => {
   const { t } = useTranslation();
   const { toast } = useToast();
   const navigate = useNavigate();
@@ -101,6 +102,15 @@ export const CreateSessionDialog = ({ open, onOpenChange }: CreateSessionDialogP
 
     return result;
   }, [dataSources]);
+
+  // 打开时应用初始选中项
+  useEffect(() => {
+    if (open) {
+      const initial = initialSelectedIds || [];
+      setSelectedIds(initial);
+      setValue('data_source_ids', initial);
+    }
+  }, [open, initialSelectedIds, setValue]);
 
   const toggleGroup = (groupKey: string) => {
     setExpandedGroups((prev) => {
@@ -180,6 +190,7 @@ export const CreateSessionDialog = ({ open, onOpenChange }: CreateSessionDialogP
     reset();
     setSelectedIds([]);
     setExpandedGroups(new Set(['__ungrouped__']));
+    setValue('data_source_ids', []);
     onOpenChange(false);
   };
 

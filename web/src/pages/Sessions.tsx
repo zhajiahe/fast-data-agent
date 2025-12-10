@@ -1,8 +1,24 @@
-import { Archive, Calendar, Database, MessageSquare, MoreHorizontal, Plus, Trash2 } from 'lucide-react';
+import {
+  Archive,
+  Calendar,
+  Database,
+  FileSpreadsheet,
+  MessageSquare,
+  MoreHorizontal,
+  Plus,
+  Trash2,
+} from 'lucide-react';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
-import { type AnalysisSessionResponse, useArchiveSession, useDeleteSession, useSessions } from '@/api';
+import {
+  type AnalysisSessionResponse,
+  type DataSourceResponse,
+  useArchiveSession,
+  useDataSources,
+  useDeleteSession,
+  useSessions,
+} from '@/api';
 import { EmptyState, LoadingState } from '@/components/common';
 import { CreateSessionDialog } from '@/components/session/CreateSessionDialog';
 import { Badge } from '@/components/ui/badge';
@@ -25,13 +41,21 @@ export const Sessions = () => {
   const { toast } = useToast();
   const navigate = useNavigate();
   const [showCreateDialog, setShowCreateDialog] = useState(false);
+  const [preselectedIds, setPreselectedIds] = useState<number[]>([]);
   const { confirm, ConfirmDialog } = useConfirmDialog();
 
+  type ExtendedDataSource = DataSourceResponse & {
+    source_type?: string | null;
+    db_type?: string | null;
+  };
+
   const { data: response, isLoading } = useSessions();
+  const { data: dataSourceResponse, isLoading: isLoadingDataSources } = useDataSources();
   const deleteSessionMutation = useDeleteSession();
   const archiveSessionMutation = useArchiveSession();
 
   const sessions = response?.data.data?.items || [];
+  const dataSources = (dataSourceResponse?.data.data?.items || []) as ExtendedDataSource[];
 
   const handleDelete = async (id: number, name: string) => {
     const confirmed = await confirm({
@@ -61,6 +85,18 @@ export const Sessions = () => {
 
   const handleOpenSession = (id: number) => {
     navigate(`/chat/${id}`);
+  };
+
+  const handleConnectDataSource = (id: number) => {
+    setPreselectedIds([id]);
+    setShowCreateDialog(true);
+  };
+
+  const getDataSourceIcon = (sourceType?: string | null) => {
+    if (sourceType === 'database') {
+      return <Database className="h-4 w-4 text-slate-600 dark:text-slate-300" />;
+    }
+    return <FileSpreadsheet className="h-4 w-4 text-teal-600 dark:text-teal-300" />;
   };
 
   // 按日期分组会话
@@ -100,113 +136,179 @@ export const Sessions = () => {
   const groupedSessions = groupSessionsByDate(sessions);
 
   return (
-    <div className="container py-8 max-w-4xl">
+    <div className="container py-8 max-w-6xl">
       {/* 页面标题 */}
       <div className="flex items-center justify-between mb-8">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">{t('sessions.title')}</h1>
           <p className="text-muted-foreground mt-1">{t('sessions.subtitle')}</p>
         </div>
-        <Button size="sm" onClick={() => setShowCreateDialog(true)}>
+        <Button
+          size="sm"
+          onClick={() => {
+            setPreselectedIds([]);
+            setShowCreateDialog(true);
+          }}
+        >
           <Plus className="h-4 w-4 mr-2" />
           {t('sessions.create')}
         </Button>
       </div>
 
-      {/* 会话列表 */}
-      {isLoading ? (
-        <LoadingState />
-      ) : sessions.length === 0 ? (
-        <Card className="border-dashed">
-          <CardContent className="py-0">
-            <EmptyState
-              icon={MessageSquare}
-              title={t('sessions.empty')}
-              description={t('sessions.emptyHint')}
-              action={
-                <Button onClick={() => setShowCreateDialog(true)}>
-                  <Plus className="h-4 w-4 mr-2" />
-                  {t('sessions.create')}
-                </Button>
-              }
-            />
-          </CardContent>
-        </Card>
-      ) : (
-        <div className="space-y-8">
-          {groupedSessions.map((group) => (
-            <div key={group.title}>
-              <h2 className="text-sm font-medium text-muted-foreground mb-3 flex items-center gap-2">
-                <Calendar className="h-4 w-4" />
-                {group.title}
-              </h2>
-              <div className="space-y-2">
-                {group.sessions.map((session) => (
-                  <Card
-                    key={session.id}
-                    className="group hover:shadow-md transition-shadow cursor-pointer"
-                    onClick={() => handleOpenSession(session.id)}
-                  >
-                    <CardHeader className="py-4">
-                      <div className="flex items-start justify-between">
-                        <div className="flex-1 min-w-0">
-                          <CardTitle className="text-base truncate">{session.name}</CardTitle>
-                          {session.description && (
-                            <CardDescription className="text-sm mt-1 line-clamp-1">
-                              {session.description}
-                            </CardDescription>
-                          )}
-                        </div>
-                        <div className="flex items-center gap-2 ml-4">
-                          <Badge variant="secondary" className="shrink-0">
-                            <Database className="h-3 w-3 mr-1" />
-                            {session.data_source_ids?.length || 0}
-                          </Badge>
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity"
-                              >
-                                <MoreHorizontal className="h-4 w-4" />
-                              </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
-                              <DropdownMenuItem
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleArchive(session.id);
-                                }}
-                              >
-                                <Archive className="h-4 w-4 mr-2" />
-                                {t('sessions.archive')}
-                              </DropdownMenuItem>
-                              <DropdownMenuSeparator />
-                              <DropdownMenuItem
-                                className="text-destructive"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleDelete(session.id, session.name);
-                                }}
-                              >
-                                <Trash2 className="h-4 w-4 mr-2" />
-                                {t('common.delete')}
-                              </DropdownMenuItem>
-                            </DropdownMenuContent>
-                          </DropdownMenu>
+      <div className="grid gap-6 lg:grid-cols-3">
+        <div className="lg:col-span-2 space-y-6">
+          {/* 会话列表 */}
+          {isLoading ? (
+            <LoadingState />
+          ) : sessions.length === 0 ? (
+            <Card className="border-dashed">
+              <CardContent className="py-0">
+                <EmptyState
+                  icon={MessageSquare}
+                  title={t('sessions.empty')}
+                  description={t('sessions.emptyHint')}
+                  action={
+                    <Button
+                      onClick={() => {
+                        setPreselectedIds([]);
+                        setShowCreateDialog(true);
+                      }}
+                    >
+                      <Plus className="h-4 w-4 mr-2" />
+                      {t('sessions.create')}
+                    </Button>
+                  }
+                />
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="space-y-8">
+              {groupedSessions.map((group) => (
+                <div key={group.title}>
+                  <h2 className="text-sm font-medium text-muted-foreground mb-3 flex items-center gap-2">
+                    <Calendar className="h-4 w-4" />
+                    {group.title}
+                  </h2>
+                  <div className="space-y-2">
+                    {group.sessions.map((session) => (
+                      <Card
+                        key={session.id}
+                        className="group hover:shadow-md transition-shadow cursor-pointer"
+                        onClick={() => handleOpenSession(session.id)}
+                      >
+                        <CardHeader className="py-4">
+                          <div className="flex items-start justify-between">
+                            <div className="flex-1 min-w-0">
+                              <CardTitle className="text-base truncate">{session.name}</CardTitle>
+                              {session.description && (
+                                <CardDescription className="text-sm mt-1 line-clamp-1">
+                                  {session.description}
+                                </CardDescription>
+                              )}
+                            </div>
+                            <div className="flex items-center gap-2 ml-4">
+                              <Badge variant="secondary" className="shrink-0">
+                                <Database className="h-3 w-3 mr-1" />
+                                {session.data_source_ids?.length || 0}
+                              </Badge>
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity"
+                                  >
+                                    <MoreHorizontal className="h-4 w-4" />
+                                  </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end">
+                                  <DropdownMenuItem
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleArchive(session.id);
+                                    }}
+                                  >
+                                    <Archive className="h-4 w-4 mr-2" />
+                                    {t('sessions.archive')}
+                                  </DropdownMenuItem>
+                                  <DropdownMenuSeparator />
+                                  <DropdownMenuItem
+                                    className="text-destructive"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleDelete(session.id, session.name);
+                                    }}
+                                  >
+                                    <Trash2 className="h-4 w-4 mr-2" />
+                                    {t('common.delete')}
+                                  </DropdownMenuItem>
+                                </DropdownMenuContent>
+                              </DropdownMenu>
+                            </div>
+                          </div>
+                        </CardHeader>
+                      </Card>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <div className="lg:col-span-1">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg">数据源</CardTitle>
+              <CardDescription>查看并选择数据源，快速创建分析会话。</CardDescription>
+            </CardHeader>
+            <CardContent>
+              {isLoadingDataSources ? (
+                <LoadingState />
+              ) : dataSources.length === 0 ? (
+                <EmptyState
+                  icon={Database}
+                  title={t('dataSources.empty')}
+                  description={t('sessions.noDataSources')}
+                  action={
+                    <Button variant="outline" size="sm" onClick={() => navigate('/data-sources')}>
+                      {t('sessions.goToDataSources')}
+                    </Button>
+                  }
+                />
+              ) : (
+                <div className="space-y-2">
+                  {dataSources.map((ds) => (
+                    <div
+                      key={ds.id}
+                      className="flex items-center justify-between gap-3 rounded-lg border p-3 hover:bg-muted/60 transition-colors"
+                    >
+                      <div className="flex items-center gap-3 min-w-0">
+                        {getDataSourceIcon(ds.source_type)}
+                        <div className="min-w-0">
+                          <p className="text-sm font-medium truncate">{ds.name}</p>
+                          <p className="text-xs text-muted-foreground truncate">
+                            {ds.source_type === 'database' ? ds.db_type?.toUpperCase() : t('dataSources.file')}
+                          </p>
                         </div>
                       </div>
-                    </CardHeader>
-                  </Card>
-                ))}
-              </div>
-            </div>
-          ))}
+                      <Button size="sm" variant="outline" onClick={() => handleConnectDataSource(ds.id)}>
+                        连接
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
         </div>
-      )}
+      </div>
 
-      <CreateSessionDialog open={showCreateDialog} onOpenChange={setShowCreateDialog} />
+      <CreateSessionDialog
+        open={showCreateDialog}
+        onOpenChange={setShowCreateDialog}
+        initialSelectedIds={preselectedIds}
+      />
       <ConfirmDialog />
     </div>
   );

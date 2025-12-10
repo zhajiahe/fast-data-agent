@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useCreateDataSource, useDbConnections, useDbTableSchema, useDbTables, useFiles, useRawDataList } from '@/api';
 import { Badge } from '@/components/ui/badge';
@@ -37,8 +37,11 @@ export const DataSourceWizardDialog = ({ open, onOpenChange }: DataSourceWizardD
   const [mode, setMode] = useState<'file' | 'database'>('file');
   const [selectedFileId, setSelectedFileId] = useState<number | null>(null);
   const [selectedConnectionId, setSelectedConnectionId] = useState<number | null>(null);
-  const [selectedTable, setSelectedTable] = useState<{ schema?: string | null; name: string } | null>(null);
-  const [selectedColumns, setSelectedColumns] = useState<Set<string>>(new Set());
+  const [selectedTables, setSelectedTables] = useState<Array<{ schema?: string | null; name: string }>>([]);
+  const [focusedTable, setFocusedTable] = useState<{ schema?: string | null; name: string } | null>(null);
+  const [fileSelectedColumns, setFileSelectedColumns] = useState<Set<string>>(new Set());
+  const [tableSelectedColumns, setTableSelectedColumns] = useState<Record<string, Set<string>>>({});
+  const [tableColumnsCache, setTableColumnsCache] = useState<Record<string, any[]>>({});
   const [dataSourceName, setDataSourceName] = useState<string>('');
 
   // 文件数据
@@ -60,22 +63,38 @@ export const DataSourceWizardDialog = ({ open, onOpenChange }: DataSourceWizardD
   // 列信息（数据库表）
   const { data: schemaResp } = useDbTableSchema(
     selectedConnectionId || undefined,
-    selectedTable
+    focusedTable
       ? {
-          schema_name: selectedTable.schema || undefined,
-          table_name: selectedTable.name,
+          schema_name: focusedTable.schema || undefined,
+          table_name: focusedTable.name,
         }
       : undefined
   );
   const tableColumns = schemaResp?.data.data?.columns || [];
 
-  const _currentColumns = useMemo(() => {
-    if (mode === 'file') return fileColumns.map((c) => ({ name: c.name || '', type: c.dtype || '' }));
-    return tableColumns.map((c) => ({ name: c.name || '', type: c.data_type || '' }));
-  }, [fileColumns, tableColumns, mode]);
+  const tableKey = useCallback(
+    (table: { schema?: string | null; name: string }) => `${table.schema || 'public'}.${table.name}`,
+    []
+  );
 
-  const toggleColumn = (name: string) => {
-    setSelectedColumns((prev) => {
+  const focusedTableKey = focusedTable ? tableKey(focusedTable) : null;
+
+  const selectedColsForFocused = useMemo(() => {
+    if (!focusedTableKey) return new Set<string>();
+    return tableSelectedColumns[focusedTableKey] || new Set<string>();
+  }, [focusedTableKey, tableSelectedColumns]);
+
+  // 缓存当前聚焦表的列信息，便于后续提交使用
+  useEffect(() => {
+    if (mode !== 'database' || !focusedTableKey) return;
+    setTableColumnsCache((prev) => {
+      if (tableColumns.length === 0) return prev;
+      return { ...prev, [focusedTableKey]: tableColumns };
+    });
+  }, [focusedTableKey, tableColumns, mode]);
+
+  const toggleFileColumn = (name: string) => {
+    setFileSelectedColumns((prev) => {
       const next = new Set(prev);
       if (next.has(name)) next.delete(name);
       else next.add(name);
@@ -83,11 +102,24 @@ export const DataSourceWizardDialog = ({ open, onOpenChange }: DataSourceWizardD
     });
   };
 
+  const toggleTableColumn = (name: string) => {
+    if (!focusedTableKey) return;
+    setTableSelectedColumns((prev) => {
+      const current = prev[focusedTableKey] ? new Set(prev[focusedTableKey]) : new Set<string>();
+      if (current.has(name)) current.delete(name);
+      else current.add(name);
+      return { ...prev, [focusedTableKey]: current };
+    });
+  };
+
   const handleClose = () => {
     setSelectedFileId(null);
     setSelectedConnectionId(null);
-    setSelectedTable(null);
-    setSelectedColumns(new Set());
+    setSelectedTables([]);
+    setFocusedTable(null);
+    setFileSelectedColumns(new Set());
+    setTableSelectedColumns({});
+    setTableColumnsCache({});
     setDataSourceName('');
     setMode('file');
     onOpenChange(false);
@@ -99,51 +131,103 @@ export const DataSourceWizardDialog = ({ open, onOpenChange }: DataSourceWizardD
     }
   };
 
-  const findRawDataId = (): number | null => {
+  const findRawDataId = (table?: { schema?: string | null; name: string } | null): number | null => {
     if (mode === 'file' && selectedFileId) {
       const rd = rawDataList.find((r: any) => r.file_id === selectedFileId);
       return rd?.id || null;
     }
-    if (mode === 'database' && selectedConnectionId && selectedTable) {
+    if (mode === 'database' && selectedConnectionId && table) {
       const rd = rawDataList.find(
         (r: any) =>
           r.connection_id === selectedConnectionId &&
-          r.table_name === selectedTable.name &&
-          (r.schema_name || null) === (selectedTable.schema || null)
+          r.table_name === table.name &&
+          (r.schema_name || null) === (table.schema || null)
       );
       return rd?.id || null;
     }
     return null;
   };
 
+  const toggleTable = (table: { schema?: string | null; name: string }) => {
+    const key = tableKey(table);
+    const exists = selectedTables.some((t) => tableKey(t) === key);
+    if (exists) {
+      const nextTables = selectedTables.filter((t) => tableKey(t) !== key);
+      const { [key]: _, ...rest } = tableSelectedColumns;
+      const { [key]: __, ...restColumnsCache } = tableColumnsCache;
+      setSelectedTables(nextTables);
+      setTableSelectedColumns(rest);
+      setTableColumnsCache(restColumnsCache);
+      if (focusedTableKey === key) {
+        setFocusedTable(nextTables[0] ?? null);
+      }
+    } else {
+      setSelectedTables((prev) => [...prev, table]);
+      setFocusedTable(table);
+      setTableSelectedColumns((prev) => ({ ...prev, [key]: prev[key] || new Set<string>() }));
+    }
+    // 重置数据源名称以最近选择的表为默认（仅当未填写）
+    updateDefaultName(table.name);
+  };
+
+  const selectedTableBadges = useMemo(
+    () =>
+      selectedTables.map((t) => ({
+        key: tableKey(t),
+        label: `${t.schema || 'public'}.${t.name}`,
+        count: tableSelectedColumns[tableKey(t)]?.size || 0,
+      })),
+    [selectedTables, tableSelectedColumns, tableKey]
+  );
+
+  const unionTargetFieldsFromTables = () => {
+    const fieldMap: Record<string, { data_type: string; description?: string }> = {};
+    for (const t of selectedTables) {
+      const key = tableKey(t);
+      const cols = tableColumnsCache[key];
+      const selectedSet = tableSelectedColumns[key];
+      if (!cols || !selectedSet || selectedSet.size === 0) continue;
+      cols.forEach((c: any) => {
+        if (selectedSet.has(c.name)) {
+          fieldMap[c.name] = {
+            data_type: c.data_type || 'string',
+            description: c.comment || undefined,
+          };
+        }
+      });
+    }
+    return Object.entries(fieldMap).map(([name, meta]) => ({
+      name,
+      data_type: meta.data_type,
+      description: meta.description,
+    }));
+  };
+
   const handleSubmit = async () => {
-    const columns = mode === 'file' ? fileColumns : tableColumns;
     if (!dataSourceName.trim()) {
       toast({ title: '请填写数据源名称', variant: 'destructive' });
       return;
     }
-    if (selectedColumns.size === 0) {
-      toast({ title: '请选择至少一列', variant: 'destructive' });
-      return;
-    }
-    const rawDataId = findRawDataId();
-    if (!rawDataId) {
-      toast({ title: '未找到对应的原始数据，请先确保已自动创建 RawData', variant: 'destructive' });
-      return;
-    }
-
-    const selectedColsArray = columns.filter((c: any) => selectedColumns.has(c.name || c.table_name));
-    const target_fields = selectedColsArray.map((c: any) => ({
-      name: c.name || c.table_name,
-      data_type: c.dtype || c.data_type || 'string',
-      description: c.comment || undefined,
-    }));
-    const mappings: Record<string, string> = {};
-    target_fields.forEach((f: any) => {
-      mappings[f.name] = f.name;
-    });
-
-    try {
+    if (mode === 'file') {
+      if (fileSelectedColumns.size === 0) {
+        toast({ title: '请选择至少一列', variant: 'destructive' });
+        return;
+      }
+      const rawDataId = findRawDataId();
+      if (!rawDataId) {
+        toast({ title: '未找到对应的原始数据，请先确保已自动创建 RawData', variant: 'destructive' });
+        return;
+      }
+      const selectedColsArray = fileColumns.filter((c: any) => fileSelectedColumns.has(c.name));
+      const target_fields = selectedColsArray.map((c: any) => ({
+        name: c.name,
+        data_type: c.dtype || 'string',
+        description: c.comment || undefined,
+      }));
+      const mappings: Record<string, string> = {};
+      target_fields.forEach((f: any) => {
+        mappings[f.name] = f.name;
+      });
       await createDataSource.mutateAsync({
         name: dataSourceName.trim(),
         target_fields,
@@ -158,9 +242,94 @@ export const DataSourceWizardDialog = ({ open, onOpenChange }: DataSourceWizardD
       } as any);
       toast({ title: '创建数据源成功' });
       handleClose();
-    } catch (err: any) {
-      toast({ title: '创建失败', description: err?.message || String(err), variant: 'destructive' });
+      return;
     }
+
+    // 数据库多表模式
+    if (selectedTables.length === 0) {
+      toast({ title: '请选择至少一个表', variant: 'destructive' });
+      return;
+    }
+
+    const missingColumnsTables: string[] = [];
+    const emptySelectionTables: string[] = [];
+    const missingRawDataTables: string[] = [];
+    const rawMappings: Array<{
+      raw_data_id: number;
+      mappings: Record<string, string>;
+      priority: number;
+      is_enabled: boolean;
+    }> = [];
+
+    selectedTables.forEach((table, idx) => {
+      const key = tableKey(table);
+      const cols = tableColumnsCache[key];
+      const selectedSet = tableSelectedColumns[key];
+      if (!cols) {
+        missingColumnsTables.push(key);
+        return;
+      }
+      if (!selectedSet || selectedSet.size === 0) {
+        emptySelectionTables.push(key);
+        return;
+      }
+      const rawDataId = findRawDataId(table);
+      if (!rawDataId) {
+        missingRawDataTables.push(key);
+        return;
+      }
+      const mappings: Record<string, string> = {};
+      cols.forEach((c: any) => {
+        if (selectedSet.has(c.name)) {
+          mappings[c.name] = c.name;
+        }
+      });
+      rawMappings.push({
+        raw_data_id: rawDataId,
+        mappings,
+        priority: idx,
+        is_enabled: true,
+      });
+    });
+
+    if (missingColumnsTables.length > 0) {
+      toast({
+        title: '请先加载列信息',
+        description: `请点击这些表以加载列：${missingColumnsTables.join(', ')}`,
+        variant: 'destructive',
+      });
+      return;
+    }
+    if (emptySelectionTables.length > 0) {
+      toast({
+        title: '请选择列',
+        description: `以下表未选择列：${emptySelectionTables.join(', ')}`,
+        variant: 'destructive',
+      });
+      return;
+    }
+    if (missingRawDataTables.length > 0) {
+      toast({
+        title: '缺少 RawData',
+        description: `未找到这些表的 RawData，请先创建或同步：${missingRawDataTables.join(', ')}`,
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    const target_fields = unionTargetFieldsFromTables();
+    if (target_fields.length === 0) {
+      toast({ title: '请选择至少一列', variant: 'destructive' });
+      return;
+    }
+
+    await createDataSource.mutateAsync({
+      name: dataSourceName.trim(),
+      target_fields,
+      raw_mappings: rawMappings,
+    } as any);
+    toast({ title: '创建数据源成功' });
+    handleClose();
   };
 
   return (
@@ -215,7 +384,7 @@ export const DataSourceWizardDialog = ({ open, onOpenChange }: DataSourceWizardD
                           checked={selectedFileId === f.id}
                           onChange={() => {
                             setSelectedFileId(f.id);
-                            setSelectedColumns(new Set());
+                            setFileSelectedColumns(new Set());
                             updateDefaultName(f.original_name || '');
                           }}
                         />
@@ -250,8 +419,8 @@ export const DataSourceWizardDialog = ({ open, onOpenChange }: DataSourceWizardD
                         >
                           <Checkbox
                             id={`file-col-${col.name}`}
-                            checked={selectedColumns.has(col.name || '')}
-                            onChange={() => toggleColumn(col.name || '')}
+                            checked={fileSelectedColumns.has(col.name || '')}
+                            onChange={() => toggleFileColumn(col.name || '')}
                           />
                           <span className="font-medium">{col.name}</span>
                           <span className="text-muted-foreground text-xs">{col.dtype}</span>
@@ -287,8 +456,10 @@ export const DataSourceWizardDialog = ({ open, onOpenChange }: DataSourceWizardD
                             checked={selectedConnectionId === conn.id}
                             onChange={() => {
                               setSelectedConnectionId(conn.id);
-                              setSelectedTable(null);
-                              setSelectedColumns(new Set());
+                              setSelectedTables([]);
+                              setFocusedTable(null);
+                              setTableSelectedColumns({});
+                              setTableColumnsCache({});
                             }}
                           />
                           <div className="flex-1 min-w-0">
@@ -305,37 +476,35 @@ export const DataSourceWizardDialog = ({ open, onOpenChange }: DataSourceWizardD
                   <Label className="text-xs text-muted-foreground">表 / 视图</Label>
                   <ScrollArea className="h-32 pr-2">
                     <div className="space-y-2">
-                      {tables.map((t) => (
-                        <label
-                          key={`${t.schema_name || 'public'}.${t.table_name}`}
-                          className={cn(
-                            'flex items-center gap-2 rounded-md border px-3 py-2 cursor-pointer',
-                            selectedTable?.name === t.table_name && selectedTable?.schema === t.schema_name
-                              ? 'border-primary bg-primary/5'
-                              : 'border-muted'
-                          )}
-                          htmlFor={`table-${t.schema_name || 'public'}-${t.table_name}`}
-                        >
-                          <input
-                            id={`table-${t.schema_name || 'public'}-${t.table_name}`}
-                            type="radio"
-                            className="h-4 w-4"
-                            checked={selectedTable?.name === t.table_name && selectedTable?.schema === t.schema_name}
-                            onChange={() => {
-                              setSelectedTable({ schema: t.schema_name, name: t.table_name });
-                              setSelectedColumns(new Set());
+                      {tables.map((t) => {
+                        const tableRef = { schema: t.schema_name, name: t.table_name };
+                        const key = tableKey(tableRef);
+                        const checked = selectedTables.some((st) => tableKey(st) === key);
+                        return (
+                          <button
+                            type="button"
+                            key={key}
+                            className={cn(
+                              'flex w-full items-center gap-2 rounded-md border px-3 py-2 text-left',
+                              checked ? 'border-primary bg-primary/5' : 'border-muted'
+                            )}
+                            onClick={() => {
+                              toggleTable(tableRef);
+                              setFocusedTable(tableRef);
                               updateDefaultName(t.table_name);
                             }}
-                          />
-                          <div className="flex-1 min-w-0">
-                            <div className="font-medium truncate">{t.table_name}</div>
-                            <div className="text-xs text-muted-foreground">{t.schema_name || 'public'}</div>
-                          </div>
-                          <Badge variant="secondary" className="shrink-0">
-                            {t.table_type}
-                          </Badge>
-                        </label>
-                      ))}
+                          >
+                            <Checkbox id={`table-${key}`} checked={checked} readOnly className="pointer-events-none" />
+                            <div className="flex-1 min-w-0">
+                              <div className="font-medium truncate">{t.table_name}</div>
+                              <div className="text-xs text-muted-foreground">{t.schema_name || 'public'}</div>
+                            </div>
+                            <Badge variant="secondary" className="shrink-0">
+                              {t.table_type}
+                            </Badge>
+                          </button>
+                        );
+                      })}
                       {tables.length === 0 && <div className="text-sm text-muted-foreground">请选择连接后查看表</div>}
                     </div>
                   </ScrollArea>
@@ -343,8 +512,10 @@ export const DataSourceWizardDialog = ({ open, onOpenChange }: DataSourceWizardD
               </div>
 
               <div className="border rounded-lg p-3">
-                <div className="mb-2 text-sm font-medium">列信息</div>
-                {selectedTable ? (
+                <div className="mb-2 text-sm font-medium">
+                  列信息 {focusedTable ? `· ${focusedTable.schema || 'public'}.${focusedTable.name}` : ''}
+                </div>
+                {focusedTable ? (
                   <ScrollArea className="h-64 pr-2">
                     <div className="space-y-2">
                       {tableColumns.map((col) => (
@@ -355,8 +526,8 @@ export const DataSourceWizardDialog = ({ open, onOpenChange }: DataSourceWizardD
                         >
                           <Checkbox
                             id={`db-col-${col.name}`}
-                            checked={selectedColumns.has(col.name || '')}
-                            onChange={() => toggleColumn(col.name || '')}
+                            checked={selectedColsForFocused.has(col.name || '')}
+                            onChange={() => toggleTableColumn(col.name || '')}
                           />
                           <span className="font-medium">{col.name}</span>
                           <span className="text-muted-foreground text-xs">{col.data_type}</span>
@@ -380,14 +551,38 @@ export const DataSourceWizardDialog = ({ open, onOpenChange }: DataSourceWizardD
           {/* 选中列预览 */}
           <div className="border rounded-lg p-3">
             <div className="mb-2 text-sm font-medium">已选列</div>
-            {selectedColumns.size === 0 ? (
-              <div className="text-sm text-muted-foreground">尚未选择列</div>
+            {mode === 'file' ? (
+              fileSelectedColumns.size === 0 ? (
+                <div className="text-sm text-muted-foreground">尚未选择列</div>
+              ) : (
+                <div className="flex flex-wrap gap-2">
+                  {[...fileSelectedColumns].map((col) => (
+                    <Badge key={col} variant="secondary">
+                      {col}
+                    </Badge>
+                  ))}
+                </div>
+              )
+            ) : selectedTables.length === 0 ? (
+              <div className="text-sm text-muted-foreground">尚未选择表</div>
             ) : (
-              <div className="flex flex-wrap gap-2">
-                {[...selectedColumns].map((col) => (
-                  <Badge key={col} variant="secondary">
-                    {col}
-                  </Badge>
+              <div className="space-y-2">
+                {selectedTableBadges.map((item) => (
+                  <div key={item.key} className="flex items-start gap-2">
+                    <Badge variant="outline" className="shrink-0">
+                      {item.label}
+                    </Badge>
+                    <div className="flex flex-wrap gap-1">
+                      {[...(tableSelectedColumns[item.key] || new Set<string>())].map((col) => (
+                        <Badge key={`${item.key}-${col}`} variant="secondary">
+                          {col}
+                        </Badge>
+                      ))}
+                      {(!tableSelectedColumns[item.key] || tableSelectedColumns[item.key]?.size === 0) && (
+                        <span className="text-xs text-muted-foreground">未选列</span>
+                      )}
+                    </div>
+                  </div>
                 ))}
               </div>
             )}

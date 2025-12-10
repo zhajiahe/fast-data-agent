@@ -15,6 +15,7 @@ import type {
   BaseResponseAnalysisSessionResponse,
   BaseResponseDatabaseConnectionTablesResponse,
   BaseResponseDatabaseTableSchemaResponse,
+  BaseResponseDataSourcePreviewResponse,
   BaseResponseDataSourceResponse,
   BaseResponseFilePreviewResponse,
   BaseResponseInt,
@@ -44,6 +45,7 @@ import type {
   GetRecommendationsApiV1SessionsSessionIdRecommendationsGetParams,
   GetSessionsApiV1SessionsGetParams,
   LoginRequest,
+  PreviewDataSourceApiV1DataSourcesDataSourceIdPreviewPostBody,
   TaskRecommendationUpdate,
   UserCreate,
 } from './fastDataAgent';
@@ -53,6 +55,7 @@ import {
   clearMessagesApiV1SessionsSessionIdMessagesDelete,
   createDataSourceApiV1DataSourcesPost,
   createSessionApiV1SessionsPost,
+  deleteConnectionApiV1DatabaseConnectionsConnectionIdDelete,
   deleteDataSourceApiV1DataSourcesDataSourceIdDelete,
   deleteFileApiV1FilesFileIdDelete,
   deleteSessionApiV1SessionsSessionIdDelete,
@@ -77,6 +80,7 @@ import {
   getSessionsApiV1SessionsGet,
   // Auth
   loginApiV1AuthLoginPost,
+  previewDataSourceApiV1DataSourcesDataSourceIdPreviewPost,
   refreshDataSourceSchemaApiV1DataSourcesDataSourceIdRefreshSchemaPost,
   registerApiV1AuthRegisterPost,
   updateRecommendationApiV1SessionsSessionIdRecommendationsRecommendationIdPut,
@@ -143,6 +147,17 @@ export const useSyncDataSourceSchema = () => {
   });
 };
 
+export const useDataSourcePreview = (
+  dataSourceId?: number,
+  body: PreviewDataSourceApiV1DataSourcesDataSourceIdPreviewPostBody = {}
+) => {
+  return useQuery<AxiosResponse<BaseResponseDataSourcePreviewResponse>, Error>({
+    queryKey: ['data-source-preview', dataSourceId, body],
+    queryFn: () => previewDataSourceApiV1DataSourcesDataSourceIdPreviewPost(dataSourceId as number, body),
+    enabled: !!dataSourceId,
+  });
+};
+
 // ==================== RawData Hooks ====================
 
 export const useRawDataList = (params?: GetRawDataListApiV1RawDataGetParams) => {
@@ -178,6 +193,16 @@ export const useDeleteFile = () => {
     mutationFn: (id) => deleteFileApiV1FilesFileIdDelete(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['files'] });
+    },
+  });
+};
+
+export const useDeleteDbConnection = () => {
+  const queryClient = useQueryClient();
+  return useMutation<AxiosResponse<BaseResponseNoneType>, Error, number>({
+    mutationFn: (id) => deleteConnectionApiV1DatabaseConnectionsConnectionIdDelete(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['db-connections'] });
     },
   });
 };
