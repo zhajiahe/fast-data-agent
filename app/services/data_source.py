@@ -16,10 +16,10 @@ from app.repositories.raw_data import RawDataRepository
 from app.schemas.data_source import (
     DataSourceCreate,
     DataSourceListQuery,
-    DataSourceUpdate,
     DataSourcePreviewResponse,
-    TargetField,
+    DataSourceUpdate,
     FieldMapping,
+    TargetField,
 )
 
 
@@ -70,7 +70,9 @@ class DataSourceService:
             raise NotFoundException(msg="数据源不存在")
         return data_source
 
-    async def preview_data_source(self, data_source_id: int, user_id: int, *, limit: int = 100) -> DataSourcePreviewResponse:
+    async def preview_data_source(
+        self, data_source_id: int, user_id: int, *, limit: int = 100
+    ) -> DataSourcePreviewResponse:
         """
         基于 RawData.sample_data 和字段映射，合并生成预览数据。
 
@@ -105,16 +107,16 @@ class DataSourceService:
             sample_columns = raw.sample_data.get("columns") or []
             sample_rows = raw.sample_data.get("rows") or []
 
-            def _row_to_dict(row: Any) -> dict[str, Any]:
+            def _row_to_dict(row: Any, columns: list[str] = sample_columns) -> dict[str, Any]:
                 if isinstance(row, dict):
                     return row
                 if isinstance(row, (list, tuple)):
-                    return {col: row[idx] if idx < len(row) else None for idx, col in enumerate(sample_columns)}
+                    return {col: row[idx] if idx < len(row) else None for idx, col in enumerate(columns)}
                 return {}
 
             for sample_row in sample_rows:
                 source_row = _row_to_dict(sample_row)
-                merged_row = {t: None for t in target_order}
+                merged_row = dict.fromkeys(target_order)
 
                 for target_name in target_order:
                     source_field = mapping.field_mappings.get(target_name)

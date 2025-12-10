@@ -38,4 +38,3 @@ def decrypt_str(cipher: str) -> str:
         return f.decrypt(cipher.encode("utf-8")).decode("utf-8")
     except (InvalidToken, ValueError):
         return cipher
-

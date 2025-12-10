@@ -106,7 +106,7 @@ class ChatService:
                     view_names.append(mapping.raw_data.name)
 
         if view_names:
-            lines.append(f"\n**可用 VIEW（SQL 表名）:**")
+            lines.append("\n**可用 VIEW（SQL 表名）:**")
             for view_name in view_names:
                 lines.append(f'- `"{view_name}"` → `SELECT * FROM "{view_name}" LIMIT 10`')
         else:

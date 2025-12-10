@@ -158,9 +158,6 @@ async def preview_data_source(
 
     根据字段映射，从各 RawData 获取数据并合并展示
     """
-    from datetime import datetime
-
-    from app.core.exceptions import BadRequestException
 
     if request is None:
         request = DataSourcePreviewRequest()

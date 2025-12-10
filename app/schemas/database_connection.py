@@ -89,4 +89,3 @@ class DatabaseConnectionTablesResponse(BaseModel):
 
     connection_id: int = Field(..., description="连接ID")
     tables: list[DatabaseTableInfo] = Field(default_factory=list, description="表列表")
-

@@ -215,7 +215,7 @@ class RecommendService:
     def _collect_schema_info(self, data_source: DataSource | None) -> dict[str, Any]:
         """
         收集数据源 Schema 信息
-        
+
         优先级：
         1. schema_cache（如果已缓存）
         2. target_fields（统一字段定义）
@@ -246,17 +246,17 @@ class RecommendService:
                 raw = mapping.raw_data
                 if not raw:
                     continue
-                
+
                 raw_schema: dict[str, Any] = {
                     "name": raw.name,
                     "raw_type": raw.raw_type,
                 }
-                
+
                 # 获取列结构信息
                 if raw.columns_schema:
                     # columns_schema 格式: [{name, data_type, nullable, user_type_override}]
                     raw_schema["columns"] = raw.columns_schema
-                
+
                 raw_data_schemas.append(raw_schema)
 
         if raw_data_schemas:
