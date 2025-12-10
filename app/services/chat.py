@@ -100,15 +100,22 @@ class ChatService:
 
         # 提取 VIEW 名称（RawData 名称）
         view_names: list[str] = []
+        has_field_mappings = False
         if ds.raw_mappings:
             for mapping in ds.raw_mappings:
                 if mapping.raw_data:
                     view_names.append(mapping.raw_data.name)
+                if mapping.field_mappings:
+                    has_field_mappings = True
 
         if view_names:
             lines.append("\n**可用 VIEW（SQL 表名）:**")
+            # 如果有字段映射，DataSource 名称也可作为统一 VIEW
+            if has_field_mappings and ds.target_fields:
+                target_field_names = ", ".join(f.get("name", "") for f in ds.target_fields[:5])
+                lines.append(f'- `"{ds.name}"` ← **统一视图**（字段: {target_field_names}）')
             for view_name in view_names:
-                lines.append(f'- `"{view_name}"` → `SELECT * FROM "{view_name}" LIMIT 10`')
+                lines.append(f'- `"{view_name}"` ← 原始数据')
         else:
             lines.append("\n⚠️ 没有可用的 VIEW，请先配置数据源映射。")
 

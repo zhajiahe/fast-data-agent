@@ -150,11 +150,16 @@ class AnalysisSessionService:
                 # 获取数据源的 RawData 列表
                 raw_data_list = await self._build_raw_data_configs(data_source)
 
+                # 构建字段映射配置
+                raw_mappings = self._build_raw_mappings(data_source)
+
                 init_request = {
                     "data_source": {
                         "id": data_source.id,
                         "name": data_source.name,
                         "raw_data_list": raw_data_list,
+                        "target_fields": data_source.target_fields,
+                        "raw_mappings": raw_mappings,
                     }
                 }
 
@@ -243,6 +248,37 @@ class AnalysisSessionService:
             raw_data_configs.append(config)
 
         return raw_data_configs
+
+    def _build_raw_mappings(self, data_source: Any) -> list[dict[str, Any]]:
+        """
+        构建字段映射配置列表
+
+        Args:
+            data_source: 数据源
+
+        Returns:
+            字段映射配置列表: [{raw_data_id, raw_data_name, mappings}]
+        """
+        raw_mappings: list[dict[str, Any]] = []
+
+        if not data_source.raw_mappings:
+            return raw_mappings
+
+        for mapping in data_source.raw_mappings:
+            if not mapping.is_enabled or not mapping.raw_data:
+                continue
+
+            # field_mappings 格式: {target_field: source_field}
+            if mapping.field_mappings:
+                raw_mappings.append(
+                    {
+                        "raw_data_id": mapping.raw_data_id,
+                        "raw_data_name": mapping.raw_data.name,
+                        "mappings": mapping.field_mappings,
+                    }
+                )
+
+        return raw_mappings
 
     async def update_session(
         self,

@@ -219,14 +219,25 @@ class RawDataConfig(BaseModel):
     bucket_name: str | None = None
 
 
+class FieldMapping(BaseModel):
+    """单个 RawData 的字段映射配置"""
+
+    raw_data_id: int
+    raw_data_name: str
+    # 字段映射：{target_field: source_field}
+    mappings: dict[str, str]
+
+
 class DataSourceConfig(BaseModel):
     """数据源配置"""
 
     id: int
     name: str
     raw_data_list: list[RawDataConfig]
-    # 字段映射：{target_field: {raw_data_id: source_field}}
-    field_mappings: dict[str, dict[int, str]] | None = None
+    # 目标字段列表（统一后的逻辑字段）
+    target_fields: list[dict] | None = None  # [{name, data_type, description}]
+    # 字段映射配置列表
+    raw_mappings: list[FieldMapping] | None = None
 
 
 class InitSessionRequest(BaseModel):
@@ -493,10 +504,14 @@ async def init_session(
 
         ds = request.data_source
 
-        # 处理每个 RawData
+        # 构建 RawData ID 到 name 的映射
+        raw_id_to_name: dict[int, str] = {}
+
+        # Step 1: 为每个 RawData 创建原始 VIEW
         for raw_data in ds.raw_data_list:
             try:
-                view_name = f"{raw_data.name}"  # 使用 RawData 名称作为 VIEW 名称
+                view_name = raw_data.name  # 使用 RawData 名称作为 VIEW 名称
+                raw_id_to_name[raw_data.id] = view_name
 
                 if raw_data.raw_type == "database_table":
                     # 数据库表类型：ATTACH 数据库并创建 VIEW
@@ -562,6 +577,48 @@ async def init_session(
 
             except Exception as e:
                 error_msg = f"Failed to create view for {raw_data.name}: {str(e)}"
+                logger.warning(error_msg)
+                errors.append(error_msg)
+
+        # Step 2: 如果有字段映射，创建 DataSource 级别的统一 VIEW
+        if ds.raw_mappings and ds.target_fields and views_created:
+            try:
+                ds_view_name = ds.name  # DataSource 名称作为统一 VIEW 名称
+
+                # 获取目标字段名列表
+                target_field_names = [f["name"] for f in ds.target_fields]
+
+                # 为每个有映射的 RawData 生成 SELECT 语句
+                select_parts: list[str] = []
+                for mapping in ds.raw_mappings:
+                    raw_view_name = raw_id_to_name.get(mapping.raw_data_id)
+                    if not raw_view_name or raw_view_name not in views_created:
+                        continue
+
+                    # 构建字段选择列表：target_field AS source_field
+                    field_selects: list[str] = []
+                    for target_field in target_field_names:
+                        source_field = mapping.mappings.get(target_field)
+                        if source_field:
+                            # 有映射：使用 source_field AS target_field
+                            field_selects.append(f'"{source_field}" AS "{target_field}"')
+                        else:
+                            # 无映射：使用 NULL
+                            field_selects.append(f'NULL AS "{target_field}"')
+
+                    if field_selects:
+                        select_sql = f'SELECT {", ".join(field_selects)} FROM "{raw_view_name}"'
+                        select_parts.append(select_sql)
+
+                if select_parts:
+                    # 使用 UNION ALL 合并多个 RawData 的映射视图
+                    union_sql = " UNION ALL ".join(select_parts)
+                    conn.execute(f'CREATE OR REPLACE VIEW "{ds_view_name}" AS {union_sql}')
+                    views_created.append(ds_view_name)
+                    logger.info(f"Created DataSource unified VIEW: {ds_view_name}")
+
+            except Exception as e:
+                error_msg = f"Failed to create DataSource unified view: {str(e)}"
                 logger.warning(error_msg)
                 errors.append(error_msg)
 
