@@ -67,6 +67,23 @@ class DatabaseConnectionResponse(DatabaseConnectionBase):
     model_config = {"from_attributes": True}
 
 
+class AutoCreatedRawData(BaseModel):
+    """自动创建的 RawData 简要信息"""
+
+    raw_data_id: int = Field(..., description="原始数据ID")
+    name: str = Field(..., description="原始数据名称")
+    table_name: str = Field(..., description="来源表名")
+    status: str = Field(..., description="状态: created/ready/error")
+    error_message: str | None = Field(default=None, description="错误信息（如果有）")
+
+
+class DatabaseConnectionWithRawResponse(DatabaseConnectionResponse):
+    """数据库连接响应（包含自动创建的 RawData 结果）"""
+
+    auto_raw_results: list[AutoCreatedRawData] | None = Field(default=None, description="自动创建 RawData 的结果列表")
+    auto_raw_error: str | None = Field(default=None, description="自动创建 RawData 的错误信息")
+
+
 class DatabaseConnectionTestResult(BaseModel):
     """数据库连接测试结果"""
 
@@ -89,3 +106,23 @@ class DatabaseConnectionTablesResponse(BaseModel):
 
     connection_id: int = Field(..., description="连接ID")
     tables: list[DatabaseTableInfo] = Field(default_factory=list, description="表列表")
+
+
+class TableColumnInfo(BaseModel):
+    """数据库表的列信息"""
+
+    name: str = Field(..., description="列名")
+    data_type: str = Field(..., description="数据类型")
+    nullable: bool = Field(default=True, description="是否可空")
+    primary_key: bool = Field(default=False, description="是否主键")
+    comment: str | None = Field(default=None, description="列注释")
+
+
+class DatabaseTableSchemaResponse(BaseModel):
+    """数据库表结构响应"""
+
+    connection_id: int = Field(..., description="连接ID")
+    schema_name: str | None = Field(default=None, description="Schema 名称")
+    table_name: str = Field(..., description="表名")
+    columns: list[TableColumnInfo] = Field(default_factory=list, description="列信息")
+    row_count: int | None = Field(default=None, description="行数估算")

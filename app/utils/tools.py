@@ -302,18 +302,18 @@ async def quick_analysis(
         content_lines.append(f"- 行数: {view_analysis.get('row_count', 'N/A')}")
         content_lines.append(f"- 列数: {view_analysis.get('column_count', 'N/A')}")
 
-        # 列信息
+    # 列信息
         columns = view_analysis.get("columns", [])
-        if columns:
+    if columns:
             content_lines.append("\n#### 列信息:")
-            for col in columns[:15]:  # 最多显示 15 列
-                col_name = col.get("name", "")
-                col_type = col.get("dtype", "")
-                null_count = col.get("null_count", 0)
-                null_info = f", 缺失 {null_count}" if null_count > 0 else ""
-                content_lines.append(f"  - {col_name} ({col_type}{null_info})")
-            if len(columns) > 15:
-                content_lines.append(f"  ...等共 {len(columns)} 列")
+        for col in columns[:15]:  # 最多显示 15 列
+            col_name = col.get("name", "")
+            col_type = col.get("dtype", "")
+            null_count = col.get("null_count", 0)
+            null_info = f", 缺失 {null_count}" if null_count > 0 else ""
+            content_lines.append(f"  - {col_name} ({col_type}{null_info})")
+        if len(columns) > 15:
+            content_lines.append(f"  ...等共 {len(columns)} 列")
 
         # 数值统计摘要（从 columns 中提取）
         numeric_cols = [c for c in columns if c.get("stats")]
@@ -326,13 +326,13 @@ async def quick_analysis(
                 min_val = stats.get("min", "N/A")
                 max_val = stats.get("max", "N/A")
 
-                def _fmt_num(value: Any) -> str:
-                    """安全格式化，避免非数值类型导致格式化异常。"""
-                    return f"{value:.2f}" if isinstance(value, (int, float)) else str(value)
+            def _fmt_num(value: Any) -> str:
+                """安全格式化，避免非数值类型导致格式化异常。"""
+                return f"{value:.2f}" if isinstance(value, (int, float)) else str(value)
 
-                content_lines.append(
-                    f"  - {col_name}: 均值={_fmt_num(mean_val)}, 范围=[{_fmt_num(min_val)}, {_fmt_num(max_val)}]"
-                )
+            content_lines.append(
+                f"  - {col_name}: 均值={_fmt_num(mean_val)}, 范围=[{_fmt_num(min_val)}, {_fmt_num(max_val)}]"
+            )
 
     # 告诉 LLM 可用的 VIEW 名称（用于后续 SQL 查询）
     content_lines.append(f"\n💡 **可用 VIEW**: {', '.join(view_names)}")

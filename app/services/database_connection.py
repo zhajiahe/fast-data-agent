@@ -78,16 +78,27 @@ class DatabaseConnectionService:
             limit=page_size,
         )
 
-    async def create_connection(self, user_id: int, data: DatabaseConnectionCreate) -> DatabaseConnection:
+    async def create_connection(
+        self,
+        user_id: int,
+        data: DatabaseConnectionCreate,
+        *,
+        auto_create_raw_data: bool = True,
+        auto_sync_raw_data: bool = True,
+        max_auto_tables: int = 20,
+    ) -> tuple[DatabaseConnection, list[dict[str, Any]] | None, str | None]:
         """
         创建数据库连接
 
         Args:
             user_id: 用户 ID
             data: 创建数据
+            auto_create_raw_data: 创建连接后是否自动为数据库表生成 RawData
+            auto_sync_raw_data: 自动创建的 RawData 是否同步列信息
+            max_auto_tables: 自动创建 RawData 时的最大表数量（避免一次性创建过多）
 
         Returns:
-            创建的连接实例
+            (连接实例, 自动创建结果列表, 错误信息)
 
         Raises:
             BadRequestException: 数据验证失败
@@ -111,7 +122,51 @@ class DatabaseConnectionService:
             "extra_params": data.config.extra_params,
         }
 
-        return await self.repo.create(create_data)
+        connection = await self.repo.create(create_data)
+
+        # 自动为数据库表创建 RawData（可选）
+        auto_results: list[dict[str, Any]] | None = None
+        auto_error: str | None = None
+
+        if auto_create_raw_data:
+            try:
+                # 懒加载依赖，避免循环导入
+                from app.services.db_connector import DBConnectorService
+                from app.services.raw_data import RawDataService
+
+                connector = DBConnectorService()
+                tables = await connector.get_tables(connection)
+
+                # 限制自动创建的表数量，防止一次性创建过多
+                if max_auto_tables and max_auto_tables > 0:
+                    tables = tables[:max_auto_tables]
+
+                # 转换为批量创建所需的表结构
+                table_selections = [
+                    {
+                        "schema_name": t.get("schema"),
+                        "table_name": t.get("name", ""),
+                        # 使用 name_prefix 统一命名，不需要 custom_name
+                    }
+                    for t in tables
+                    if t.get("name")
+                ]
+
+                if table_selections:
+                    raw_service = RawDataService(self.db)
+                    auto_results = await raw_service.batch_create_from_connection(
+                        user_id=user_id,
+                        connection_id=connection.id,
+                        tables=table_selections,
+                        name_prefix=connection.name,
+                        auto_sync=auto_sync_raw_data,
+                    )
+                else:
+                    auto_results = []
+            except Exception as e:  # pragma: no cover - 防御性捕获
+                auto_error = str(e)
+
+        return connection, auto_results, auto_error
 
     async def update_connection(
         self,

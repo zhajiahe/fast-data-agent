@@ -7,12 +7,15 @@ from fastapi import APIRouter, Depends, status
 from app.core.deps import CurrentUser, DBSession
 from app.models.base import BasePageQuery, BaseResponse, PageResponse
 from app.schemas.database_connection import (
+    AutoCreatedRawData,
     DatabaseConnectionCreate,
     DatabaseConnectionResponse,
     DatabaseConnectionTablesResponse,
     DatabaseConnectionTestResult,
     DatabaseConnectionUpdate,
+    DatabaseConnectionWithRawResponse,
     DatabaseTableInfo,
+    DatabaseTableSchemaResponse,
 )
 from app.services.database_connection import DatabaseConnectionService
 
@@ -63,16 +66,40 @@ async def get_connection(connection_id: int, current_user: CurrentUser, db: DBSe
     )
 
 
-@router.post("", response_model=BaseResponse[DatabaseConnectionResponse], status_code=status.HTTP_201_CREATED)
-async def create_connection(data: DatabaseConnectionCreate, current_user: CurrentUser, db: DBSession):
+@router.post(
+    "",
+    response_model=BaseResponse[DatabaseConnectionWithRawResponse],
+    status_code=status.HTTP_201_CREATED,
+)
+async def create_connection(
+    data: DatabaseConnectionCreate,
+    current_user: CurrentUser,
+    db: DBSession,
+    auto_create_raw_data: bool = True,
+    auto_sync_raw_data: bool = True,
+    max_auto_tables: int = 20,
+):
     """创建数据库连接"""
     service = DatabaseConnectionService(db)
-    item = await service.create_connection(current_user.id, data)
+    connection, auto_results, auto_error = await service.create_connection(
+        current_user.id,
+        data,
+        auto_create_raw_data=auto_create_raw_data,
+        auto_sync_raw_data=auto_sync_raw_data,
+        max_auto_tables=max_auto_tables,
+    )
+
+    response_data = DatabaseConnectionWithRawResponse.model_validate(connection)
+
+    if auto_results is not None:
+        response_data.auto_raw_results = [AutoCreatedRawData(**r) for r in auto_results]
+    response_data.auto_raw_error = auto_error
+
     return BaseResponse(
         success=True,
         code=201,
         msg="创建连接成功",
-        data=DatabaseConnectionResponse.model_validate(item),
+        data=response_data,
     )
 
 
@@ -149,4 +176,58 @@ async def get_connection_tables(connection_id: int, current_user: CurrentUser, d
         code=200,
         msg="获取表列表成功",
         data=DatabaseConnectionTablesResponse(connection_id=connection_id, tables=tables),
+    )
+
+
+@router.get(
+    "/{connection_id}/schema",
+    response_model=BaseResponse[DatabaseTableSchemaResponse],
+)
+async def get_connection_table_schema(
+    connection_id: int,
+    current_user: CurrentUser,
+    db: DBSession,
+    schema_name: str | None = None,
+    table_name: str | None = None,
+):
+    """获取指定表的列结构"""
+    from app.services.db_connector import DBConnectorService
+
+    if not table_name:
+        return BaseResponse(success=False, code=400, msg="table_name 不能为空", data=None)
+
+    # 获取连接
+    service = DatabaseConnectionService(db)
+    connection = await service.get_connection(connection_id, current_user.id)
+
+    # 获取表结构
+    connector = DBConnectorService()
+    schema = await connector.get_table_schema(connection, schema_name=schema_name, table_name=table_name)
+
+    columns = [
+        {
+            "name": c.get("name", ""),
+            "data_type": c.get("data_type", ""),
+            "nullable": c.get("nullable", True),
+            "primary_key": c.get("primary_key", False),
+            "comment": c.get("comment"),
+        }
+        for c in schema.get("columns", [])
+    ]
+
+    from app.schemas.database_connection import TableColumnInfo
+
+    columns_objs = [TableColumnInfo(**c) for c in columns]
+
+    return BaseResponse(
+        success=True,
+        code=200,
+        msg="获取表结构成功",
+        data=DatabaseTableSchemaResponse(
+            connection_id=connection_id,
+            schema_name=schema_name,
+            table_name=table_name,
+            columns=columns_objs,
+            row_count=schema.get("row_count"),
+        ),
     )

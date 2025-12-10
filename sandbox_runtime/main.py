@@ -1184,13 +1184,13 @@ async def quick_analysis(
                     conn.execute(f"CREATE OR REPLACE TEMP VIEW data_preview AS SELECT * FROM read_csv_auto('{request.file_name}', header=True)")
                 elif file_ext == ".json":
                     conn.execute(f"CREATE OR REPLACE TEMP VIEW data_preview AS SELECT * FROM read_json_auto('{request.file_name}')")
-                else:
+            else:
                     return {"success": False, "error": f"Unsupported file type: {file_ext}"}
 
                 analysis = analyze_data_with_duckdb(conn, "data_preview")
                 analysis["file_name"] = request.file_name
 
-                return {"success": True, "analysis": analysis}
+            return {"success": True, "analysis": analysis}
 
             finally:
                 os.chdir(original_cwd)
@@ -1248,12 +1248,12 @@ async def quick_analysis(
                 analysis = analyze_data_with_duckdb(conn, f'"{view_name}"')
                 analysis["view_name"] = view_name
                 views_analysis.append(analysis)
-            except Exception as e:
+                except Exception as e:
                 logger.warning(f"Failed to analyze view {view_name}: {e}")
                 views_analysis.append({
                     "view_name": view_name,
-                    "error": str(e),
-                })
+                        "error": str(e),
+                    })
 
         # 如果只有一个 VIEW，简化返回结构
         if len(views_analysis) == 1:
