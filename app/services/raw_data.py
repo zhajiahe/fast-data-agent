@@ -160,6 +160,22 @@ class RawDataService:
 
             create_data["file_id"] = file_config.file_id
 
+            # 自动从 UploadedFile 同步列信息
+            if file.columns_info:
+                # 转换 columns_info 格式为 columns_schema 格式
+                columns_schema = []
+                for col in file.columns_info:
+                    columns_schema.append(
+                        {
+                            "name": col.get("name", ""),
+                            "data_type": col.get("dtype", col.get("type", "unknown")),
+                            "nullable": col.get("nullable", True),
+                        }
+                    )
+                create_data["columns_schema"] = columns_schema
+                create_data["status"] = "ready"
+                create_data["row_count_estimate"] = file.row_count
+
         return await self.repo.create(create_data)
 
     async def update_raw_data(
