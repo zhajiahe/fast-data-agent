@@ -28,6 +28,7 @@ import type {
   BaseResponsePageResponseRawDataResponse,
   BaseResponsePageResponseTaskRecommendationResponse,
   BaseResponsePageResponseUploadedFileResponse,
+  BaseResponseRawDataResponse,
   BaseResponseTaskRecommendationResponse,
   // Response types
   BaseResponseToken,
@@ -46,6 +47,7 @@ import type {
   GetSessionsApiV1SessionsGetParams,
   LoginRequest,
   PreviewDataSourceApiV1DataSourcesDataSourceIdPreviewPostBody,
+  RawDataCreate,
   TaskRecommendationUpdate,
   UserCreate,
 } from './fastDataAgent';
@@ -54,6 +56,8 @@ import {
   archiveSessionApiV1SessionsSessionIdArchivePost,
   clearMessagesApiV1SessionsSessionIdMessagesDelete,
   createDataSourceApiV1DataSourcesPost,
+  // RawData
+  createRawDataApiV1RawDataPost,
   createSessionApiV1SessionsPost,
   deleteConnectionApiV1DatabaseConnectionsConnectionIdDelete,
   deleteDataSourceApiV1DataSourcesDataSourceIdDelete,
@@ -71,7 +75,6 @@ import {
   getFilesApiV1FilesGet,
   // Messages
   getMessagesApiV1SessionsSessionIdMessagesGet,
-  // RawData
   getRawDataListApiV1RawDataGet,
   // Recommendations
   getRecommendationsApiV1SessionsSessionIdRecommendationsGet,
@@ -164,6 +167,16 @@ export const useRawDataList = (params?: GetRawDataListApiV1RawDataGetParams) => 
   return useQuery<AxiosResponse<BaseResponsePageResponseRawDataResponse>, Error>({
     queryKey: ['rawData', params],
     queryFn: () => getRawDataListApiV1RawDataGet(params),
+  });
+};
+
+export const useCreateRawData = () => {
+  const queryClient = useQueryClient();
+  return useMutation<AxiosResponse<BaseResponseRawDataResponse>, Error, RawDataCreate>({
+    mutationFn: (data) => createRawDataApiV1RawDataPost(data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['rawData'] });
+    },
   });
 };
 

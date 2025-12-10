@@ -316,9 +316,7 @@ export const DataSources = () => {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">数据源</h1>
-          <p className="text-muted-foreground mt-1">
-            显示后端已存在的数据源，可查看字段、原始数据映射，并刷新 Schema。
-          </p>
+          <p className="text-muted-foreground mt-1">浏览和管理数据源，可查看字段、原始数据映射，并刷新 Schema。</p>
         </div>
         <div className="flex gap-2">
           <Button size="sm" onClick={() => setShowWizard(true)}>

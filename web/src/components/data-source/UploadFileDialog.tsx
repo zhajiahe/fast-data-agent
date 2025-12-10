@@ -1,7 +1,7 @@
 import { FileSpreadsheet, Upload, X } from 'lucide-react';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { type DataSourceCreate, useCreateDataSource, useUploadFile } from '@/api';
+import { useUploadFile } from '@/api';
 import { LoadingSpinner } from '@/components/common';
 import { Button } from '@/components/ui/button';
 import {
@@ -38,11 +38,9 @@ export const UploadFileDialog = ({ open, onOpenChange }: UploadFileDialogProps) 
   const [currentFileIndex, setCurrentFileIndex] = useState(0);
   const [isDragOver, setIsDragOver] = useState(false);
 
-  // 使用生成的 API hooks
+  // 仅上传文件，不自动创建数据源
   const uploadFileMutation = useUploadFile();
-  const createDataSourceMutation = useCreateDataSource();
-
-  const isUploading = uploadFileMutation.isPending || createDataSourceMutation.isPending;
+  const isUploading = uploadFileMutation.isPending;
 
   const isValidFile = (selectedFile: File): boolean => {
     const ext = `.${selectedFile.name.split('.').pop()?.toLowerCase()}`;
@@ -112,7 +110,7 @@ export const UploadFileDialog = ({ open, onOpenChange }: UploadFileDialogProps) 
         const file = files[i];
         setCurrentFileIndex(i);
 
-        // 1. 上传文件
+        // 上传文件（不自动创建数据源）
         const uploadResult = await uploadFileMutation.mutateAsync({ file });
         setUploadProgress((i + 0.5) * progressPerFile);
 
@@ -120,15 +118,6 @@ export const UploadFileDialog = ({ open, onOpenChange }: UploadFileDialogProps) 
         if (!fileId) {
           throw new Error(`上传文件 ${file.name} 失败：未获取到文件 ID`);
         }
-
-        // 2. 创建文件类型数据源（使用文件名作为数据源名称，group_name 作为分组）
-        const dataSourceName = files.length === 1 ? groupName.trim() : file.name.replace(/\.[^/.]+$/, '');
-        await createDataSourceMutation.mutateAsync({
-          name: dataSourceName,
-          description: description.trim() || undefined,
-          file_id: fileId,
-          group_name: files.length > 1 ? groupName.trim() : undefined,
-        } as unknown as DataSourceCreate);
 
         setUploadProgress((i + 1) * progressPerFile);
       }

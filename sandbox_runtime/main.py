@@ -374,7 +374,7 @@ app = FastAPI(
 # ==================== 健康检查 ====================
 
 
-@app.get("/", summary="Health Check")
+@app.get("/health", summary="Health Check")
 async def health_check():
     """A simple health check endpoint to confirm the server is running."""
     return {"status": "ok", "message": "Sandbox Runtime is active."}
