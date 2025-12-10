@@ -91,19 +91,31 @@ class DuckDBConnectionManager:
         conn.execute(f"SET extension_directory='{self._extensions_dir}';")
 
         if with_s3:
-            # 加载 httpfs 并配置 S3（扩展已预安装，只需 LOAD）
-            conn.execute("LOAD httpfs;")
-            conn.execute(f"SET s3_endpoint='{MINIO_ENDPOINT}';")
-            conn.execute(f"SET s3_access_key_id='{MINIO_ACCESS_KEY}';")
-            conn.execute(f"SET s3_secret_access_key='{MINIO_SECRET_KEY}';")
-            conn.execute("SET s3_url_style='path';")
-            conn.execute(f"SET s3_use_ssl={'true' if MINIO_SECURE else 'false'};")
+            configure_s3_access(conn)
 
         return conn
 
 
 # 全局连接管理器实例
 duckdb_manager = DuckDBConnectionManager()
+
+
+def configure_s3_access(conn) -> None:
+    """
+    配置 DuckDB 连接的 S3 (MinIO) 访问。
+    
+    在已有连接上配置 httpfs 扩展和 S3 认证信息。
+    适用于 session.duckdb 持久连接或需要访问 S3 的场景。
+    
+    Args:
+        conn: DuckDB 连接实例
+    """
+    conn.execute("LOAD httpfs;")
+    conn.execute(f"SET s3_endpoint='{MINIO_ENDPOINT}';")
+    conn.execute(f"SET s3_access_key_id='{MINIO_ACCESS_KEY}';")
+    conn.execute(f"SET s3_secret_access_key='{MINIO_SECRET_KEY}';")
+    conn.execute("SET s3_url_style='path';")
+    conn.execute(f"SET s3_use_ssl={'true' if MINIO_SECURE else 'false'};")
 
 
 # ==================== 请求/响应模型 ====================
@@ -167,11 +179,6 @@ class QuickAnalysisRequest(BaseModel):
     # 要分析的 VIEW 名称列表，为空则分析所有 VIEW
     view_names: list[str] | None = None
 
-
-class QuickAnalysisLegacyRequest(BaseModel):
-    """快速分析请求模型（旧版：传递连接信息，兼容用）"""
-
-    data_source: DataSourceInfo
 
 
 class CodeExecutionResult(BaseModel):
@@ -394,12 +401,7 @@ async def list_views(
         conn.execute(f"SET extension_directory='{extensions_dir}';")
 
         # 配置 S3 访问（VIEW 可能引用 S3 URL）
-        conn.execute("LOAD httpfs;")
-        conn.execute(f"SET s3_endpoint='{MINIO_ENDPOINT}';")
-        conn.execute(f"SET s3_access_key_id='{MINIO_ACCESS_KEY}';")
-        conn.execute(f"SET s3_secret_access_key='{MINIO_SECRET_KEY}';")
-        conn.execute("SET s3_url_style='path';")
-        conn.execute(f"SET s3_use_ssl={'true' if MINIO_SECURE else 'false'};")
+        configure_s3_access(conn)
 
         # 查询所有 VIEW
         views_result = conn.execute(
@@ -540,12 +542,7 @@ async def init_session(
 
                 elif raw_data.raw_type == "file":
                     # 文件类型：通过 S3/httpfs 创建 VIEW
-                    conn.execute("LOAD httpfs;")
-                    conn.execute(f"SET s3_endpoint='{MINIO_ENDPOINT}';")
-                    conn.execute(f"SET s3_access_key_id='{MINIO_ACCESS_KEY}';")
-                    conn.execute(f"SET s3_secret_access_key='{MINIO_SECRET_KEY}';")
-                    conn.execute("SET s3_url_style='path';")
-                    conn.execute(f"SET s3_use_ssl={'true' if MINIO_SECURE else 'false'};")
+                    configure_s3_access(conn)
 
                     s3_url = f"s3://{raw_data.bucket_name}/{raw_data.object_key}"
 
@@ -931,12 +928,7 @@ async def execute_sql(
         conn.execute(f"SET extension_directory='{extensions_dir}';")
 
         # 配置 S3 访问（用于读取会话目录中的临时文件）
-        conn.execute("LOAD httpfs;")
-        conn.execute(f"SET s3_endpoint='{MINIO_ENDPOINT}';")
-        conn.execute(f"SET s3_access_key_id='{MINIO_ACCESS_KEY}';")
-        conn.execute(f"SET s3_secret_access_key='{MINIO_SECRET_KEY}';")
-        conn.execute("SET s3_url_style='path';")
-        conn.execute(f"SET s3_use_ssl={'true' if MINIO_SECURE else 'false'};")
+        configure_s3_access(conn)
 
         # 切换工作目录以便相对路径访问本地文件
         original_cwd = os.getcwd()
@@ -993,19 +985,19 @@ async def execute_sql(
 
 
 def setup_duckdb_s3(conn) -> None:
-    """配置 DuckDB 以访问 MinIO (S3 兼容)"""
+    """
+    配置 DuckDB 以访问 MinIO (S3 兼容)。
+    
+    包含 INSTALL httpfs（用于首次未预加载的场景）。
+    如果扩展已预加载，使用 configure_s3_access() 即可。
+    """
     # 设置扩展目录到可写路径
     extensions_dir = SANDBOX_ROOT / "duckdb_extensions"
     extensions_dir.mkdir(parents=True, exist_ok=True)
     conn.execute(f"SET extension_directory='{extensions_dir}';")
     
     conn.execute("INSTALL httpfs;")
-    conn.execute("LOAD httpfs;")
-    conn.execute(f"SET s3_endpoint='{MINIO_ENDPOINT}';")
-    conn.execute(f"SET s3_access_key_id='{MINIO_ACCESS_KEY}';")
-    conn.execute(f"SET s3_secret_access_key='{MINIO_SECRET_KEY}';")
-    conn.execute("SET s3_url_style='path';")  # MinIO 使用 path style
-    conn.execute(f"SET s3_use_ssl={'true' if MINIO_SECURE else 'false'};")
+    configure_s3_access(conn)
 
 
 def get_db_connection_string(ds: DataSourceInfo) -> str:
@@ -1118,12 +1110,7 @@ async def quick_analysis(
         conn.execute(f"SET extension_directory='{extensions_dir}';")
 
         # 配置 S3 访问（VIEW 可能引用 S3 URL）
-        conn.execute("LOAD httpfs;")
-        conn.execute(f"SET s3_endpoint='{MINIO_ENDPOINT}';")
-        conn.execute(f"SET s3_access_key_id='{MINIO_ACCESS_KEY}';")
-        conn.execute(f"SET s3_secret_access_key='{MINIO_SECRET_KEY}';")
-        conn.execute("SET s3_url_style='path';")
-        conn.execute(f"SET s3_use_ssl={'true' if MINIO_SECURE else 'false'};")
+        configure_s3_access(conn)
 
         # 获取要分析的 VIEW 列表
         if request.view_names:
@@ -1175,139 +1162,6 @@ async def quick_analysis(
     finally:
         if conn:
             conn.close()
-
-
-@app.post("/quick_analysis_legacy", summary="Quick data analysis (legacy)")
-async def quick_analysis_legacy(
-    request: QuickAnalysisLegacyRequest,
-    user_id: int = Query(..., description="User ID"),
-    thread_id: int = Query(..., description="Thread/Session ID"),
-):
-    """
-    快速分析数据源，返回数据概览（旧版 API，兼容用）。
-    
-    ⚠️ 推荐使用 /quick_analysis（基于会话 VIEW）替代此 API。
-    
-    支持两种数据源类型：
-    1. file - 直接从 MinIO (S3) 读取文件
-    2. database - 连接外部数据库进行分析
-    """
-    ds = request.data_source
-    conn = None
-
-    try:
-        if ds.source_type == "file":
-            # ========== 文件类型：直接从 MinIO (S3) 读取 ==========
-            if not ds.object_key or not ds.bucket_name:
-                return {"success": False, "error": "Missing object_key or bucket_name for file data source"}
-
-            # 使用连接管理器获取配置好 S3 的连接
-            conn = duckdb_manager.get_connection(with_s3=True)
-
-            # 构建 S3 URL
-            s3_url = f"s3://{ds.bucket_name}/{ds.object_key}"
-            logger.info(f"Reading file from S3: {s3_url}")
-
-            # 根据文件类型选择读取方式
-            file_type = ds.file_type or "csv"
-            if file_type == "csv":
-                load_query = f"CREATE OR REPLACE TEMP VIEW data_preview AS SELECT * FROM read_csv_auto('{s3_url}', header=True)"
-                conn.execute(load_query)
-                analysis = analyze_data_with_duckdb(conn, "data_preview")
-            elif file_type == "parquet":
-                load_query = f"CREATE OR REPLACE TEMP VIEW data_preview AS SELECT * FROM parquet_scan('{s3_url}')"
-                conn.execute(load_query)
-                analysis = analyze_data_with_duckdb(conn, "data_preview")
-            elif file_type == "json":
-                load_query = f"CREATE OR REPLACE TEMP VIEW data_preview AS SELECT * FROM read_json_auto('{s3_url}')"
-                conn.execute(load_query)
-                analysis = analyze_data_with_duckdb(conn, "data_preview")
-            elif file_type == "excel":
-                # DuckDB 需要 spatial 扩展来读取 Excel
-                conn.execute("INSTALL spatial; LOAD spatial;")
-                load_query = f"CREATE OR REPLACE TEMP VIEW data_preview AS SELECT * FROM st_read('{s3_url}')"
-                conn.execute(load_query)
-                analysis = analyze_data_with_duckdb(conn, "data_preview")
-            else:
-                return {"success": False, "error": f"Unsupported file type: {file_type}"}
-
-            analysis["source_type"] = "file"
-            # 注意：不返回 object_key/file_name，避免 LLM 误用 UUID 文件名
-            # LLM 应该通过数据源名称访问数据
-
-            return {"success": True, "analysis": analysis}
-
-        elif ds.source_type == "database":
-            # ========== 数据库类型：使用 DuckDB 的数据库扩展 ==========
-            if not ds.db_type:
-                return {"success": False, "error": "Missing db_type for database data source"}
-
-            # 使用连接管理器获取基础连接
-            conn = duckdb_manager.get_connection(with_s3=False)
-
-            # 安装并加载对应的数据库扩展
-            if ds.db_type == "postgresql":
-                conn.execute("INSTALL postgres; LOAD postgres;")
-                conn_str = f"host={ds.host} port={ds.port} dbname={ds.database} user={ds.username} password={ds.password}"
-                conn.execute(f"ATTACH '{conn_str}' AS external_db (TYPE POSTGRES, READ_ONLY);")
-            elif ds.db_type == "mysql":
-                conn.execute("INSTALL mysql; LOAD mysql;")
-                conn_str = f"host={ds.host} port={ds.port} database={ds.database} user={ds.username} password={ds.password}"
-                conn.execute(f"ATTACH '{conn_str}' AS external_db (TYPE MYSQL, READ_ONLY);")
-            else:
-                return {"success": False, "error": f"Unsupported database type: {ds.db_type}"}
-
-            # 获取所有表
-            tables_result = conn.execute(
-                "SELECT table_name FROM information_schema.tables WHERE table_schema = 'external_db'"
-            ).fetchall()
-
-            if not tables_result:
-                # 尝试另一种方式获取表列表
-                tables_result = conn.execute("SHOW TABLES FROM external_db").fetchall()
-
-            tables_info = []
-            for (table_name,) in tables_result[:10]:  # 限制分析前 10 个表
-                try:
-                    # 获取行数
-                    row_count = conn.execute(f"SELECT COUNT(*) FROM external_db.{table_name}").fetchone()[0]
-                    # 获取列信息
-                    columns_meta = conn.execute(f"PRAGMA table_info('external_db.{table_name}')").fetchall()
-                    columns = [{"name": col[1], "dtype": col[2]} for col in columns_meta]
-
-                    tables_info.append({
-                        "table_name": table_name,
-                        "row_count": int(row_count),
-                        "column_count": len(columns),
-                        "columns": columns,
-                    })
-                except Exception as e:
-                    logger.warning(f"Failed to analyze table {table_name}: {e}")
-                    tables_info.append({
-                        "table_name": table_name,
-                        "error": str(e),
-                    })
-
-            analysis = {
-                "source_type": "database",
-                "db_type": ds.db_type,
-                "database": ds.database,
-                "table_count": len(tables_result),
-                "tables": tables_info,
-            }
-
-            return {"success": True, "analysis": analysis}
-
-        else:
-            return {"success": False, "error": f"Unknown source_type: {ds.source_type}"}
-
-    except Exception as e:
-        logger.exception("Quick analysis failed")
-        return {"success": False, "error": str(e)}
-    finally:
-        if conn:
-            conn.close()
-
 
 # ==================== 图表生成 ====================
 
