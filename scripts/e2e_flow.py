@@ -178,15 +178,22 @@ async def main(base_url: str) -> None:
 
         # 9. Chat 对话（流式）- 测试 quick_analysis 工具
         chat_prompt = "请快速分析当前数据源，告诉我有哪些列和基本统计信息。"
+        print(f"\n{'='*60}")
+        print(f"📝 用户输入: {chat_prompt}")
+        print(f"{'='*60}\n")
+
         try:
             got_text = False
             got_tool = False
             answer_parts: list[str] = []
+            current_text_id: str | None = None
+
             async with client.stream(
                 "POST",
                 f"/sessions/{session_id}/chat",
                 headers={**headers, "Accept": "text/event-stream"},
                 json={"content": chat_prompt},
+                timeout=120.0,  # 增加超时时间
             ) as resp:
                 if resp.status_code != 200:
                     _log("Chat 对话", False, f"status={resp.status_code}, body={await resp.aread()}")
@@ -196,36 +203,127 @@ async def main(base_url: str) -> None:
                             continue
                         payload = line[len("data: ") :]
                         if payload.strip() == "[DONE]":
+                            print("\n📍 [DONE] 流结束")
                             break
                         try:
                             obj = json.loads(payload)
                         except Exception:
                             continue
+
                         evt_type = obj.get("type")
-                        if evt_type == "text-delta":
+
+                        # 消息开始
+                        if evt_type == "start":
+                            msg_id = obj.get("messageId", "")
+                            print(f"📍 [start] 消息开始: {msg_id}")
+
+                        # 步骤控制
+                        elif evt_type == "start-step":
+                            print(f"\n📍 [start-step] 新步骤开始")
+
+                        elif evt_type == "finish-step":
+                            print(f"📍 [finish-step] 步骤结束")
+
+                        elif evt_type == "finish":
+                            print(f"📍 [finish] 消息完成")
+
+                        # 文本流
+                        elif evt_type == "text-start":
+                            text_id = obj.get("id", "")
+                            current_text_id = text_id
+                            print(f"\n📍 [text-start] 文本开始: {text_id}")
+                            print("💬 AI 回复: ", end="", flush=True)
+
+                        elif evt_type == "text-delta":
                             delta = obj.get("delta", "")
                             if delta:
                                 got_text = True
                                 answer_parts.append(delta)
+                                print(delta, end="", flush=True)
+
+                        elif evt_type == "text-end":
+                            text_id = obj.get("id", "")
+                            print(f"\n📍 [text-end] 文本结束: {text_id}")
+                            current_text_id = None
+
+                        # 工具调用
+                        elif evt_type == "tool-input-start":
+                            tool_call_id = obj.get("toolCallId", "")
+                            tool_name = obj.get("toolName", "")
+                            print(f"\n🔧 [tool-input-start] 工具调用开始")
+                            print(f"   工具: {tool_name}")
+                            print(f"   ID: {tool_call_id}")
+
+                        elif evt_type == "tool-input-available":
+                            tool_call_id = obj.get("toolCallId", "")
+                            tool_name = obj.get("toolName", "")
+                            tool_input = obj.get("input", {})
+                            print(f"\n🔧 [tool-input-available] 工具参数就绪")
+                            print(f"   工具: {tool_name}")
+                            print(f"   ID: {tool_call_id}")
+                            input_str = json.dumps(tool_input, ensure_ascii=False, indent=2)
+                            if len(input_str) > 500:
+                                input_str = input_str[:500] + "...(截断)"
+                            print(f"   参数: {input_str}")
+
                         elif evt_type == "tool-output-available":
-                            output = obj.get("output")
-                            artifact = obj.get("artifact")
-                            got_tool = True if output or artifact else got_tool
+                            tool_call_id = obj.get("toolCallId", "")
+                            tool_name = obj.get("toolName", "")
+                            output = obj.get("output", {})
+                            artifact = obj.get("artifact", {})
+                            got_tool = True
+
+                            print(f"\n✅ [tool-output-available] 工具执行完成")
+                            print(f"   工具: {tool_name}")
+                            print(f"   ID: {tool_call_id}")
+
+                            # 显示 output (给 LLM 的内容)
+                            if output:
+                                output_str = json.dumps(output, ensure_ascii=False, indent=2) if isinstance(output, dict) else str(output)
+                                if len(output_str) > 800:
+                                    output_str = output_str[:800] + "...(截断)"
+                                print(f"   输出 (LLM): {output_str}")
+
+                            # 显示 artifact 类型 (给前端的数据)
+                            if artifact:
+                                artifact_type = artifact.get("type", "unknown") if isinstance(artifact, dict) else "raw"
+                                print(f"   Artifact 类型: {artifact_type}")
+
+                        # 流式状态
+                        elif evt_type == "stream-status":
+                            status = obj.get("status", "")
+                            print(f"📍 [stream-status] {status}")
+
+                        # 错误
                         elif evt_type == "error":
-                            _log("Chat 对话", False, f"error={obj.get('errorText') or obj}")
+                            error_text = obj.get("errorText", obj.get("error", "未知错误"))
+                            print(f"\n❌ [error] 错误: {error_text}")
+                            _log("Chat 对话", False, f"error={error_text}")
                             return
+
+                        # 其他事件
+                        else:
+                            if evt_type:
+                                print(f"📍 [{evt_type}] {json.dumps(obj, ensure_ascii=False)[:200]}")
+
+                    # 最终结果
+                    print(f"\n{'='*60}")
                     answer = "".join(answer_parts).strip()
                     if got_text:
                         if "没有可用的数据源" in answer:
                             _log("Chat 对话", False, "返回提示无数据源，预期应可用")
                             return
-                        preview = (answer[:120] + "...") if len(answer) > 120 else answer
-                        _log("Chat 对话", True, preview or "(empty)")
+                        preview = (answer[:200] + "...") if len(answer) > 200 else answer
+                        _log("Chat 对话", True, f"\n{preview}")
                     elif got_tool:
                         _log("Chat 对话", True, "收到工具输出事件（无文本增量）")
                     else:
                         _log("Chat 对话", False, "空响应")
+
         except Exception as e:
+            import traceback
+            print(f"\n❌ 异常: {e}")
+            traceback.print_exc()
             _log("Chat 对话", False, str(e))
 
 

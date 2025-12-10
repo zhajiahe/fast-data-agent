@@ -360,6 +360,14 @@ async def list_views(
         extensions_dir = SANDBOX_ROOT / "duckdb_extensions"
         conn.execute(f"SET extension_directory='{extensions_dir}';")
 
+        # 配置 S3 访问（VIEW 可能引用 S3 URL）
+        conn.execute("LOAD httpfs;")
+        conn.execute(f"SET s3_endpoint='{MINIO_ENDPOINT}';")
+        conn.execute(f"SET s3_access_key_id='{MINIO_ACCESS_KEY}';")
+        conn.execute(f"SET s3_secret_access_key='{MINIO_SECRET_KEY}';")
+        conn.execute("SET s3_url_style='path';")
+        conn.execute(f"SET s3_use_ssl={'true' if MINIO_SECURE else 'false'};")
+
         # 查询所有 VIEW
         views_result = conn.execute(
             "SELECT table_name FROM information_schema.tables WHERE table_type = 'VIEW'"
@@ -1075,6 +1083,14 @@ async def quick_analysis(
         # 设置扩展目录
         extensions_dir = SANDBOX_ROOT / "duckdb_extensions"
         conn.execute(f"SET extension_directory='{extensions_dir}';")
+
+        # 配置 S3 访问（VIEW 可能引用 S3 URL）
+        conn.execute("LOAD httpfs;")
+        conn.execute(f"SET s3_endpoint='{MINIO_ENDPOINT}';")
+        conn.execute(f"SET s3_access_key_id='{MINIO_ACCESS_KEY}';")
+        conn.execute(f"SET s3_secret_access_key='{MINIO_SECRET_KEY}';")
+        conn.execute("SET s3_url_style='path';")
+        conn.execute(f"SET s3_use_ssl={'true' if MINIO_SECURE else 'false'};")
 
         # 获取要分析的 VIEW 列表
         if request.view_names:
