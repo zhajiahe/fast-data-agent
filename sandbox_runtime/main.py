@@ -162,7 +162,14 @@ class DataSourceInfo(BaseModel):
 
 
 class QuickAnalysisRequest(BaseModel):
-    """快速分析请求模型"""
+    """快速分析请求模型（新版：基于会话 VIEW）"""
+
+    # 要分析的 VIEW 名称列表，为空则分析所有 VIEW
+    view_names: list[str] | None = None
+
+
+class QuickAnalysisLegacyRequest(BaseModel):
+    """快速分析请求模型（旧版：传递连接信息，兼容用）"""
 
     data_source: DataSourceInfo
 
@@ -321,6 +328,80 @@ async def health_check():
 
 
 # ==================== 会话初始化 ====================
+
+
+@app.get("/list_views", summary="List available VIEWs in session DuckDB")
+async def list_views(
+    user_id: int = Query(..., description="User ID"),
+    thread_id: int = Query(..., description="Thread/Session ID"),
+):
+    """
+    列出会话 DuckDB 中所有可用的 VIEW。
+    
+    返回每个 VIEW 的名称、列信息和行数。
+    用于让 AI 知道当前可以查询哪些数据。
+    """
+    import duckdb
+
+    session_dir = get_session_dir(user_id, thread_id)
+    duckdb_path = session_dir / "session.duckdb"
+
+    if not duckdb_path.exists():
+        return {
+            "success": True,
+            "views": [],
+            "message": "Session DuckDB not initialized",
+        }
+
+    try:
+        conn = duckdb.connect(str(duckdb_path), read_only=True)
+
+        # 设置扩展目录
+        extensions_dir = SANDBOX_ROOT / "duckdb_extensions"
+        conn.execute(f"SET extension_directory='{extensions_dir}';")
+
+        # 查询所有 VIEW
+        views_result = conn.execute(
+            "SELECT table_name FROM information_schema.tables WHERE table_type = 'VIEW'"
+        ).fetchall()
+
+        views_info = []
+        for (view_name,) in views_result:
+            try:
+                # 获取列信息
+                columns_meta = conn.execute(f'PRAGMA table_info("{view_name}")').fetchall()
+                columns = [{"name": col[1], "dtype": col[2]} for col in columns_meta]
+
+                # 尝试获取行数（可能因为外部连接问题失败）
+                try:
+                    row_count = conn.execute(f'SELECT COUNT(*) FROM "{view_name}"').fetchone()[0]
+                except Exception:
+                    row_count = None  # 外部数据源可能不可达
+
+                views_info.append({
+                    "name": view_name,
+                    "columns": columns,
+                    "column_count": len(columns),
+                    "row_count": row_count,
+                })
+            except Exception as e:
+                logger.warning(f"Failed to get info for view {view_name}: {e}")
+                views_info.append({
+                    "name": view_name,
+                    "error": str(e),
+                })
+
+        conn.close()
+
+        return {
+            "success": True,
+            "views": views_info,
+            "view_count": len(views_info),
+        }
+
+    except Exception as e:
+        logger.exception(f"Failed to list views: {e}")
+        return {"success": False, "error": str(e), "views": []}
 
 
 @app.post("/init_session", summary="Initialize session DuckDB with data source")
@@ -970,7 +1051,94 @@ async def quick_analysis(
     thread_id: int = Query(..., description="Thread/Session ID"),
 ):
     """
-    快速分析数据源，返回数据概览。
+    快速分析会话 DuckDB 中的 VIEW。
+    
+    基于会话初始化时创建的 VIEW 进行分析，无需传递连接信息。
+    - view_names 为空时分析所有 VIEW
+    - view_names 指定时只分析指定的 VIEW
+    """
+    import duckdb
+
+    session_dir = get_session_dir(user_id, thread_id)
+    duckdb_path = session_dir / "session.duckdb"
+
+    if not duckdb_path.exists():
+        return {
+            "success": False,
+            "error": "Session DuckDB not initialized. Please create a session with data source first.",
+        }
+
+    conn = None
+    try:
+        conn = duckdb.connect(str(duckdb_path), read_only=True)
+
+        # 设置扩展目录
+        extensions_dir = SANDBOX_ROOT / "duckdb_extensions"
+        conn.execute(f"SET extension_directory='{extensions_dir}';")
+
+        # 获取要分析的 VIEW 列表
+        if request.view_names:
+            view_names = request.view_names
+        else:
+            # 查询所有 VIEW
+            views_result = conn.execute(
+                "SELECT table_name FROM information_schema.tables WHERE table_type = 'VIEW'"
+            ).fetchall()
+            view_names = [row[0] for row in views_result]
+
+        if not view_names:
+            return {
+                "success": True,
+                "analysis": {
+                    "views": [],
+                    "message": "No VIEWs found in session DuckDB",
+                },
+            }
+
+        # 分析每个 VIEW
+        views_analysis = []
+        for view_name in view_names:
+            try:
+                analysis = analyze_data_with_duckdb(conn, f'"{view_name}"')
+                analysis["view_name"] = view_name
+                views_analysis.append(analysis)
+            except Exception as e:
+                logger.warning(f"Failed to analyze view {view_name}: {e}")
+                views_analysis.append({
+                    "view_name": view_name,
+                    "error": str(e),
+                })
+
+        # 如果只有一个 VIEW，简化返回结构
+        if len(views_analysis) == 1:
+            result_analysis = views_analysis[0]
+        else:
+            result_analysis = {
+                "view_count": len(views_analysis),
+                "views": views_analysis,
+            }
+
+        return {"success": True, "analysis": result_analysis}
+
+    except Exception as e:
+        logger.exception("Quick analysis failed")
+        return {"success": False, "error": str(e)}
+    finally:
+        if conn:
+            conn.close()
+
+
+@app.post("/quick_analysis_legacy", summary="Quick data analysis (legacy)")
+async def quick_analysis_legacy(
+    request: QuickAnalysisLegacyRequest,
+    user_id: int = Query(..., description="User ID"),
+    thread_id: int = Query(..., description="Thread/Session ID"),
+):
+    """
+    快速分析数据源，返回数据概览（旧版 API，兼容用）。
+    
+    ⚠️ 推荐使用 /quick_analysis（基于会话 VIEW）替代此 API。
+    
     支持两种数据源类型：
     1. file - 直接从 MinIO (S3) 读取文件
     2. database - 连接外部数据库进行分析

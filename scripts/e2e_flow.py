@@ -176,8 +176,8 @@ async def main(base_url: str) -> None:
         items = r.json().get("data", {}).get("items", []) if ok else []
         _log("查询推荐列表", ok, f"count={len(items)}" if ok else r.text)
 
-        # 9. Chat 对话（流式）
-        chat_prompt = "请直接回复：已收到数据源信息。"
+        # 9. Chat 对话（流式）- 测试 quick_analysis 工具
+        chat_prompt = "请快速分析当前数据源，告诉我有哪些列和基本统计信息。"
         try:
             got_text = False
             got_tool = False

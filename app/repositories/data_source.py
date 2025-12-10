@@ -9,6 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.models.data_source import DataSource, DataSourceCategory, DataSourceRawMapping
+from app.models.raw_data import RawData
 from app.repositories.base import BaseRepository
 
 
@@ -80,7 +81,7 @@ class DataSourceRepository(BaseRepository[DataSource]):
 
     async def get_by_ids(self, ids: list[int], user_id: int) -> list[DataSource]:
         """
-        根据 ID 列表获取数据源（包含关联的 raw_mappings）
+        根据 ID 列表获取数据源（包含关联的 raw_mappings、raw_data 及其依赖）
 
         Args:
             ids: ID 列表
@@ -89,9 +90,15 @@ class DataSourceRepository(BaseRepository[DataSource]):
         Returns:
             数据源列表
         """
+        # 预加载完整的关系链：
+        # DataSource -> raw_mappings -> raw_data -> (uploaded_file, connection)
+        raw_data_loader = selectinload(DataSourceRawMapping.raw_data).options(
+            selectinload(RawData.uploaded_file),
+            selectinload(RawData.connection),
+        )
         query = (
             select(DataSource)
-            .options(selectinload(DataSource.raw_mappings).selectinload(DataSourceRawMapping.raw_data))
+            .options(selectinload(DataSource.raw_mappings).options(raw_data_loader))
             .where(
                 DataSource.id.in_(ids),
                 DataSource.user_id == user_id,
@@ -103,7 +110,7 @@ class DataSourceRepository(BaseRepository[DataSource]):
 
     async def get_with_mappings(self, id: int) -> DataSource | None:
         """
-        获取数据源（包含关联的 raw_mappings 和 raw_data）
+        获取数据源（包含关联的 raw_mappings、raw_data 及其依赖）
 
         Args:
             id: 数据源 ID
@@ -111,9 +118,15 @@ class DataSourceRepository(BaseRepository[DataSource]):
         Returns:
             数据源实例或 None
         """
+        # 预加载完整的关系链：
+        # DataSource -> raw_mappings -> raw_data -> (uploaded_file, connection)
+        raw_data_loader = selectinload(DataSourceRawMapping.raw_data).options(
+            selectinload(RawData.uploaded_file),
+            selectinload(RawData.connection),
+        )
         query = (
             select(DataSource)
-            .options(selectinload(DataSource.raw_mappings).selectinload(DataSourceRawMapping.raw_data))
+            .options(selectinload(DataSource.raw_mappings).options(raw_data_loader))
             .where(DataSource.id == id, DataSource.deleted == 0)
         )
         result = await self.db.execute(query)

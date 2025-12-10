@@ -176,10 +176,9 @@ async def quick_analysis(
 ) -> tuple[str, dict[str, Any]]:
     """
     快速分析当前会话的数据源，返回数据概览。
-    支持文件类型（CSV/Excel/JSON/Parquet）和数据库类型（MySQL/PostgreSQL）。
+    基于会话 DuckDB 中预创建的 VIEW 进行分析，无需传递连接信息。
 
-    对于文件类型：返回行数、列数、缺失值统计、数据类型、统计摘要。
-    对于数据库类型：返回表列表、每个表的行数和列信息。
+    返回：行数、列数、缺失值统计、数据类型、统计摘要。
 
     Returns:
         content: 格式化的分析摘要（给 LLM）
@@ -198,31 +197,8 @@ async def quick_analysis(
         error_msg = f"数据源 {ds_ctx.name} 没有关联的原始数据"
         return error_msg, {"type": "error", "error": error_msg}
 
-    # 使用第一个原始数据进行分析（简化处理）
-    raw = ds_ctx.raw_data_list[0]
-
-    # 构建数据源信息传递给沙盒
-    data_source_info: dict[str, Any] = {}
-
-    if raw.raw_type == "file":
-        data_source_info = {
-            "source_type": "file",
-            "file_type": raw.file_type,
-            "object_key": raw.object_key,
-            "bucket_name": raw.bucket_name,
-        }
-    elif raw.raw_type == "database_table":
-        data_source_info = {
-            "source_type": "database",
-            "db_type": raw.db_type,
-            "host": raw.host,
-            "port": raw.port,
-            "database": raw.database,
-            "username": raw.username,
-            "password": raw.password,
-            "schema_name": raw.schema_name,
-            "table_name": raw.table_name,
-        }
+    # 提取所有 RawData 的名称作为 VIEW 名称
+    view_names = [raw.name for raw in ds_ctx.raw_data_list]
 
     client = get_sandbox_client()
     response = await client.post(
@@ -231,7 +207,7 @@ async def quick_analysis(
             "user_id": ctx.user_id,
             "thread_id": ctx.thread_id,
         },
-        json={"data_source": data_source_info},
+        json={"view_names": view_names},
     )
     result = response.json()
 
@@ -243,45 +219,63 @@ async def quick_analysis(
 
     # 构建格式化的分析摘要（给 LLM）
     content_lines = [f"## 数据源: {ds_ctx.name} (ID: {ds_ctx.id})"]
-    content_lines.append(f"- 原始数据: {raw.name}")
-    content_lines.append(f"- 行数: {analysis.get('row_count', 'N/A')}")
-    content_lines.append(f"- 列数: {analysis.get('column_count', 'N/A')}")
 
-    # 列信息
-    columns = analysis.get("columns", [])
-    if columns:
-        content_lines.append("\n### 列信息:")
-        for col in columns[:15]:  # 最多显示 15 列
-            col_name = col.get("name", "")
-            col_type = col.get("dtype", "")
-            null_count = col.get("null_count", 0)
-            null_info = f", 缺失 {null_count}" if null_count > 0 else ""
-            content_lines.append(f"  - {col_name} ({col_type}{null_info})")
-        if len(columns) > 15:
-            content_lines.append(f"  ...等共 {len(columns)} 列")
+    # 处理多 VIEW 的情况
+    views = analysis.get("views", [analysis])  # 单 VIEW 时 analysis 本身就是结果
+    for view_analysis in views:
+        view_name = view_analysis.get("view_name", view_names[0] if view_names else "unknown")
 
-    # 数值统计摘要
-    stats = analysis.get("statistics", {})
-    if stats:
-        content_lines.append("\n### 数值统计摘要:")
-        for col_name, col_stats in list(stats.items())[:5]:  # 最多显示 5 列
-            mean_val = col_stats.get("mean", "N/A")
-            min_val = col_stats.get("min", "N/A")
-            max_val = col_stats.get("max", "N/A")
+        if "error" in view_analysis:
+            content_lines.append(f"\n### VIEW: {view_name}")
+            content_lines.append(f"  ⚠️ 分析失败: {view_analysis['error']}")
+            continue
 
-            def _fmt_num(value: Any) -> str:
-                """安全格式化，避免非数值类型导致格式化异常。"""
-                return f"{value:.2f}" if isinstance(value, (int, float)) else str(value)
+        content_lines.append(f"\n### VIEW: {view_name}")
+        content_lines.append(f"- 行数: {view_analysis.get('row_count', 'N/A')}")
+        content_lines.append(f"- 列数: {view_analysis.get('column_count', 'N/A')}")
 
-            content_lines.append(
-                f"  - {col_name}: 均值={_fmt_num(mean_val)}, 范围=[{_fmt_num(min_val)}, {_fmt_num(max_val)}]"
-            )
+        # 列信息
+        columns = view_analysis.get("columns", [])
+        if columns:
+            content_lines.append("\n#### 列信息:")
+            for col in columns[:15]:  # 最多显示 15 列
+                col_name = col.get("name", "")
+                col_type = col.get("dtype", "")
+                null_count = col.get("null_count", 0)
+                null_info = f", 缺失 {null_count}" if null_count > 0 else ""
+                content_lines.append(f"  - {col_name} ({col_type}{null_info})")
+            if len(columns) > 15:
+                content_lines.append(f"  ...等共 {len(columns)} 列")
+
+        # 数值统计摘要（从 columns 中提取）
+        numeric_cols = [c for c in columns if c.get("stats")]
+        if numeric_cols:
+            content_lines.append("\n#### 数值统计摘要:")
+            for col in numeric_cols[:5]:  # 最多显示 5 列
+                col_name = col.get("name", "")
+                stats = col.get("stats", {})
+                mean_val = stats.get("mean", "N/A")
+                min_val = stats.get("min", "N/A")
+                max_val = stats.get("max", "N/A")
+
+                def _fmt_num(value: Any) -> str:
+                    """安全格式化，避免非数值类型导致格式化异常。"""
+                    return f"{value:.2f}" if isinstance(value, (int, float)) else str(value)
+
+                content_lines.append(
+                    f"  - {col_name}: 均值={_fmt_num(mean_val)}, 范围=[{_fmt_num(min_val)}, {_fmt_num(max_val)}]"
+                )
+
+    # 告诉 LLM 可用的 VIEW 名称（用于后续 SQL 查询）
+    content_lines.append(f"\n💡 **可用 VIEW**: {', '.join(view_names)}")
+    content_lines.append("使用 `execute_sql` 工具时，可直接用这些 VIEW 名称作为表名查询。")
 
     # artifact 包含完整分析结果
     artifact = {
         "type": "analysis",
         "data_source_name": ds_ctx.name,
         "data_source_id": ds_ctx.id,
+        "available_views": view_names,
         **analysis,
     }
 
@@ -335,6 +329,11 @@ async def execute_sql(
     )
     result = response.json()
 
+    # 从 context 获取可用 VIEW 列表
+    available_views: list[str] = []
+    if ctx.data_source and ctx.data_source.raw_data_list:
+        available_views = [raw.name for raw in ctx.data_source.raw_data_list]
+
     if result.get("success"):
         row_count = result.get("row_count", 0)
         columns = result.get("columns", [])
@@ -370,18 +369,26 @@ async def execute_sql(
             "total_rows": row_count,
             "truncated": len(rows) > max_rows_for_frontend,
             "result_file": result_file,
+            "available_views": available_views,
         }
         return "\n".join(content_lines), artifact
     else:
         error_detail = result.get("error", "未知错误")
         # 给 LLM 关键错误信息（便于反思和修正）
         error_for_llm = extract_error_for_llm(error_detail)
-        content = f"❌ SQL 执行失败:\n{error_for_llm}"
-        return content, {
+
+        # 在错误信息中提示可用的 VIEW 列表，帮助 LLM 修正 SQL
+        content_lines = [f"❌ SQL 执行失败:\n{error_for_llm}"]
+        if available_views:
+            content_lines.append(f"\n💡 **可用 VIEW**: {', '.join(available_views)}")
+            content_lines.append("请检查表名是否正确，VIEW 名称需要用双引号包裹。")
+
+        return "\n".join(content_lines), {
             "type": "error",
             "tool": "execute_sql",
             "sql": sql,
             "error_message": error_detail,  # 完整错误信息（给前端调试用）
+            "available_views": available_views,
         }
 
 
