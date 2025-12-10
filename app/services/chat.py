@@ -352,10 +352,10 @@ class ChatService:
         Yields:
             流式 (message, metadata) 元组，或 error dict
         """
-        # 获取会话关联的数据源（只有一个或没有）
+        # 获取会话关联的数据源
         data_source: DataSource | None = None
-        if session.data_source_ids:
-            data_sources = await self.data_source_repo.get_by_ids(session.data_source_ids, session.user_id)
+        if session.data_source_id:
+            data_sources = await self.data_source_repo.get_by_ids([session.data_source_id], session.user_id)
             if data_sources:
                 data_source = data_sources[0]
 

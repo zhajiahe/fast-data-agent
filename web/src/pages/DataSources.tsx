@@ -469,7 +469,7 @@ export const DataSources = () => {
             </div>
             <div className="space-y-1 flex-1">
               <p className="font-medium text-sm">配置数据库</p>
-              <p className="text-xs text-muted-foreground">接入 MySQL / PostgreSQL / SQLite</p>
+              <p className="text-xs text-muted-foreground">接入 MySQL / PostgreSQL</p>
               <Button size="sm" variant="outline" onClick={() => setShowAddDatabase(true)}>
                 <Database className="h-4 w-4 mr-2" />
                 新建连接

@@ -59,13 +59,13 @@ async def get_session(
     service = AnalysisSessionService(db)
     session, data_source = await service.get_session_with_data_source(session_id, current_user.id)
 
-    # 构建响应（data_source_id 是 computed field，会自动从 data_source_ids 计算）
+    # 构建响应
     response = AnalysisSessionDetail(
         id=session.id,
         user_id=session.user_id,
         name=session.name,
         description=session.description,
-        data_source_ids=session.data_source_ids,
+        data_source_id=session.data_source_id,
         config=session.config,
         status=session.status,
         message_count=session.message_count,

@@ -97,13 +97,11 @@ class AnalysisSessionService:
             BadRequestException: 数据验证失败
         """
         # 验证数据源是否存在且属于当前用户
-        data_source_ids: list[int] = []
         data_source = None
         if data.data_source_id is not None:
             data_sources = await self.data_source_service.get_data_sources_by_ids([data.data_source_id], user_id)
             if len(data_sources) != 1:
                 raise BadRequestException(msg="数据源不存在或无权访问")
-            data_source_ids = [data.data_source_id]
             data_source = data_sources[0]
 
         # 创建会话
@@ -111,7 +109,7 @@ class AnalysisSessionService:
             "name": data.name,
             "description": data.description,
             "user_id": user_id,
-            "data_source_ids": data_source_ids if data_source_ids else None,
+            "data_source_id": data.data_source_id,
             "config": data.config,
             "status": "active",
             "message_count": 0,
@@ -349,7 +347,7 @@ class AnalysisSessionService:
             data_sources = await self.data_source_service.get_data_sources_by_ids([data.data_source_id], user_id)
             if len(data_sources) != 1:
                 raise BadRequestException(msg="数据源不存在或无权访问")
-            update_data["data_source_ids"] = [data.data_source_id]
+            update_data["data_source_id"] = data.data_source_id
             data_source_changed = True
             new_data_source = data_sources[0]
 
@@ -415,8 +413,8 @@ class AnalysisSessionService:
         session = await self.get_session(session_id, user_id)
 
         data_source = None
-        if session.data_source_ids and len(session.data_source_ids) > 0:
-            data_sources = await self.data_source_service.get_data_sources_by_ids(session.data_source_ids[:1], user_id)
+        if session.data_source_id:
+            data_sources = await self.data_source_service.get_data_sources_by_ids([session.data_source_id], user_id)
             if data_sources:
                 data_source = data_sources[0]
 
