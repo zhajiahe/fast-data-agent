@@ -4,6 +4,8 @@
 封装用户相关的数据库操作
 """
 
+import uuid
+
 from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -102,7 +104,7 @@ class UserRepository(BaseRepository[User]):
 
         return users, total
 
-    async def username_exists(self, username: str, exclude_id: int | None = None) -> bool:
+    async def username_exists(self, username: str, exclude_id: uuid.UUID | None = None) -> bool:
         """
         检查用户名是否已存在
 
@@ -119,7 +121,7 @@ class UserRepository(BaseRepository[User]):
         result = await self.db.execute(query)
         return result.scalar_one_or_none() is not None
 
-    async def email_exists(self, email: str, exclude_id: int | None = None) -> bool:
+    async def email_exists(self, email: str, exclude_id: uuid.UUID | None = None) -> bool:
         """
         检查邮箱是否已存在
 

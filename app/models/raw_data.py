@@ -4,10 +4,11 @@
 原始数据层：登记库表或文件的原始数据对象
 """
 
+import uuid
 from enum import Enum
 
 from sqlalchemy import ForeignKey, Integer, String, Text
-from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base, BaseTableMixin
@@ -36,21 +37,21 @@ class RawData(Base, BaseTableMixin):
     raw_type: Mapped[str] = mapped_column(String(20), nullable=False, comment="原始数据类型: database_table/file")
 
     # 所属用户
-    user_id: Mapped[int] = mapped_column(
-        Integer, ForeignKey("users.id"), nullable=False, index=True, comment="所属用户ID"
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id"), nullable=False, index=True, comment="所属用户ID"
     )
 
     # 数据库表类型配置 (raw_type=database_table 时使用)
-    connection_id: Mapped[int | None] = mapped_column(
-        Integer, ForeignKey("database_connections.id"), nullable=True, comment="数据库连接ID"
+    connection_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("database_connections.id"), nullable=True, comment="数据库连接ID"
     )
     schema_name: Mapped[str | None] = mapped_column(String(100), nullable=True, comment="Schema名称")
     table_name: Mapped[str | None] = mapped_column(String(100), nullable=True, comment="表名")
     custom_sql: Mapped[str | None] = mapped_column(Text, nullable=True, comment="自定义SQL查询（可选）")
 
     # 文件类型配置 (raw_type=file 时使用)
-    file_id: Mapped[int | None] = mapped_column(
-        Integer, ForeignKey("uploaded_files.id"), nullable=True, comment="关联的上传文件ID"
+    file_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("uploaded_files.id"), nullable=True, comment="关联的上传文件ID"
     )
 
     # 元数据

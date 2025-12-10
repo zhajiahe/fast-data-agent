@@ -2,6 +2,7 @@
 分析会话 API 路由
 """
 
+import uuid
 from typing import Any
 
 from fastapi import APIRouter, Depends, UploadFile, status
@@ -51,7 +52,7 @@ async def get_sessions(
 
 @router.get("/{session_id}", response_model=BaseResponse[AnalysisSessionDetail])
 async def get_session(
-    session_id: int,
+    session_id: uuid.UUID,
     current_user: CurrentUser,
     db: DBSession,
 ):
@@ -91,7 +92,7 @@ async def create_session(
 
 @router.put("/{session_id}", response_model=BaseResponse[AnalysisSessionResponse])
 async def update_session(
-    session_id: int,
+    session_id: uuid.UUID,
     data: AnalysisSessionUpdate,
     current_user: CurrentUser,
     db: DBSession,
@@ -104,7 +105,7 @@ async def update_session(
 
 @router.delete("/{session_id}", response_model=BaseResponse[None])
 async def delete_session(
-    session_id: int,
+    session_id: uuid.UUID,
     current_user: CurrentUser,
     db: DBSession,
 ):
@@ -116,7 +117,7 @@ async def delete_session(
 
 @router.post("/{session_id}/archive", response_model=BaseResponse[AnalysisSessionResponse])
 async def archive_session(
-    session_id: int,
+    session_id: uuid.UUID,
     current_user: CurrentUser,
     db: DBSession,
 ):
@@ -131,7 +132,7 @@ async def archive_session(
 
 @router.post("/{session_id}/files/upload", response_model=BaseResponse[dict[str, Any]])
 async def upload_session_file(
-    session_id: int,
+    session_id: uuid.UUID,
     file: UploadFile,
     current_user: CurrentUser,
     db: DBSession,
@@ -172,7 +173,7 @@ async def upload_session_file(
 
 
 @router.get("/{session_id}/files", response_model=BaseResponse[dict[str, Any]])
-async def list_session_files(session_id: int, current_user: CurrentUser, db: DBSession):
+async def list_session_files(session_id: uuid.UUID, current_user: CurrentUser, db: DBSession):
     """
     列出会话文件
 
@@ -204,7 +205,7 @@ async def list_session_files(session_id: int, current_user: CurrentUser, db: DBS
 
 @router.get("/{session_id}/files/{filename:path}")
 async def download_session_file(
-    session_id: int,
+    session_id: uuid.UUID,
     filename: str,
     current_user: CurrentUser,
     db: DBSession,

@@ -2,6 +2,8 @@
 数据源管理 API 路由
 """
 
+import uuid
+
 from fastapi import APIRouter, Depends, status
 
 from app.core.deps import CurrentUser, DBSession
@@ -91,7 +93,7 @@ async def get_data_sources(
 
 
 @router.get("/{data_source_id}", response_model=BaseResponse[DataSourceResponse])
-async def get_data_source(data_source_id: int, current_user: CurrentUser, db: DBSession):
+async def get_data_source(data_source_id: uuid.UUID, current_user: CurrentUser, db: DBSession):
     """获取单个数据源详情（包含映射信息）"""
     service = DataSourceService(db)
     item = await service.get_data_source_with_mappings(data_source_id, current_user.id)
@@ -120,7 +122,7 @@ async def create_data_source(data: DataSourceCreate, current_user: CurrentUser, 
 
 @router.put("/{data_source_id}", response_model=BaseResponse[DataSourceResponse])
 async def update_data_source(
-    data_source_id: int,
+    data_source_id: uuid.UUID,
     data: DataSourceUpdate,
     current_user: CurrentUser,
     db: DBSession,
@@ -139,7 +141,7 @@ async def update_data_source(
 
 
 @router.delete("/{data_source_id}", response_model=BaseResponse[None])
-async def delete_data_source(data_source_id: int, current_user: CurrentUser, db: DBSession):
+async def delete_data_source(data_source_id: uuid.UUID, current_user: CurrentUser, db: DBSession):
     """删除数据源"""
     service = DataSourceService(db)
     await service.delete_data_source(data_source_id, current_user.id)
@@ -148,7 +150,7 @@ async def delete_data_source(data_source_id: int, current_user: CurrentUser, db:
 
 @router.post("/{data_source_id}/preview", response_model=BaseResponse[DataSourcePreviewResponse])
 async def preview_data_source(
-    data_source_id: int,
+    data_source_id: uuid.UUID,
     current_user: CurrentUser,
     db: DBSession,
     request: DataSourcePreviewRequest | None = None,
@@ -301,7 +303,7 @@ async def suggest_target_fields(
 
 @router.post("/{data_source_id}/refresh-schema", response_model=BaseResponse[DataSourceResponse])
 async def refresh_data_source_schema(
-    data_source_id: int,
+    data_source_id: uuid.UUID,
     current_user: CurrentUser,
     db: DBSession,
 ):

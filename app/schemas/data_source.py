@@ -2,6 +2,7 @@
 数据源相关的 Pydantic Schema
 """
 
+import uuid
 from datetime import datetime
 from typing import Any
 
@@ -21,7 +22,7 @@ class TargetField(BaseModel):
 class FieldMapping(BaseModel):
     """单个 Raw 的字段映射"""
 
-    raw_data_id: int = Field(..., description="原始数据ID")
+    raw_data_id: uuid.UUID = Field(..., description="原始数据ID")
     mappings: dict[str, str | None] = Field(..., description="字段映射: {target_field: source_field_or_null}")
     priority: int = Field(default=0, description="优先级（数值越大优先级越高）")
     is_enabled: bool = Field(default=True, description="是否启用")
@@ -60,8 +61,8 @@ class DataSourceUpdate(BaseModel):
 class RawMappingResponse(BaseModel):
     """Raw 映射响应"""
 
-    id: int = Field(..., description="映射ID")
-    raw_data_id: int = Field(..., description="原始数据ID")
+    id: uuid.UUID = Field(..., description="映射ID")
+    raw_data_id: uuid.UUID = Field(..., description="原始数据ID")
     raw_data_name: str | None = Field(default=None, description="原始数据名称")
     field_mappings: dict[str, str | None] = Field(default_factory=dict, description="字段映射")
     priority: int = Field(default=0, description="优先级")
@@ -73,8 +74,8 @@ class RawMappingResponse(BaseModel):
 class DataSourceResponse(DataSourceBase):
     """数据源响应"""
 
-    id: int = Field(..., description="数据源ID")
-    user_id: int = Field(..., description="所属用户ID")
+    id: uuid.UUID = Field(..., description="数据源ID")
+    user_id: uuid.UUID = Field(..., description="所属用户ID")
 
     # 目标字段
     target_fields: list[TargetField] | None = Field(default=None, description="目标字段定义")
@@ -120,7 +121,7 @@ class SuggestMappingsRequest(BaseModel):
     """字段映射建议请求"""
 
     target_fields: list[TargetField] = Field(..., min_length=1, description="目标字段列表")
-    raw_data_ids: list[int] = Field(..., min_length=1, description="原始数据ID列表")
+    raw_data_ids: list[uuid.UUID] = Field(..., min_length=1, description="原始数据ID列表")
 
 
 class FieldMappingSuggestionResponse(BaseModel):
@@ -128,7 +129,7 @@ class FieldMappingSuggestionResponse(BaseModel):
 
     target_field: str = Field(..., description="目标字段名")
     source_field: str = Field(..., description="推荐的源字段名")
-    raw_data_id: int = Field(..., description="来源 RawData ID")
+    raw_data_id: uuid.UUID = Field(..., description="来源 RawData ID")
     raw_data_name: str = Field(..., description="来源 RawData 名称")
     confidence: float = Field(..., ge=0, le=1, description="匹配置信度 (0-1)")
     reason: str = Field(..., description="推荐理由")
@@ -143,7 +144,7 @@ class SuggestMappingsResponse(BaseModel):
 class SuggestTargetFieldsRequest(BaseModel):
     """从原始数据推断目标字段请求"""
 
-    raw_data_ids: list[int] = Field(..., min_length=1, description="原始数据ID列表")
+    raw_data_ids: list[uuid.UUID] = Field(..., min_length=1, description="原始数据ID列表")
 
 
 class SuggestedTargetField(BaseModel):

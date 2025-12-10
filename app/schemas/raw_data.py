@@ -2,6 +2,7 @@
 原始数据相关的 Pydantic Schema
 """
 
+import uuid
 from datetime import datetime
 from typing import Any
 
@@ -31,7 +32,7 @@ class RawDataBase(BaseModel):
 class RawDataDatabaseTableConfig(BaseModel):
     """数据库表类型配置"""
 
-    connection_id: int = Field(..., description="数据库连接ID")
+    connection_id: uuid.UUID = Field(..., description="数据库连接ID")
     schema_name: str | None = Field(default=None, max_length=100, description="Schema名称")
     table_name: str | None = Field(default=None, max_length=100, description="表名")
     custom_sql: str | None = Field(default=None, description="自定义SQL查询（可选）")
@@ -47,7 +48,7 @@ class RawDataDatabaseTableConfig(BaseModel):
 class RawDataFileConfig(BaseModel):
     """文件类型配置"""
 
-    file_id: int = Field(..., description="上传文件ID")
+    file_id: uuid.UUID = Field(..., description="上传文件ID")
 
 
 class RawDataCreate(RawDataBase):
@@ -92,17 +93,17 @@ class RawDataColumnUpdate(BaseModel):
 class RawDataResponse(RawDataBase):
     """原始数据响应"""
 
-    id: int = Field(..., description="原始数据ID")
-    user_id: int = Field(..., description="所属用户ID")
+    id: uuid.UUID = Field(..., description="原始数据ID")
+    user_id: uuid.UUID = Field(..., description="所属用户ID")
 
     # 数据库表配置
-    connection_id: int | None = Field(default=None, description="数据库连接ID")
+    connection_id: uuid.UUID | None = Field(default=None, description="数据库连接ID")
     schema_name: str | None = Field(default=None, description="Schema名称")
     table_name: str | None = Field(default=None, description="表名")
     custom_sql: str | None = Field(default=None, description="自定义SQL")
 
     # 文件配置
-    file_id: int | None = Field(default=None, description="上传文件ID")
+    file_id: uuid.UUID | None = Field(default=None, description="上传文件ID")
 
     # 元数据
     columns_schema: list[ColumnSchema] | None = Field(default=None, description="列结构信息")
@@ -156,7 +157,7 @@ class TableSelection(BaseModel):
 class BatchCreateFromConnectionRequest(BaseModel):
     """从数据库连接批量创建原始数据请求"""
 
-    connection_id: int = Field(..., description="数据库连接ID")
+    connection_id: uuid.UUID = Field(..., description="数据库连接ID")
     tables: list[TableSelection] = Field(..., min_length=1, description="要创建的表列表")
     auto_sync: bool = Field(default=True, description="是否自动同步列信息")
     name_prefix: str | None = Field(default=None, description="名称前缀（可选）")
@@ -165,7 +166,7 @@ class BatchCreateFromConnectionRequest(BaseModel):
 class BatchCreateResult(BaseModel):
     """批量创建结果"""
 
-    raw_data_id: int = Field(..., description="创建的原始数据ID")
+    raw_data_id: uuid.UUID = Field(..., description="创建的原始数据ID")
     name: str = Field(..., description="原始数据名称")
     table_name: str = Field(..., description="表名")
     status: str = Field(..., description="状态: created/syncing/ready/error")

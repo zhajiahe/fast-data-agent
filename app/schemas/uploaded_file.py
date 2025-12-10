@@ -2,6 +2,7 @@
 上传文件相关的 Pydantic Schema
 """
 
+import uuid
 from datetime import datetime
 from typing import Any
 
@@ -13,8 +14,8 @@ from app.models.data_source import FileType
 class UploadedFileResponse(BaseModel):
     """上传文件响应"""
 
-    id: int = Field(..., description="文件ID")
-    user_id: int = Field(..., description="上传用户ID")
+    id: uuid.UUID = Field(..., description="文件ID")
+    user_id: uuid.UUID = Field(..., description="上传用户ID")
 
     original_name: str = Field(..., description="原始文件名")
     object_key: str = Field(..., description="MinIO对象存储Key")
@@ -40,7 +41,7 @@ class UploadedFileResponse(BaseModel):
 class RawDataInfo(BaseModel):
     """自动创建的 RawData 简要信息"""
 
-    id: int = Field(..., description="RawData ID")
+    id: uuid.UUID = Field(..., description="RawData ID")
     name: str = Field(..., description="RawData 名称")
     status: str = Field(..., description="状态")
 
@@ -49,8 +50,8 @@ class UploadedFileWithRawDataResponse(BaseModel):
     """上传文件响应（含自动创建的 RawData）"""
 
     # 复制 UploadedFileResponse 的字段，避免 from_attributes 触发懒加载
-    id: int = Field(..., description="文件ID")
-    user_id: int = Field(..., description="上传用户ID")
+    id: uuid.UUID = Field(..., description="文件ID")
+    user_id: uuid.UUID = Field(..., description="上传用户ID")
 
     original_name: str = Field(..., description="原始文件名")
     object_key: str = Field(..., description="MinIO对象存储Key")

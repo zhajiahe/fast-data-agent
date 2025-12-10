@@ -4,6 +4,8 @@
 封装分析会话相关的数据库操作
 """
 
+import uuid
+
 from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -19,7 +21,7 @@ class AnalysisSessionRepository(BaseRepository[AnalysisSession]):
 
     async def search(
         self,
-        user_id: int,
+        user_id: uuid.UUID,
         *,
         keyword: str | None = None,
         status: str | None = None,
@@ -70,7 +72,7 @@ class AnalysisSessionRepository(BaseRepository[AnalysisSession]):
 
         return items, total
 
-    async def increment_message_count(self, session_id: int) -> None:
+    async def increment_message_count(self, session_id: uuid.UUID) -> None:
         """增加消息计数"""
         session = await self.get_by_id(session_id)
         if session:

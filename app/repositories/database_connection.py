@@ -4,6 +4,8 @@
 封装数据库连接相关的数据库操作
 """
 
+import uuid
+
 from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -19,7 +21,7 @@ class DatabaseConnectionRepository(BaseRepository[DatabaseConnection]):
 
     async def get_by_user(
         self,
-        user_id: int,
+        user_id: uuid.UUID,
         *,
         skip: int = 0,
         limit: int = 100,
@@ -29,7 +31,7 @@ class DatabaseConnectionRepository(BaseRepository[DatabaseConnection]):
 
     async def search(
         self,
-        user_id: int,
+        user_id: uuid.UUID,
         *,
         keyword: str | None = None,
         db_type: str | None = None,
@@ -83,7 +85,7 @@ class DatabaseConnectionRepository(BaseRepository[DatabaseConnection]):
 
         return items, total
 
-    async def name_exists(self, name: str, user_id: int, exclude_id: int | None = None) -> bool:
+    async def name_exists(self, name: str, user_id: uuid.UUID, exclude_id: uuid.UUID | None = None) -> bool:
         """检查连接名称是否已存在"""
         query = select(DatabaseConnection).where(
             DatabaseConnection.name == name,

@@ -4,6 +4,7 @@
 封装 TaskRecommendation 相关的数据库操作
 """
 
+import uuid
 from typing import Any, cast
 
 from sqlalchemy import CursorResult, select
@@ -25,7 +26,7 @@ class TaskRecommendationRepository(BaseRepository[TaskRecommendation]):
 
     async def get_by_session(
         self,
-        session_id: int,
+        session_id: uuid.UUID,
         *,
         status: str | None = None,
         source_type: str | None = None,
@@ -62,7 +63,7 @@ class TaskRecommendationRepository(BaseRepository[TaskRecommendation]):
 
     async def count_by_session(
         self,
-        session_id: int,
+        session_id: uuid.UUID,
         *,
         status: str | None = None,
         source_type: str | None = None,
@@ -83,7 +84,7 @@ class TaskRecommendationRepository(BaseRepository[TaskRecommendation]):
         result = await self.db.execute(query)
         return result.scalar() or 0
 
-    async def get_pending_by_session(self, session_id: int) -> list[TaskRecommendation]:
+    async def get_pending_by_session(self, session_id: uuid.UUID) -> list[TaskRecommendation]:
         """获取会话中待选择的推荐"""
         return await self.get_by_session(
             session_id,
@@ -92,7 +93,7 @@ class TaskRecommendationRepository(BaseRepository[TaskRecommendation]):
 
     async def update_status(
         self,
-        recommendation_id: int,
+        recommendation_id: uuid.UUID,
         status: RecommendationStatus,
     ) -> TaskRecommendation | None:
         """
@@ -112,7 +113,7 @@ class TaskRecommendationRepository(BaseRepository[TaskRecommendation]):
 
     async def dismiss_by_session(
         self,
-        session_id: int,
+        session_id: uuid.UUID,
         source_type: str | None = None,
     ) -> int:
         """
@@ -147,7 +148,7 @@ class TaskRecommendationRepository(BaseRepository[TaskRecommendation]):
 
     async def delete_by_session(
         self,
-        session_id: int,
+        session_id: uuid.UUID,
         source_type: str | None = None,
     ) -> int:
         """
@@ -181,10 +182,10 @@ class TaskRecommendationRepository(BaseRepository[TaskRecommendation]):
 
     async def create_from_items(
         self,
-        session_id: int,
+        session_id: uuid.UUID,
         items: list[dict],
-        user_id: int,
-        trigger_message_id: int | None = None,
+        user_id: uuid.UUID,
+        trigger_message_id: uuid.UUID | None = None,
     ) -> list[TaskRecommendation]:
         """
         从推荐项列表批量创建推荐

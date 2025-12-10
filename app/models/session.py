@@ -4,8 +4,10 @@
 用户创建的数据分析会话，关联一个数据源
 """
 
+import uuid
+
 from sqlalchemy import ForeignKey, Integer, String, Text
-from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base, BaseTableMixin
@@ -25,13 +27,13 @@ class AnalysisSession(Base, BaseTableMixin):
     description: Mapped[str | None] = mapped_column(Text, nullable=True, comment="会话描述")
 
     # 所属用户
-    user_id: Mapped[int] = mapped_column(
-        Integer, ForeignKey("users.id"), nullable=False, index=True, comment="所属用户ID"
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id"), nullable=False, index=True, comment="所属用户ID"
     )
 
     # 关联的数据源ID（单个）
-    data_source_id: Mapped[int | None] = mapped_column(
-        Integer, ForeignKey("data_sources.id"), nullable=True, index=True, comment="关联的数据源ID"
+    data_source_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("data_sources.id"), nullable=True, index=True, comment="关联的数据源ID"
     )
 
     # 会话配置

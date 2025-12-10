@@ -4,10 +4,11 @@
 存储用户与AI的对话历史，与 LangChain 消息格式对齐
 """
 
+import uuid
 from enum import Enum
 
-from sqlalchemy import ForeignKey, Integer, String, Text
-from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy import ForeignKey, String, Text
+from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base, BaseTableMixin
@@ -32,8 +33,8 @@ class ChatMessage(Base, BaseTableMixin):
     __tablename__ = "chat_messages"
 
     # 所属会话
-    session_id: Mapped[int] = mapped_column(
-        Integer,
+    session_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
         ForeignKey("analysis_sessions.id", ondelete="CASCADE"),
         nullable=False,
         index=True,

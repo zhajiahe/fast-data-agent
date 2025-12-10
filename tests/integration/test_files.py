@@ -117,7 +117,7 @@ class TestFileDetail:
 
     def test_get_file_not_found(self, client: TestClient, auth_headers: dict):
         """测试获取不存在的文件"""
-        response = client.get("/api/v1/files/99999", headers=auth_headers)
+        response = client.get("/api/v1/files/00000000-0000-0000-0000-000000099999", headers=auth_headers)
 
         assert response.status_code == 404
 
@@ -142,7 +142,7 @@ class TestFilePreview:
 
     def test_preview_file_not_found(self, client: TestClient, auth_headers: dict):
         """测试预览不存在的文件"""
-        response = client.get("/api/v1/files/99999/preview", headers=auth_headers)
+        response = client.get("/api/v1/files/00000000-0000-0000-0000-000000099999/preview", headers=auth_headers)
 
         assert response.status_code == 404
 
@@ -165,7 +165,7 @@ class TestFileDownload:
 
     def test_get_download_url_not_found(self, client: TestClient, auth_headers: dict):
         """测试获取不存在文件的下载 URL"""
-        response = client.get("/api/v1/files/99999/download-url", headers=auth_headers)
+        response = client.get("/api/v1/files/00000000-0000-0000-0000-000000099999/download-url", headers=auth_headers)
 
         assert response.status_code == 404
 
@@ -199,6 +199,6 @@ class TestFileDelete:
 
     def test_delete_file_not_found(self, client: TestClient, auth_headers: dict):
         """测试删除不存在的文件"""
-        response = client.delete("/api/v1/files/99999", headers=auth_headers)
+        response = client.delete("/api/v1/files/00000000-0000-0000-0000-000000099999", headers=auth_headers)
 
         assert response.status_code == 404

@@ -4,6 +4,8 @@
 封装上传文件相关的数据库操作
 """
 
+import uuid
+
 from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -20,7 +22,7 @@ class UploadedFileRepository(BaseRepository[UploadedFile]):
 
     async def search(
         self,
-        user_id: int,
+        user_id: uuid.UUID,
         *,
         keyword: str | None = None,
         file_type: FileType | None = None,

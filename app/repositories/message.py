@@ -4,6 +4,7 @@
 封装 ChatMessage 相关的数据库操作
 """
 
+import uuid
 from typing import Any
 
 from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, SystemMessage, ToolMessage
@@ -22,7 +23,7 @@ class ChatMessageRepository(BaseRepository[ChatMessage]):
 
     async def get_by_session(
         self,
-        session_id: int,
+        session_id: uuid.UUID,
         *,
         skip: int = 0,
         limit: int = 100,
@@ -48,7 +49,7 @@ class ChatMessageRepository(BaseRepository[ChatMessage]):
         result = await self.db.execute(query)
         return list(result.scalars().all())
 
-    async def count_by_session(self, session_id: int) -> int:
+    async def count_by_session(self, session_id: uuid.UUID) -> int:
         """获取会话消息总数"""
         from sqlalchemy import func
 
@@ -59,7 +60,7 @@ class ChatMessageRepository(BaseRepository[ChatMessage]):
         result = await self.db.execute(query)
         return result.scalar() or 0
 
-    async def clear_by_session(self, session_id: int) -> int:
+    async def clear_by_session(self, session_id: uuid.UUID) -> int:
         """
         清空会话的所有消息（硬删除）
 
@@ -78,9 +79,9 @@ class ChatMessageRepository(BaseRepository[ChatMessage]):
 
     async def save_langchain_message(
         self,
-        session_id: int,
+        session_id: uuid.UUID,
         message: BaseMessage,
-        user_id: int,
+        user_id: uuid.UUID,
     ) -> ChatMessage:
         """
         保存 LangChain 消息到数据库
@@ -136,9 +137,9 @@ class ChatMessageRepository(BaseRepository[ChatMessage]):
 
     async def save_langchain_messages(
         self,
-        session_id: int,
+        session_id: uuid.UUID,
         messages: list[BaseMessage],
-        user_id: int,
+        user_id: uuid.UUID,
     ) -> list[ChatMessage]:
         """
         批量保存 LangChain 消息

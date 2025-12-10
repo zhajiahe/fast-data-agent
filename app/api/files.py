@@ -2,6 +2,7 @@
 文件上传 API 路由
 """
 
+import uuid
 from typing import Any
 
 from fastapi import APIRouter, Depends, File, UploadFile, status
@@ -44,7 +45,7 @@ async def get_files(
 
 
 @router.get("/{file_id}", response_model=BaseResponse[UploadedFileResponse])
-async def get_file(file_id: int, current_user: CurrentUser, db: DBSession):
+async def get_file(file_id: uuid.UUID, current_user: CurrentUser, db: DBSession):
     """获取单个文件详情"""
     service = UploadedFileService(db)
     item = await service.get_file(file_id, current_user.id)
@@ -99,7 +100,7 @@ async def upload_file(
 
 
 @router.delete("/{file_id}", response_model=BaseResponse[None])
-async def delete_file(file_id: int, current_user: CurrentUser, db: DBSession):
+async def delete_file(file_id: uuid.UUID, current_user: CurrentUser, db: DBSession):
     """删除文件"""
     service = UploadedFileService(db)
     await service.delete_file(file_id, current_user.id)
@@ -108,7 +109,7 @@ async def delete_file(file_id: int, current_user: CurrentUser, db: DBSession):
 
 @router.get("/{file_id}/preview", response_model=BaseResponse[FilePreviewResponse])
 async def get_file_preview(
-    file_id: int,
+    file_id: uuid.UUID,
     current_user: CurrentUser,
     db: DBSession,
     rows: int = 100,
@@ -121,7 +122,7 @@ async def get_file_preview(
 
 @router.get("/{file_id}/download-url", response_model=BaseResponse[str])
 async def get_download_url(
-    file_id: int,
+    file_id: uuid.UUID,
     current_user: CurrentUser,
     db: DBSession,
     expires: int = 3600,

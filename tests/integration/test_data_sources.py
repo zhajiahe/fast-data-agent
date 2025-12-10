@@ -76,7 +76,7 @@ class TestDataSourceCRUD:
                 "name": "Invalid Data Source",
                 "raw_mappings": [
                     {
-                        "raw_data_id": 99999,
+                        "raw_data_id": "00000000-0000-0000-0000-000000099999",
                         "mappings": {"id": "id"},
                     }
                 ],
@@ -138,7 +138,7 @@ class TestDataSourceCRUD:
 
     def test_get_data_source_not_found(self, client: TestClient, auth_headers: dict):
         """测试获取不存在的数据源"""
-        response = client.get("/api/v1/data-sources/99999", headers=auth_headers)
+        response = client.get("/api/v1/data-sources/00000000-0000-0000-0000-000000099999", headers=auth_headers)
 
         assert response.status_code == 404
 
@@ -366,7 +366,7 @@ class TestDataSourceOperations:
     def test_refresh_schema_not_found(self, client: TestClient, auth_headers: dict):
         """测试刷新不存在数据源的 Schema"""
         response = client.post(
-            "/api/v1/data-sources/99999/refresh-schema",
+            "/api/v1/data-sources/00000000-0000-0000-0000-000000099999/refresh-schema",
             headers=auth_headers,
         )
 
@@ -375,7 +375,7 @@ class TestDataSourceOperations:
     def test_preview_data_not_found(self, client: TestClient, auth_headers: dict):
         """测试预览不存在的数据源"""
         response = client.post(
-            "/api/v1/data-sources/99999/preview",
+            "/api/v1/data-sources/00000000-0000-0000-0000-000000099999/preview",
             headers=auth_headers,
         )
 
@@ -420,7 +420,7 @@ class TestDataSourceSuggestMappings:
                 "target_fields": [
                     {"name": "id", "data_type": "integer"},
                 ],
-                "raw_data_ids": [99999],  # 不存在的 ID
+                "raw_data_ids": ["00000000-0000-0000-0000-000000099999"],  # 不存在的 ID
             },
         )
 

@@ -4,6 +4,7 @@
 用于 API 请求和响应的数据验证和序列化
 """
 
+import uuid
 from datetime import datetime
 
 from pydantic import BaseModel, EmailStr, Field, field_validator
@@ -45,7 +46,7 @@ class UserUpdate(BaseModel):
 class UserResponse(UserBase):
     """用户响应"""
 
-    id: int = Field(..., description="用户ID")
+    id: uuid.UUID = Field(..., description="用户ID")
     is_active: bool = Field(..., description="是否激活")
     is_superuser: bool = Field(..., description="是否超级管理员")
     create_time: datetime | None = Field(default=None, description="创建时间")

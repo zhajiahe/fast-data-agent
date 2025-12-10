@@ -4,10 +4,11 @@
 独立管理数据库连接，供 RawData 引用
 """
 
+import uuid
 from enum import Enum
 
 from sqlalchemy import ForeignKey, Integer, String, Text
-from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base, BaseTableMixin
@@ -34,8 +35,8 @@ class DatabaseConnection(Base, BaseTableMixin):
     description: Mapped[str | None] = mapped_column(Text, nullable=True, comment="连接描述")
 
     # 所属用户
-    user_id: Mapped[int] = mapped_column(
-        Integer, ForeignKey("users.id"), nullable=False, index=True, comment="所属用户ID"
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id"), nullable=False, index=True, comment="所属用户ID"
     )
 
     # 连接配置

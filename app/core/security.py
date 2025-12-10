@@ -1,5 +1,6 @@
 import hashlib
 import os
+import uuid
 from datetime import datetime, timedelta
 
 import bcrypt
@@ -42,41 +43,52 @@ def get_token_hash(token: str) -> str:
 
 def create_tokens(data: dict) -> tuple[str, str]:
     """创建访问令牌和刷新令牌"""
+    # 将 UUID 转换为字符串以便 JSON 序列化
+    serializable_data = {
+        k: str(v) if isinstance(v, uuid.UUID) else v
+        for k, v in data.items()
+    }
+
     # 访问令牌
     access_expire = datetime.now() + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
-    access_payload = data.copy()
+    access_payload = serializable_data.copy()
     access_payload.update({"exp": access_expire, "type": "access"})
     access_token = jwt.encode(access_payload, SECRET_KEY, algorithm=ALGORITHM)
 
     # 刷新令牌
     refresh_expire = datetime.now() + timedelta(days=REFRESH_TOKEN_EXPIRE_DAYS)
-    refresh_payload = data.copy()
+    refresh_payload = serializable_data.copy()
     refresh_payload.update({"exp": refresh_expire, "type": "refresh"})
     refresh_token = jwt.encode(refresh_payload, REFRESH_SECRET_KEY, algorithm=ALGORITHM)
 
     return access_token, refresh_token
 
 
-def verify_access_token(token: str, credentials_exception):
+def verify_access_token(token: str, credentials_exception) -> uuid.UUID:
     """验证访问令牌"""
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
         if payload.get("type") != "access":
             raise credentials_exception
-        # 从令牌中获取租户ID和用户ID并设置上下文
-        user_id = int(payload.get("user_id"))
-        return user_id
-    except JWTError as e:
+        # 从令牌中获取用户ID并转换为UUID
+        user_id_str = payload.get("user_id")
+        if not user_id_str:
+            raise credentials_exception
+        return uuid.UUID(user_id_str)
+    except (JWTError, ValueError) as e:
         raise credentials_exception from e
 
 
-def verify_refresh_token(token: str, credentials_exception):
+def verify_refresh_token(token: str, credentials_exception) -> uuid.UUID:
     """验证刷新令牌"""
     try:
         payload = jwt.decode(token, REFRESH_SECRET_KEY, algorithms=[ALGORITHM])
         if payload.get("type") != "refresh":
             raise credentials_exception
-        user_id = int(payload.get("user_id"))
-        return user_id
-    except JWTError as e:
+        # 从令牌中获取用户ID并转换为UUID
+        user_id_str = payload.get("user_id")
+        if not user_id_str:
+            raise credentials_exception
+        return uuid.UUID(user_id_str)
+    except (JWTError, ValueError) as e:
         raise credentials_exception from e

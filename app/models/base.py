@@ -1,7 +1,9 @@
+import uuid
 from datetime import datetime
 
 from pydantic import BaseModel, Field, computed_field
 from sqlalchemy import DateTime, Integer, String, func
+from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 
@@ -14,7 +16,7 @@ class Base(DeclarativeBase):
 class BaseTableMixin:
     """所有数据库表的Mixin，包含通用字段"""
 
-    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True, comment="主键ID")
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, comment="主键ID")
     create_by: Mapped[str | None] = mapped_column(String(50), nullable=True, comment="创建人")
     update_by: Mapped[str | None] = mapped_column(String(50), nullable=True, comment="更新人")
     create_time: Mapped[datetime] = mapped_column(
@@ -66,7 +68,7 @@ class PageResponse[T](BaseModel):
 class Token(BaseModel):
     """Token基础数据"""
 
-    id: int
+    id: uuid.UUID
     nickname: str
     access_token: str
     refresh_token: str

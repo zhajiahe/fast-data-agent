@@ -78,7 +78,7 @@ class TestSessionCRUD:
             headers=auth_headers,
             json={
                 "name": "Invalid Session",
-                "data_source_id": 99999,  # 无效 ID
+                "data_source_id": "00000000-0000-0000-0000-000000099999",  # 无效 ID
             },
         )
 
@@ -131,7 +131,7 @@ class TestSessionCRUD:
 
     def test_get_session_not_found(self, client: TestClient, auth_headers: dict):
         """测试获取不存在的会话"""
-        response = client.get("/api/v1/sessions/99999", headers=auth_headers)
+        response = client.get("/api/v1/sessions/00000000-0000-0000-0000-000000099999", headers=auth_headers)
 
         assert response.status_code == 404
 

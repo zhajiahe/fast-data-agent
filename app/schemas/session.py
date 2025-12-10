@@ -2,6 +2,7 @@
 分析会话相关的 Pydantic Schema
 """
 
+import uuid
 from datetime import datetime
 from typing import Any
 
@@ -18,7 +19,7 @@ class AnalysisSessionBase(BaseModel):
 class AnalysisSessionCreate(AnalysisSessionBase):
     """创建分析会话请求"""
 
-    data_source_id: int | None = Field(default=None, description="关联的数据源ID（可选）")
+    data_source_id: uuid.UUID | None = Field(default=None, description="关联的数据源ID（可选）")
     config: dict[str, Any] | None = Field(default=None, description="会话配置")
 
 
@@ -27,16 +28,16 @@ class AnalysisSessionUpdate(BaseModel):
 
     name: str | None = Field(default=None, min_length=1, max_length=100, description="会话名称")
     description: str | None = Field(default=None, description="会话描述")
-    data_source_id: int | None = Field(default=None, description="关联的数据源ID（可选）")
+    data_source_id: uuid.UUID | None = Field(default=None, description="关联的数据源ID（可选）")
     config: dict[str, Any] | None = Field(default=None, description="会话配置")
 
 
 class AnalysisSessionResponse(AnalysisSessionBase):
     """分析会话响应"""
 
-    id: int = Field(..., description="会话ID")
-    user_id: int = Field(..., description="所属用户ID")
-    data_source_id: int | None = Field(default=None, description="关联的数据源ID")
+    id: uuid.UUID = Field(..., description="会话ID")
+    user_id: uuid.UUID = Field(..., description="所属用户ID")
+    data_source_id: uuid.UUID | None = Field(default=None, description="关联的数据源ID")
     config: dict[str, Any] | None = Field(default=None, description="会话配置")
     status: str = Field(..., description="会话状态")
     message_count: int = Field(default=0, description="消息数量")

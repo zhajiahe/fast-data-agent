@@ -4,8 +4,10 @@
 存储用户上传的数据文件信息
 """
 
+import uuid
+
 from sqlalchemy import BigInteger, ForeignKey, Integer, String, Text
-from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base, BaseTableMixin
@@ -30,8 +32,8 @@ class UploadedFile(Base, BaseTableMixin):
     mime_type: Mapped[str | None] = mapped_column(String(100), nullable=True, comment="MIME类型")
 
     # 所属用户
-    user_id: Mapped[int] = mapped_column(
-        Integer, ForeignKey("users.id"), nullable=False, index=True, comment="上传用户ID"
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id"), nullable=False, index=True, comment="上传用户ID"
     )
 
     # 文件元数据

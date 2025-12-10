@@ -69,7 +69,7 @@ class TestRawDataCRUD:
             json={
                 "name": "invalid_raw",
                 "raw_type": "file",
-                "file_config": {"file_id": 99999},
+                "file_config": {"file_id": "00000000-0000-0000-0000-000000099999"},
             },
         )
 
@@ -114,7 +114,7 @@ class TestRawDataCRUD:
 
     def test_get_raw_data_not_found(self, client: TestClient, auth_headers: dict):
         """测试获取不存在的原始数据"""
-        response = client.get("/api/v1/raw-data/99999", headers=auth_headers)
+        response = client.get("/api/v1/raw-data/00000000-0000-0000-0000-000000099999", headers=auth_headers)
 
         assert response.status_code == 404
 
@@ -238,7 +238,7 @@ class TestRawDataPreview:
     def test_preview_raw_data_not_found(self, client: TestClient, auth_headers: dict):
         """测试预览不存在的原始数据"""
         response = client.post(
-            "/api/v1/raw-data/99999/preview",
+            "/api/v1/raw-data/00000000-0000-0000-0000-000000099999/preview",
             headers=auth_headers,
         )
 
@@ -269,7 +269,7 @@ class TestRawDataSync:
     def test_sync_raw_data_not_found(self, client: TestClient, auth_headers: dict):
         """测试同步不存在的原始数据"""
         response = client.post(
-            "/api/v1/raw-data/99999/sync",
+            "/api/v1/raw-data/00000000-0000-0000-0000-000000099999/sync",
             headers=auth_headers,
         )
 
@@ -303,7 +303,7 @@ class TestRawDataColumns:
     def test_update_columns_not_found(self, client: TestClient, auth_headers: dict):
         """测试更新不存在原始数据的列类型"""
         response = client.put(
-            "/api/v1/raw-data/99999/columns",
+            "/api/v1/raw-data/00000000-0000-0000-0000-000000099999/columns",
             headers=auth_headers,
             json={
                 "columns": [
@@ -423,7 +423,7 @@ class TestRawDataBatchCreate:
             "/api/v1/raw-data/batch-from-connection",
             headers=auth_headers,
             json={
-                "connection_id": 99999,
+                "connection_id": "00000000-0000-0000-0000-000000099999",
                 "tables": [{"table_name": "test_table"}],
                 "auto_sync": False,
             },

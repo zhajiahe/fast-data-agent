@@ -2,6 +2,8 @@
 原始数据管理 API 路由
 """
 
+import uuid
+
 from fastapi import APIRouter, Depends, status
 
 from app.core.deps import CurrentUser, DBSession
@@ -53,7 +55,7 @@ async def get_raw_data_list(
 
 
 @router.get("/{raw_data_id}", response_model=BaseResponse[RawDataResponse])
-async def get_raw_data(raw_data_id: int, current_user: CurrentUser, db: DBSession):
+async def get_raw_data(raw_data_id: uuid.UUID, current_user: CurrentUser, db: DBSession):
     """获取单个原始数据详情"""
     service = RawDataService(db)
     item = await service.get_raw_data_with_relations(raw_data_id, current_user.id)
@@ -115,7 +117,7 @@ async def batch_create_raw_data(data: BatchCreateFromConnectionRequest, current_
 
 @router.put("/{raw_data_id}", response_model=BaseResponse[RawDataResponse])
 async def update_raw_data(
-    raw_data_id: int,
+    raw_data_id: uuid.UUID,
     data: RawDataUpdate,
     current_user: CurrentUser,
     db: DBSession,
@@ -132,7 +134,7 @@ async def update_raw_data(
 
 
 @router.delete("/{raw_data_id}", response_model=BaseResponse[None])
-async def delete_raw_data(raw_data_id: int, current_user: CurrentUser, db: DBSession):
+async def delete_raw_data(raw_data_id: uuid.UUID, current_user: CurrentUser, db: DBSession):
     """删除原始数据"""
     service = RawDataService(db)
     await service.delete_raw_data(raw_data_id, current_user.id)
@@ -141,7 +143,7 @@ async def delete_raw_data(raw_data_id: int, current_user: CurrentUser, db: DBSes
 
 @router.put("/{raw_data_id}/columns", response_model=BaseResponse[RawDataResponse])
 async def update_raw_data_columns(
-    raw_data_id: int,
+    raw_data_id: uuid.UUID,
     data: RawDataColumnUpdate,
     current_user: CurrentUser,
     db: DBSession,
@@ -159,7 +161,7 @@ async def update_raw_data_columns(
 
 @router.post("/{raw_data_id}/preview", response_model=BaseResponse[RawDataPreviewResponse])
 async def preview_raw_data(
-    raw_data_id: int,
+    raw_data_id: uuid.UUID,
     current_user: CurrentUser,
     db: DBSession,
     request: RawDataPreviewRequest | None = None,
@@ -263,7 +265,7 @@ async def preview_raw_data(
 
 
 @router.post("/{raw_data_id}/sync", response_model=BaseResponse[RawDataResponse])
-async def sync_raw_data(raw_data_id: int, current_user: CurrentUser, db: DBSession):
+async def sync_raw_data(raw_data_id: uuid.UUID, current_user: CurrentUser, db: DBSession):
     """
     同步原始数据 Schema
 

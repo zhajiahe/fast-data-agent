@@ -5,10 +5,11 @@
 支持字段映射和聚合，为 AI 分析提供清晰的逻辑视图。
 """
 
+import uuid
 from enum import Enum
 
 from sqlalchemy import ForeignKey, Integer, String, Text
-from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base, BaseTableMixin
@@ -49,8 +50,8 @@ class DataSource(Base, BaseTableMixin):
     )
 
     # 所属用户
-    user_id: Mapped[int] = mapped_column(
-        Integer, ForeignKey("users.id"), nullable=False, index=True, comment="所属用户ID"
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id"), nullable=False, index=True, comment="所属用户ID"
     )
 
     # 目标字段定义（统一后的逻辑字段）
@@ -87,11 +88,11 @@ class DataSourceRawMapping(Base, BaseTableMixin):
     __tablename__ = "data_source_raw_mappings"
 
     # 关联
-    data_source_id: Mapped[int] = mapped_column(
-        Integer, ForeignKey("data_sources.id"), nullable=False, index=True, comment="数据源ID"
+    data_source_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("data_sources.id"), nullable=False, index=True, comment="数据源ID"
     )
-    raw_data_id: Mapped[int] = mapped_column(
-        Integer, ForeignKey("raw_data.id"), nullable=False, index=True, comment="原始数据ID"
+    raw_data_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("raw_data.id"), nullable=False, index=True, comment="原始数据ID"
     )
 
     # 字段映射配置

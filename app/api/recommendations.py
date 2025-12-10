@@ -2,6 +2,8 @@
 任务推荐 API 路由
 """
 
+import uuid
+
 from fastapi import APIRouter, Depends, status
 
 from app.core.deps import CurrentUser, DBSession
@@ -23,7 +25,7 @@ router = APIRouter(prefix="/sessions/{session_id}/recommendations", tags=["recom
 
 @router.get("", response_model=BaseResponse[PageResponse[TaskRecommendationResponse]])
 async def get_recommendations(
-    session_id: int,
+    session_id: uuid.UUID,
     db: DBSession,
     current_user: CurrentUser,
     page_query: BasePageQuery = Depends(),
@@ -66,7 +68,7 @@ async def get_recommendations(
 
 @router.post("", response_model=BaseResponse[list[TaskRecommendationResponse]], status_code=status.HTTP_201_CREATED)
 async def generate_recommendations(
-    session_id: int,
+    session_id: uuid.UUID,
     db: DBSession,
     current_user: CurrentUser,
     data: GenerateRecommendationsRequest | None = None,
@@ -120,7 +122,7 @@ async def generate_recommendations(
     status_code=status.HTTP_201_CREATED,
 )
 async def generate_followup_recommendations(
-    session_id: int,
+    session_id: uuid.UUID,
     data: GenerateFollowupRequest,
     db: DBSession,
     current_user: CurrentUser,
@@ -169,8 +171,8 @@ async def generate_followup_recommendations(
 
 @router.put("/{recommendation_id}", response_model=BaseResponse[TaskRecommendationResponse])
 async def update_recommendation(
-    session_id: int,
-    recommendation_id: int,
+    session_id: uuid.UUID,
+    recommendation_id: uuid.UUID,
     data: TaskRecommendationUpdate,
     db: DBSession,
     current_user: CurrentUser,
@@ -208,7 +210,7 @@ async def update_recommendation(
 
 @router.delete("", response_model=BaseResponse[None])
 async def dismiss_all_recommendations(
-    session_id: int,
+    session_id: uuid.UUID,
     db: DBSession,
     current_user: CurrentUser,
     source_type: str | None = None,

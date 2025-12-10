@@ -4,6 +4,7 @@
 定义任务推荐相关的请求和响应模型
 """
 
+import uuid
 from datetime import datetime
 
 from pydantic import BaseModel, Field
@@ -22,7 +23,7 @@ class TaskRecommendationCreate(TaskRecommendationBase):
 
     source_type: str = Field(default="initial", description="推荐来源类型")
     priority: int = Field(default=0, ge=0, description="优先级（0最高）")
-    trigger_message_id: int | None = Field(None, description="触发消息ID")
+    trigger_message_id: uuid.UUID | None = Field(None, description="触发消息ID")
 
 
 class TaskRecommendationUpdate(BaseModel):
@@ -34,15 +35,15 @@ class TaskRecommendationUpdate(BaseModel):
 class TaskRecommendationResponse(BaseModel):
     """推荐响应"""
 
-    id: int
-    session_id: int
+    id: uuid.UUID
+    session_id: uuid.UUID
     title: str
     description: str | None
     category: str
     source_type: str
     priority: int
     status: str
-    trigger_message_id: int | None
+    trigger_message_id: uuid.UUID | None
     create_time: datetime
     update_time: datetime
 
@@ -62,4 +63,4 @@ class GenerateFollowupRequest(BaseModel):
     conversation_context: str = Field(..., description="对话上下文")
     last_result: dict | None = Field(None, description="上次分析结果")
     max_count: int = Field(default=3, ge=1, le=5, description="最大推荐数量")
-    trigger_message_id: int | None = Field(None, description="触发消息ID")
+    trigger_message_id: uuid.UUID | None = Field(None, description="触发消息ID")

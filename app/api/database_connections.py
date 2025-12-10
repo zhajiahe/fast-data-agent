@@ -2,6 +2,8 @@
 数据库连接管理 API 路由
 """
 
+import uuid
+
 from fastapi import APIRouter, Depends, status
 
 from app.core.deps import CurrentUser, DBSession
@@ -54,7 +56,7 @@ async def get_connections(
 
 
 @router.get("/{connection_id}", response_model=BaseResponse[DatabaseConnectionResponse])
-async def get_connection(connection_id: int, current_user: CurrentUser, db: DBSession):
+async def get_connection(connection_id: uuid.UUID, current_user: CurrentUser, db: DBSession):
     """获取单个数据库连接详情"""
     service = DatabaseConnectionService(db)
     item = await service.get_connection(connection_id, current_user.id)
@@ -105,7 +107,7 @@ async def create_connection(
 
 @router.put("/{connection_id}", response_model=BaseResponse[DatabaseConnectionResponse])
 async def update_connection(
-    connection_id: int,
+    connection_id: uuid.UUID,
     data: DatabaseConnectionUpdate,
     current_user: CurrentUser,
     db: DBSession,
@@ -122,7 +124,7 @@ async def update_connection(
 
 
 @router.delete("/{connection_id}", response_model=BaseResponse[None])
-async def delete_connection(connection_id: int, current_user: CurrentUser, db: DBSession):
+async def delete_connection(connection_id: uuid.UUID, current_user: CurrentUser, db: DBSession):
     """删除数据库连接"""
     service = DatabaseConnectionService(db)
     await service.delete_connection(connection_id, current_user.id)
@@ -130,7 +132,7 @@ async def delete_connection(connection_id: int, current_user: CurrentUser, db: D
 
 
 @router.post("/{connection_id}/test", response_model=BaseResponse[DatabaseConnectionTestResult])
-async def test_connection(connection_id: int, current_user: CurrentUser, db: DBSession):
+async def test_connection(connection_id: uuid.UUID, current_user: CurrentUser, db: DBSession):
     """测试数据库连接"""
     from app.services.db_connector import DBConnectorService
 
@@ -149,7 +151,7 @@ async def test_connection(connection_id: int, current_user: CurrentUser, db: DBS
 
 
 @router.get("/{connection_id}/tables", response_model=BaseResponse[DatabaseConnectionTablesResponse])
-async def get_connection_tables(connection_id: int, current_user: CurrentUser, db: DBSession):
+async def get_connection_tables(connection_id: uuid.UUID, current_user: CurrentUser, db: DBSession):
     """获取数据库连接的表列表"""
     from app.services.db_connector import DBConnectorService
 
@@ -184,7 +186,7 @@ async def get_connection_tables(connection_id: int, current_user: CurrentUser, d
     response_model=BaseResponse[DatabaseTableSchemaResponse],
 )
 async def get_connection_table_schema(
-    connection_id: int,
+    connection_id: uuid.UUID,
     current_user: CurrentUser,
     db: DBSession,
     schema_name: str | None = None,

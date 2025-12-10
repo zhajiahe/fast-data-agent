@@ -80,7 +80,7 @@ class TestDatabaseConnectionCRUD:
 
     def test_get_connection_not_found(self, client: TestClient, auth_headers: dict):
         """测试获取不存在的连接"""
-        response = client.get("/api/v1/database-connections/99999", headers=auth_headers)
+        response = client.get("/api/v1/database-connections/00000000-0000-0000-0000-000000099999", headers=auth_headers)
 
         assert response.status_code == 404
 
@@ -205,7 +205,7 @@ class TestDatabaseConnectionTest:
     def test_test_connection_not_found(self, client: TestClient, auth_headers: dict):
         """测试连接测试功能（连接不存在）"""
         response = client.post(
-            "/api/v1/database-connections/99999/test",
+            "/api/v1/database-connections/00000000-0000-0000-0000-000000099999/test",
             headers=auth_headers,
         )
 
@@ -231,7 +231,7 @@ class TestDatabaseConnectionTables:
     def test_get_tables_not_found(self, client: TestClient, auth_headers: dict):
         """测试获取不存在连接的表列表"""
         response = client.get(
-            "/api/v1/database-connections/99999/tables",
+            "/api/v1/database-connections/00000000-0000-0000-0000-000000099999/tables",
             headers=auth_headers,
         )
 

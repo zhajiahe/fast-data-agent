@@ -4,9 +4,11 @@
 存储系统为用户生成的分析任务推荐
 """
 
+import uuid
 from enum import Enum
 
 from sqlalchemy import ForeignKey, Integer, String, Text
+from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base, BaseTableMixin
@@ -49,8 +51,8 @@ class TaskRecommendation(Base, BaseTableMixin):
     __tablename__ = "task_recommendations"
 
     # 所属会话
-    session_id: Mapped[int] = mapped_column(
-        Integer,
+    session_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
         ForeignKey("analysis_sessions.id", ondelete="CASCADE"),
         nullable=False,
         index=True,
@@ -76,8 +78,8 @@ class TaskRecommendation(Base, BaseTableMixin):
     )
 
     # 触发该推荐的消息（用于追问推荐）
-    trigger_message_id: Mapped[int | None] = mapped_column(
-        Integer, ForeignKey("chat_messages.id"), nullable=True, comment="触发推荐的消息ID"
+    trigger_message_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("chat_messages.id"), nullable=True, comment="触发推荐的消息ID"
     )
 
     # 关系

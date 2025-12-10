@@ -4,6 +4,7 @@
 与 LangChain 消息格式对齐
 """
 
+import uuid
 from datetime import datetime
 from typing import Any
 
@@ -19,8 +20,8 @@ class ChatMessageCreate(BaseModel):
 class ChatMessageResponse(BaseModel):
     """对话消息响应 - 与 LangChain 消息格式对齐"""
 
-    id: int = Field(..., description="消息ID")
-    session_id: int = Field(..., description="所属会话ID")
+    id: uuid.UUID = Field(..., description="消息ID")
+    session_id: uuid.UUID = Field(..., description="所属会话ID")
 
     # 消息基本信息
     message_type: str = Field(..., description="消息类型: human/ai/system/tool")

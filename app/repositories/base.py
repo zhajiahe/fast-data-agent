@@ -4,6 +4,7 @@ Repository 基类
 提供通用的 CRUD 操作
 """
 
+import uuid
 from typing import Any
 
 from sqlalchemy import func, select
@@ -26,7 +27,7 @@ class BaseRepository[ModelType: Base]:
         self.model = model
         self.db = db
 
-    async def get_by_id(self, id: int) -> ModelType | None:
+    async def get_by_id(self, id: uuid.UUID) -> ModelType | None:
         """
         根据 ID 获取单个记录
 
@@ -147,7 +148,7 @@ class BaseRepository[ModelType: Base]:
         await self.db.refresh(db_obj)
         return db_obj
 
-    async def delete(self, id: int, *, soft_delete: bool = True) -> bool:
+    async def delete(self, id: uuid.UUID, *, soft_delete: bool = True) -> bool:
         """
         删除记录
 

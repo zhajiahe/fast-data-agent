@@ -197,8 +197,8 @@ def _chat_message_to_response(msg: ChatMessage) -> ChatMessageResponse:
 async def _stream_chat_response(
     chat_service: ChatService,
     content: str,
-    session_id: int,
-    user_id: int,
+    session_id: uuid.UUID,
+    user_id: uuid.UUID,
     db: Any,
 ) -> AsyncGenerator[str, None]:
     """生成兼容 Vercel AI SDK 的 SSE 流式响应
@@ -346,7 +346,7 @@ async def _stream_chat_response(
 
 @router.post("/chat", response_class=StreamingResponse)
 async def chat(
-    session_id: int,
+    session_id: uuid.UUID,
     data: ChatMessageCreate,
     current_user: CurrentUser,
     db: DBSession,
@@ -422,7 +422,7 @@ async def chat(
 
 @router.get("/messages", response_model=BaseResponse[PageResponse[ChatMessageResponse]])
 async def get_messages(
-    session_id: int,
+    session_id: uuid.UUID,
     current_user: CurrentUser,
     db: DBSession,
     page_query: BasePageQuery = Depends(),
@@ -463,7 +463,7 @@ async def get_messages(
 
 @router.delete("/messages", response_model=BaseResponse[int])
 async def clear_messages(
-    session_id: int,
+    session_id: uuid.UUID,
     db: DBSession,
     current_user: CurrentUser,
 ):

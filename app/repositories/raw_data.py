@@ -4,6 +4,8 @@
 封装原始数据相关的数据库操作
 """
 
+import uuid
+
 from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -20,7 +22,7 @@ class RawDataRepository(BaseRepository[RawData]):
 
     async def get_by_user(
         self,
-        user_id: int,
+        user_id: uuid.UUID,
         *,
         skip: int = 0,
         limit: int = 100,
@@ -30,7 +32,7 @@ class RawDataRepository(BaseRepository[RawData]):
 
     async def search(
         self,
-        user_id: int,
+        user_id: uuid.UUID,
         *,
         keyword: str | None = None,
         raw_type: RawDataType | None = None,
@@ -84,7 +86,7 @@ class RawDataRepository(BaseRepository[RawData]):
 
         return items, total
 
-    async def get_by_ids(self, ids: list[int], user_id: int) -> list[RawData]:
+    async def get_by_ids(self, ids: list[uuid.UUID], user_id: uuid.UUID) -> list[RawData]:
         """
         根据 ID 列表获取原始数据
 
@@ -103,7 +105,7 @@ class RawDataRepository(BaseRepository[RawData]):
         result = await self.db.execute(query)
         return list(result.scalars().all())
 
-    async def exists_by_connection(self, connection_id: int, user_id: int) -> bool:
+    async def exists_by_connection(self, connection_id: uuid.UUID, user_id: uuid.UUID) -> bool:
         """是否存在使用指定数据库连接的 RawData。"""
         query = (
             select(func.count())
@@ -117,7 +119,7 @@ class RawDataRepository(BaseRepository[RawData]):
         result = await self.db.execute(query)
         return (result.scalar() or 0) > 0
 
-    async def get_with_relations(self, id: int) -> RawData | None:
+    async def get_with_relations(self, id: uuid.UUID) -> RawData | None:
         """
         获取原始数据（包含关联的 connection 和 uploaded_file）
 
@@ -138,7 +140,7 @@ class RawDataRepository(BaseRepository[RawData]):
         result = await self.db.execute(query)
         return result.scalar_one_or_none()
 
-    async def name_exists(self, name: str, user_id: int, exclude_id: int | None = None) -> bool:
+    async def name_exists(self, name: str, user_id: uuid.UUID, exclude_id: uuid.UUID | None = None) -> bool:
         """检查原始数据名称是否已存在"""
         query = select(RawData).where(
             RawData.name == name,
