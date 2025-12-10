@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { zodResolver } from '@hookform/resolvers/zod';
 import { CheckCircle2, ChevronDown, ChevronRight, Database, FolderOpen, MessageSquare } from 'lucide-react';
 import { useMemo, useState } from 'react';

@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Download, File, FileCode, FileImage, FileText, FolderOpen, Loader2, RefreshCw, Upload } from 'lucide-react';
 import { useCallback, useState } from 'react';

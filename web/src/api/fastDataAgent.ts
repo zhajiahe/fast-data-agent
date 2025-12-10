@@ -14,6 +14,11 @@ import axios from 'axios';
  */
 export type AnalysisSessionCreateDescription = string | null;
 
+/**
+ * 关联的数据源ID（可选，仅支持单个数据源）
+ */
+export type AnalysisSessionCreateDataSourceId = number | null;
+
 export type AnalysisSessionCreateConfigAnyOf = { [key: string]: unknown };
 
 /**
@@ -33,11 +38,8 @@ export interface AnalysisSessionCreate {
   name: string;
   /** 会话描述 */
   description?: AnalysisSessionCreateDescription;
-  /**
-   * 关联的数据源ID列表
-   * @minItems 1
-   */
-  data_source_ids: number[];
+  /** 关联的数据源ID（可选，仅支持单个数据源） */
+  data_source_id?: AnalysisSessionCreateDataSourceId;
   /** 会话配置 */
   config?: AnalysisSessionCreateConfig;
 }
@@ -48,7 +50,7 @@ export interface AnalysisSessionCreate {
 export type AnalysisSessionDetailDescription = string | null;
 
 /**
- * 关联的数据源ID列表
+ * 关联的数据源ID列表（内部存储）
  */
 export type AnalysisSessionDetailDataSourceIds = number[] | null;
 
@@ -70,6 +72,16 @@ export type AnalysisSessionDetailCreateTime = string | null;
 export type AnalysisSessionDetailUpdateTime = string | null;
 
 /**
+ * 关联的数据源
+ */
+export type AnalysisSessionDetailDataSource = DataSourceResponse | null;
+
+/**
+ * 从 data_source_ids 列表中提取第一个 ID
+ */
+export type AnalysisSessionDetailDataSourceId = number | null;
+
+/**
  * 分析会话详情（包含数据源信息）
  */
 export interface AnalysisSessionDetail {
@@ -85,7 +97,7 @@ export interface AnalysisSessionDetail {
   id: number;
   /** 所属用户ID */
   user_id: number;
-  /** 关联的数据源ID列表 */
+  /** 关联的数据源ID列表（内部存储） */
   data_source_ids?: AnalysisSessionDetailDataSourceIds;
   /** 会话配置 */
   config?: AnalysisSessionDetailConfig;
@@ -98,7 +110,9 @@ export interface AnalysisSessionDetail {
   /** 更新时间 */
   update_time?: AnalysisSessionDetailUpdateTime;
   /** 关联的数据源 */
-  data_sources?: DataSourceResponse[];
+  data_source?: AnalysisSessionDetailDataSource;
+  /** 从 data_source_ids 列表中提取第一个 ID */
+  readonly data_source_id: AnalysisSessionDetailDataSourceId;
 }
 
 /**
@@ -107,7 +121,7 @@ export interface AnalysisSessionDetail {
 export type AnalysisSessionResponseDescription = string | null;
 
 /**
- * 关联的数据源ID列表
+ * 关联的数据源ID列表（内部存储）
  */
 export type AnalysisSessionResponseDataSourceIds = number[] | null;
 
@@ -129,6 +143,11 @@ export type AnalysisSessionResponseCreateTime = string | null;
 export type AnalysisSessionResponseUpdateTime = string | null;
 
 /**
+ * 从 data_source_ids 列表中提取第一个 ID
+ */
+export type AnalysisSessionResponseDataSourceId = number | null;
+
+/**
  * 分析会话响应
  */
 export interface AnalysisSessionResponse {
@@ -144,7 +163,7 @@ export interface AnalysisSessionResponse {
   id: number;
   /** 所属用户ID */
   user_id: number;
-  /** 关联的数据源ID列表 */
+  /** 关联的数据源ID列表（内部存储） */
   data_source_ids?: AnalysisSessionResponseDataSourceIds;
   /** 会话配置 */
   config?: AnalysisSessionResponseConfig;
@@ -156,6 +175,8 @@ export interface AnalysisSessionResponse {
   create_time?: AnalysisSessionResponseCreateTime;
   /** 更新时间 */
   update_time?: AnalysisSessionResponseUpdateTime;
+  /** 从 data_source_ids 列表中提取第一个 ID */
+  readonly data_source_id: AnalysisSessionResponseDataSourceId;
 }
 
 /**
@@ -169,9 +190,9 @@ export type AnalysisSessionUpdateName = string | null;
 export type AnalysisSessionUpdateDescription = string | null;
 
 /**
- * 关联的数据源ID列表
+ * 关联的数据源ID（可选，仅支持单个数据源）
  */
-export type AnalysisSessionUpdateDataSourceIds = number[] | null;
+export type AnalysisSessionUpdateDataSourceId = number | null;
 
 export type AnalysisSessionUpdateConfigAnyOf = { [key: string]: unknown };
 
@@ -188,10 +209,31 @@ export interface AnalysisSessionUpdate {
   name?: AnalysisSessionUpdateName;
   /** 会话描述 */
   description?: AnalysisSessionUpdateDescription;
-  /** 关联的数据源ID列表 */
-  data_source_ids?: AnalysisSessionUpdateDataSourceIds;
+  /** 关联的数据源ID（可选，仅支持单个数据源） */
+  data_source_id?: AnalysisSessionUpdateDataSourceId;
   /** 会话配置 */
   config?: AnalysisSessionUpdateConfig;
+}
+
+/**
+ * 错误信息（如果有）
+ */
+export type AutoCreatedRawDataErrorMessage = string | null;
+
+/**
+ * 自动创建的 RawData 简要信息
+ */
+export interface AutoCreatedRawData {
+  /** 原始数据ID */
+  raw_data_id: number;
+  /** 原始数据名称 */
+  name: string;
+  /** 来源表名 */
+  table_name: string;
+  /** 状态: created/ready/error */
+  status: string;
+  /** 错误信息（如果有） */
+  error_message?: AutoCreatedRawDataErrorMessage;
 }
 
 export type BaseResponseAnalysisSessionDetailData = AnalysisSessionDetail | null;
@@ -218,6 +260,30 @@ export interface BaseResponseAnalysisSessionResponse {
   err?: BaseResponseAnalysisSessionResponseErr;
 }
 
+export type BaseResponseBatchCreateFromConnectionResponseData = BatchCreateFromConnectionResponse | null;
+
+export type BaseResponseBatchCreateFromConnectionResponseErr = BatchCreateFromConnectionResponse | null;
+
+export interface BaseResponseBatchCreateFromConnectionResponse {
+  success: boolean;
+  code: number;
+  msg: string;
+  data?: BaseResponseBatchCreateFromConnectionResponseData;
+  err?: BaseResponseBatchCreateFromConnectionResponseErr;
+}
+
+export type BaseResponseDataSourcePreviewResponseData = DataSourcePreviewResponse | null;
+
+export type BaseResponseDataSourcePreviewResponseErr = DataSourcePreviewResponse | null;
+
+export interface BaseResponseDataSourcePreviewResponse {
+  success: boolean;
+  code: number;
+  msg: string;
+  data?: BaseResponseDataSourcePreviewResponseData;
+  err?: BaseResponseDataSourcePreviewResponseErr;
+}
+
 export type BaseResponseDataSourceResponseData = DataSourceResponse | null;
 
 export type BaseResponseDataSourceResponseErr = DataSourceResponse | null;
@@ -230,28 +296,64 @@ export interface BaseResponseDataSourceResponse {
   err?: BaseResponseDataSourceResponseErr;
 }
 
-export type BaseResponseDataSourceSchemaResponseData = DataSourceSchemaResponse | null;
+export type BaseResponseDatabaseConnectionResponseData = DatabaseConnectionResponse | null;
 
-export type BaseResponseDataSourceSchemaResponseErr = DataSourceSchemaResponse | null;
+export type BaseResponseDatabaseConnectionResponseErr = DatabaseConnectionResponse | null;
 
-export interface BaseResponseDataSourceSchemaResponse {
+export interface BaseResponseDatabaseConnectionResponse {
   success: boolean;
   code: number;
   msg: string;
-  data?: BaseResponseDataSourceSchemaResponseData;
-  err?: BaseResponseDataSourceSchemaResponseErr;
+  data?: BaseResponseDatabaseConnectionResponseData;
+  err?: BaseResponseDatabaseConnectionResponseErr;
 }
 
-export type BaseResponseDataSourceTestResultData = DataSourceTestResult | null;
+export type BaseResponseDatabaseConnectionTablesResponseData = DatabaseConnectionTablesResponse | null;
 
-export type BaseResponseDataSourceTestResultErr = DataSourceTestResult | null;
+export type BaseResponseDatabaseConnectionTablesResponseErr = DatabaseConnectionTablesResponse | null;
 
-export interface BaseResponseDataSourceTestResult {
+export interface BaseResponseDatabaseConnectionTablesResponse {
   success: boolean;
   code: number;
   msg: string;
-  data?: BaseResponseDataSourceTestResultData;
-  err?: BaseResponseDataSourceTestResultErr;
+  data?: BaseResponseDatabaseConnectionTablesResponseData;
+  err?: BaseResponseDatabaseConnectionTablesResponseErr;
+}
+
+export type BaseResponseDatabaseConnectionTestResultData = DatabaseConnectionTestResult | null;
+
+export type BaseResponseDatabaseConnectionTestResultErr = DatabaseConnectionTestResult | null;
+
+export interface BaseResponseDatabaseConnectionTestResult {
+  success: boolean;
+  code: number;
+  msg: string;
+  data?: BaseResponseDatabaseConnectionTestResultData;
+  err?: BaseResponseDatabaseConnectionTestResultErr;
+}
+
+export type BaseResponseDatabaseConnectionWithRawResponseData = DatabaseConnectionWithRawResponse | null;
+
+export type BaseResponseDatabaseConnectionWithRawResponseErr = DatabaseConnectionWithRawResponse | null;
+
+export interface BaseResponseDatabaseConnectionWithRawResponse {
+  success: boolean;
+  code: number;
+  msg: string;
+  data?: BaseResponseDatabaseConnectionWithRawResponseData;
+  err?: BaseResponseDatabaseConnectionWithRawResponseErr;
+}
+
+export type BaseResponseDatabaseTableSchemaResponseData = DatabaseTableSchemaResponse | null;
+
+export type BaseResponseDatabaseTableSchemaResponseErr = DatabaseTableSchemaResponse | null;
+
+export interface BaseResponseDatabaseTableSchemaResponse {
+  success: boolean;
+  code: number;
+  msg: string;
+  data?: BaseResponseDatabaseTableSchemaResponseData;
+  err?: BaseResponseDatabaseTableSchemaResponseErr;
 }
 
 export type BaseResponseFilePreviewResponseData = FilePreviewResponse | null;
@@ -310,6 +412,30 @@ export interface BaseResponsePageResponseDataSourceResponse {
   err?: BaseResponsePageResponseDataSourceResponseErr;
 }
 
+export type BaseResponsePageResponseDatabaseConnectionResponseData = PageResponseDatabaseConnectionResponse | null;
+
+export type BaseResponsePageResponseDatabaseConnectionResponseErr = PageResponseDatabaseConnectionResponse | null;
+
+export interface BaseResponsePageResponseDatabaseConnectionResponse {
+  success: boolean;
+  code: number;
+  msg: string;
+  data?: BaseResponsePageResponseDatabaseConnectionResponseData;
+  err?: BaseResponsePageResponseDatabaseConnectionResponseErr;
+}
+
+export type BaseResponsePageResponseRawDataResponseData = PageResponseRawDataResponse | null;
+
+export type BaseResponsePageResponseRawDataResponseErr = PageResponseRawDataResponse | null;
+
+export interface BaseResponsePageResponseRawDataResponse {
+  success: boolean;
+  code: number;
+  msg: string;
+  data?: BaseResponsePageResponseRawDataResponseData;
+  err?: BaseResponsePageResponseRawDataResponseErr;
+}
+
 export type BaseResponsePageResponseTaskRecommendationResponseData = PageResponseTaskRecommendationResponse | null;
 
 export type BaseResponsePageResponseTaskRecommendationResponseErr = PageResponseTaskRecommendationResponse | null;
@@ -346,6 +472,54 @@ export interface BaseResponsePageResponseUserResponse {
   err?: BaseResponsePageResponseUserResponseErr;
 }
 
+export type BaseResponseRawDataPreviewResponseData = RawDataPreviewResponse | null;
+
+export type BaseResponseRawDataPreviewResponseErr = RawDataPreviewResponse | null;
+
+export interface BaseResponseRawDataPreviewResponse {
+  success: boolean;
+  code: number;
+  msg: string;
+  data?: BaseResponseRawDataPreviewResponseData;
+  err?: BaseResponseRawDataPreviewResponseErr;
+}
+
+export type BaseResponseRawDataResponseData = RawDataResponse | null;
+
+export type BaseResponseRawDataResponseErr = RawDataResponse | null;
+
+export interface BaseResponseRawDataResponse {
+  success: boolean;
+  code: number;
+  msg: string;
+  data?: BaseResponseRawDataResponseData;
+  err?: BaseResponseRawDataResponseErr;
+}
+
+export type BaseResponseSuggestMappingsResponseData = SuggestMappingsResponse | null;
+
+export type BaseResponseSuggestMappingsResponseErr = SuggestMappingsResponse | null;
+
+export interface BaseResponseSuggestMappingsResponse {
+  success: boolean;
+  code: number;
+  msg: string;
+  data?: BaseResponseSuggestMappingsResponseData;
+  err?: BaseResponseSuggestMappingsResponseErr;
+}
+
+export type BaseResponseSuggestTargetFieldsResponseData = SuggestTargetFieldsResponse | null;
+
+export type BaseResponseSuggestTargetFieldsResponseErr = SuggestTargetFieldsResponse | null;
+
+export interface BaseResponseSuggestTargetFieldsResponse {
+  success: boolean;
+  code: number;
+  msg: string;
+  data?: BaseResponseSuggestTargetFieldsResponseData;
+  err?: BaseResponseSuggestTargetFieldsResponseErr;
+}
+
 export type BaseResponseTaskRecommendationResponseData = TaskRecommendationResponse | null;
 
 export type BaseResponseTaskRecommendationResponseErr = TaskRecommendationResponse | null;
@@ -380,6 +554,18 @@ export interface BaseResponseUploadedFileResponse {
   msg: string;
   data?: BaseResponseUploadedFileResponseData;
   err?: BaseResponseUploadedFileResponseErr;
+}
+
+export type BaseResponseUploadedFileWithRawDataResponseData = UploadedFileWithRawDataResponse | null;
+
+export type BaseResponseUploadedFileWithRawDataResponseErr = UploadedFileWithRawDataResponse | null;
+
+export interface BaseResponseUploadedFileWithRawDataResponse {
+  success: boolean;
+  code: number;
+  msg: string;
+  data?: BaseResponseUploadedFileWithRawDataResponseData;
+  err?: BaseResponseUploadedFileWithRawDataResponseErr;
 }
 
 export type BaseResponseUserResponseData = UserResponse | null;
@@ -444,6 +630,61 @@ export interface BaseResponseStr {
   msg: string;
   data?: BaseResponseStrData;
   err?: BaseResponseStrErr;
+}
+
+/**
+ * 名称前缀（可选）
+ */
+export type BatchCreateFromConnectionRequestNamePrefix = string | null;
+
+/**
+ * 从数据库连接批量创建原始数据请求
+ */
+export interface BatchCreateFromConnectionRequest {
+  /** 数据库连接ID */
+  connection_id: number;
+  /**
+   * 要创建的表列表
+   * @minItems 1
+   */
+  tables: TableSelection[];
+  /** 是否自动同步列信息 */
+  auto_sync?: boolean;
+  /** 名称前缀（可选） */
+  name_prefix?: BatchCreateFromConnectionRequestNamePrefix;
+}
+
+/**
+ * 从数据库连接批量创建原始数据响应
+ */
+export interface BatchCreateFromConnectionResponse {
+  /** 成功创建的数量 */
+  success_count: number;
+  /** 失败的数量 */
+  failed_count: number;
+  /** 每个表的创建结果 */
+  results?: BatchCreateResult[];
+}
+
+/**
+ * 错误信息（如果有）
+ */
+export type BatchCreateResultErrorMessage = string | null;
+
+/**
+ * 批量创建结果
+ */
+export interface BatchCreateResult {
+  /** 创建的原始数据ID */
+  raw_data_id: number;
+  /** 原始数据名称 */
+  name: string;
+  /** 表名 */
+  table_name: string;
+  /** 状态: created/syncing/ready/error */
+  status: string;
+  /** 错误信息（如果有） */
+  error_message?: BatchCreateResultErrorMessage;
 }
 
 export interface BodyUploadFileApiV1FilesUploadPost {
@@ -536,6 +777,11 @@ export interface ChatMessageResponse {
 }
 
 /**
+ * 用户修正的类型
+ */
+export type ColumnSchemaUserTypeOverride = string | null;
+
+/**
  * 列注释
  */
 export type ColumnSchemaComment = string | null;
@@ -550,11 +796,24 @@ export interface ColumnSchema {
   data_type: string;
   /** 是否可空 */
   nullable?: boolean;
-  /** 是否主键 */
-  primary_key?: boolean;
+  /** 用户修正的类型 */
+  user_type_override?: ColumnSchemaUserTypeOverride;
   /** 列注释 */
   comment?: ColumnSchemaComment;
 }
+
+/**
+ * 数据源分类
+ */
+export type DataSourceCategory = (typeof DataSourceCategory)[keyof typeof DataSourceCategory];
+
+// eslint-disable-next-line @typescript-eslint/no-redeclare
+export const DataSourceCategory = {
+  fact: 'fact',
+  dimension: 'dimension',
+  event: 'event',
+  other: 'other',
+} as const;
 
 /**
  * 数据源描述
@@ -562,19 +821,9 @@ export interface ColumnSchema {
 export type DataSourceCreateDescription = string | null;
 
 /**
- * 数据源分组名称
+ * 数据源分类
  */
-export type DataSourceCreateGroupName = string | null;
-
-/**
- * 数据库连接配置
- */
-export type DataSourceCreateDbConfig = DatabaseConnectionConfig | null;
-
-/**
- * 关联的上传文件ID
- */
-export type DataSourceCreateFileId = number | null;
+export type DataSourceCreateCategory = DataSourceCategory | null;
 
 /**
  * 创建数据源请求
@@ -588,13 +837,45 @@ export interface DataSourceCreate {
   name: string;
   /** 数据源描述 */
   description?: DataSourceCreateDescription;
-  source_type?: DataSourceType;
-  /** 数据源分组名称 */
-  group_name?: DataSourceCreateGroupName;
-  /** 数据库连接配置 */
-  db_config?: DataSourceCreateDbConfig;
-  /** 关联的上传文件ID */
-  file_id?: DataSourceCreateFileId;
+  /** 数据源分类 */
+  category?: DataSourceCreateCategory;
+  /** 目标字段定义 */
+  target_fields?: TargetField[];
+  /** 原始数据字段映射 */
+  raw_mappings?: FieldMapping[];
+}
+
+/**
+ * 数据源预览请求（合并后的数据）
+ */
+export interface DataSourcePreviewRequest {
+  /**
+   * 预览行数
+   * @minimum 1
+   * @maximum 1000
+   */
+  limit?: number;
+}
+
+export type DataSourcePreviewResponseRowsItem = { [key: string]: unknown };
+
+/**
+ * 各 Raw 源的行数统计
+ */
+export type DataSourcePreviewResponseSourceStats = { [key: string]: number };
+
+/**
+ * 数据源预览响应
+ */
+export interface DataSourcePreviewResponse {
+  /** 字段定义 */
+  columns?: TargetField[];
+  /** 合并后的数据行 */
+  rows?: DataSourcePreviewResponseRowsItem[];
+  /** 各 Raw 源的行数统计 */
+  source_stats?: DataSourcePreviewResponseSourceStats;
+  /** 预览时间 */
+  preview_at: string;
 }
 
 /**
@@ -603,39 +884,14 @@ export interface DataSourceCreate {
 export type DataSourceResponseDescription = string | null;
 
 /**
- * 数据源分组名称
+ * 数据源分类
  */
-export type DataSourceResponseGroupName = string | null;
+export type DataSourceResponseCategory = DataSourceCategory | null;
 
 /**
- * 数据库类型
+ * 目标字段定义
  */
-export type DataSourceResponseDbType = DatabaseType | null;
-
-/**
- * 数据库主机
- */
-export type DataSourceResponseHost = string | null;
-
-/**
- * 数据库端口
- */
-export type DataSourceResponsePort = number | null;
-
-/**
- * 数据库名
- */
-export type DataSourceResponseDatabase = string | null;
-
-/**
- * 用户名
- */
-export type DataSourceResponseUsername = string | null;
-
-/**
- * 关联的上传文件ID
- */
-export type DataSourceResponseFileId = number | null;
+export type DataSourceResponseTargetFields = TargetField[] | null;
 
 export type DataSourceResponseSchemaCacheAnyOf = { [key: string]: unknown };
 
@@ -643,6 +899,11 @@ export type DataSourceResponseSchemaCacheAnyOf = { [key: string]: unknown };
  * 表结构缓存
  */
 export type DataSourceResponseSchemaCache = DataSourceResponseSchemaCacheAnyOf | null;
+
+/**
+ * 原始数据映射
+ */
+export type DataSourceResponseRawMappings = RawMappingResponse[] | null;
 
 /**
  * 创建时间
@@ -666,75 +927,23 @@ export interface DataSourceResponse {
   name: string;
   /** 数据源描述 */
   description?: DataSourceResponseDescription;
-  source_type?: DataSourceType;
-  /** 数据源分组名称 */
-  group_name?: DataSourceResponseGroupName;
+  /** 数据源分类 */
+  category?: DataSourceResponseCategory;
   /** 数据源ID */
   id: number;
   /** 所属用户ID */
   user_id: number;
-  /** 数据库类型 */
-  db_type?: DataSourceResponseDbType;
-  /** 数据库主机 */
-  host?: DataSourceResponseHost;
-  /** 数据库端口 */
-  port?: DataSourceResponsePort;
-  /** 数据库名 */
-  database?: DataSourceResponseDatabase;
-  /** 用户名 */
-  username?: DataSourceResponseUsername;
-  /** 关联的上传文件ID */
-  file_id?: DataSourceResponseFileId;
+  /** 目标字段定义 */
+  target_fields?: DataSourceResponseTargetFields;
   /** 表结构缓存 */
   schema_cache?: DataSourceResponseSchemaCache;
+  /** 原始数据映射 */
+  raw_mappings?: DataSourceResponseRawMappings;
   /** 创建时间 */
   create_time?: DataSourceResponseCreateTime;
   /** 更新时间 */
   update_time?: DataSourceResponseUpdateTime;
 }
-
-/**
- * 同步时间
- */
-export type DataSourceSchemaResponseSyncedAt = string | null;
-
-/**
- * 数据源 Schema 响应
- */
-export interface DataSourceSchemaResponse {
-  /** 表列表 */
-  tables?: TableSchema[];
-  /** 同步时间 */
-  synced_at?: DataSourceSchemaResponseSyncedAt;
-}
-
-/**
- * 连接延迟（毫秒）
- */
-export type DataSourceTestResultLatencyMs = number | null;
-
-/**
- * 数据源连接测试结果
- */
-export interface DataSourceTestResult {
-  /** 是否连接成功 */
-  success: boolean;
-  /** 测试结果消息 */
-  message: string;
-  /** 连接延迟（毫秒） */
-  latency_ms?: DataSourceTestResultLatencyMs;
-}
-
-/**
- * 数据源类型
- */
-export type DataSourceType = (typeof DataSourceType)[keyof typeof DataSourceType];
-
-// eslint-disable-next-line @typescript-eslint/no-redeclare
-export const DataSourceType = {
-  database: 'database',
-  file: 'file',
-} as const;
 
 /**
  * 数据源名称
@@ -747,14 +956,19 @@ export type DataSourceUpdateName = string | null;
 export type DataSourceUpdateDescription = string | null;
 
 /**
- * 数据源分组名称
+ * 数据源分类
  */
-export type DataSourceUpdateGroupName = string | null;
+export type DataSourceUpdateCategory = DataSourceCategory | null;
 
 /**
- * 数据库连接配置
+ * 目标字段定义
  */
-export type DataSourceUpdateDbConfig = DatabaseConnectionConfig | null;
+export type DataSourceUpdateTargetFields = TargetField[] | null;
+
+/**
+ * 原始数据字段映射
+ */
+export type DataSourceUpdateRawMappings = FieldMapping[] | null;
 
 /**
  * 更新数据源请求
@@ -764,10 +978,12 @@ export interface DataSourceUpdate {
   name?: DataSourceUpdateName;
   /** 数据源描述 */
   description?: DataSourceUpdateDescription;
-  /** 数据源分组名称 */
-  group_name?: DataSourceUpdateGroupName;
-  /** 数据库连接配置 */
-  db_config?: DataSourceUpdateDbConfig;
+  /** 数据源分类 */
+  category?: DataSourceUpdateCategory;
+  /** 目标字段定义 */
+  target_fields?: DataSourceUpdateTargetFields;
+  /** 原始数据字段映射 */
+  raw_mappings?: DataSourceUpdateRawMappings;
 }
 
 export type DatabaseConnectionConfigExtraParamsAnyOf = { [key: string]: unknown };
@@ -817,6 +1033,268 @@ export interface DatabaseConnectionConfig {
 }
 
 /**
+ * 连接描述
+ */
+export type DatabaseConnectionCreateDescription = string | null;
+
+/**
+ * 创建数据库连接请求
+ */
+export interface DatabaseConnectionCreate {
+  /**
+   * 连接名称
+   * @minLength 1
+   * @maxLength 100
+   */
+  name: string;
+  /** 连接描述 */
+  description?: DatabaseConnectionCreateDescription;
+  /** 连接配置 */
+  config: DatabaseConnectionConfig;
+}
+
+/**
+ * 连接描述
+ */
+export type DatabaseConnectionResponseDescription = string | null;
+
+export type DatabaseConnectionResponseExtraParamsAnyOf = { [key: string]: unknown };
+
+/**
+ * 额外连接参数
+ */
+export type DatabaseConnectionResponseExtraParams = DatabaseConnectionResponseExtraParamsAnyOf | null;
+
+/**
+ * 最后测试时间
+ */
+export type DatabaseConnectionResponseLastTestedAt = string | null;
+
+/**
+ * 创建时间
+ */
+export type DatabaseConnectionResponseCreateTime = string | null;
+
+/**
+ * 更新时间
+ */
+export type DatabaseConnectionResponseUpdateTime = string | null;
+
+/**
+ * 数据库连接响应（不返回密码）
+ */
+export interface DatabaseConnectionResponse {
+  /**
+   * 连接名称
+   * @minLength 1
+   * @maxLength 100
+   */
+  name: string;
+  /** 连接描述 */
+  description?: DatabaseConnectionResponseDescription;
+  /** 连接ID */
+  id: number;
+  /** 所属用户ID */
+  user_id: number;
+  db_type: DatabaseType;
+  /** 数据库主机 */
+  host: string;
+  /** 数据库端口 */
+  port: number;
+  /** 数据库名 */
+  database: string;
+  /** 用户名 */
+  username: string;
+  /** 额外连接参数 */
+  extra_params?: DatabaseConnectionResponseExtraParams;
+  /** 最后测试时间 */
+  last_tested_at?: DatabaseConnectionResponseLastTestedAt;
+  /** 是否可用 */
+  is_active?: boolean;
+  /** 创建时间 */
+  create_time?: DatabaseConnectionResponseCreateTime;
+  /** 更新时间 */
+  update_time?: DatabaseConnectionResponseUpdateTime;
+}
+
+/**
+ * 数据库连接的表列表响应
+ */
+export interface DatabaseConnectionTablesResponse {
+  /** 连接ID */
+  connection_id: number;
+  /** 表列表 */
+  tables?: DatabaseTableInfo[];
+}
+
+/**
+ * 连接延迟（毫秒）
+ */
+export type DatabaseConnectionTestResultLatencyMs = number | null;
+
+/**
+ * 数据库连接测试结果
+ */
+export interface DatabaseConnectionTestResult {
+  /** 是否连接成功 */
+  success: boolean;
+  /** 测试结果消息 */
+  message: string;
+  /** 连接延迟（毫秒） */
+  latency_ms?: DatabaseConnectionTestResultLatencyMs;
+}
+
+/**
+ * 连接名称
+ */
+export type DatabaseConnectionUpdateName = string | null;
+
+/**
+ * 连接描述
+ */
+export type DatabaseConnectionUpdateDescription = string | null;
+
+/**
+ * 连接配置
+ */
+export type DatabaseConnectionUpdateConfig = DatabaseConnectionConfig | null;
+
+/**
+ * 更新数据库连接请求
+ */
+export interface DatabaseConnectionUpdate {
+  /** 连接名称 */
+  name?: DatabaseConnectionUpdateName;
+  /** 连接描述 */
+  description?: DatabaseConnectionUpdateDescription;
+  /** 连接配置 */
+  config?: DatabaseConnectionUpdateConfig;
+}
+
+/**
+ * 连接描述
+ */
+export type DatabaseConnectionWithRawResponseDescription = string | null;
+
+export type DatabaseConnectionWithRawResponseExtraParamsAnyOf = { [key: string]: unknown };
+
+/**
+ * 额外连接参数
+ */
+export type DatabaseConnectionWithRawResponseExtraParams = DatabaseConnectionWithRawResponseExtraParamsAnyOf | null;
+
+/**
+ * 最后测试时间
+ */
+export type DatabaseConnectionWithRawResponseLastTestedAt = string | null;
+
+/**
+ * 创建时间
+ */
+export type DatabaseConnectionWithRawResponseCreateTime = string | null;
+
+/**
+ * 更新时间
+ */
+export type DatabaseConnectionWithRawResponseUpdateTime = string | null;
+
+/**
+ * 自动创建 RawData 的结果列表
+ */
+export type DatabaseConnectionWithRawResponseAutoRawResults = AutoCreatedRawData[] | null;
+
+/**
+ * 自动创建 RawData 的错误信息
+ */
+export type DatabaseConnectionWithRawResponseAutoRawError = string | null;
+
+/**
+ * 数据库连接响应（包含自动创建的 RawData 结果）
+ */
+export interface DatabaseConnectionWithRawResponse {
+  /**
+   * 连接名称
+   * @minLength 1
+   * @maxLength 100
+   */
+  name: string;
+  /** 连接描述 */
+  description?: DatabaseConnectionWithRawResponseDescription;
+  /** 连接ID */
+  id: number;
+  /** 所属用户ID */
+  user_id: number;
+  db_type: DatabaseType;
+  /** 数据库主机 */
+  host: string;
+  /** 数据库端口 */
+  port: number;
+  /** 数据库名 */
+  database: string;
+  /** 用户名 */
+  username: string;
+  /** 额外连接参数 */
+  extra_params?: DatabaseConnectionWithRawResponseExtraParams;
+  /** 最后测试时间 */
+  last_tested_at?: DatabaseConnectionWithRawResponseLastTestedAt;
+  /** 是否可用 */
+  is_active?: boolean;
+  /** 创建时间 */
+  create_time?: DatabaseConnectionWithRawResponseCreateTime;
+  /** 更新时间 */
+  update_time?: DatabaseConnectionWithRawResponseUpdateTime;
+  /** 自动创建 RawData 的结果列表 */
+  auto_raw_results?: DatabaseConnectionWithRawResponseAutoRawResults;
+  /** 自动创建 RawData 的错误信息 */
+  auto_raw_error?: DatabaseConnectionWithRawResponseAutoRawError;
+}
+
+/**
+ * 表注释
+ */
+export type DatabaseTableInfoComment = string | null;
+
+/**
+ * 数据库表信息
+ */
+export interface DatabaseTableInfo {
+  /** Schema名称 */
+  schema_name: string;
+  /** 表名 */
+  table_name: string;
+  /** 表类型: TABLE/VIEW */
+  table_type?: string;
+  /** 表注释 */
+  comment?: DatabaseTableInfoComment;
+}
+
+/**
+ * Schema 名称
+ */
+export type DatabaseTableSchemaResponseSchemaName = string | null;
+
+/**
+ * 行数估算
+ */
+export type DatabaseTableSchemaResponseRowCount = number | null;
+
+/**
+ * 数据库表结构响应
+ */
+export interface DatabaseTableSchemaResponse {
+  /** 连接ID */
+  connection_id: number;
+  /** Schema 名称 */
+  schema_name?: DatabaseTableSchemaResponseSchemaName;
+  /** 表名 */
+  table_name: string;
+  /** 列信息 */
+  columns?: TableColumnInfo[];
+  /** 行数估算 */
+  row_count?: DatabaseTableSchemaResponseRowCount;
+}
+
+/**
  * 数据库类型
  */
 export type DatabaseType = (typeof DatabaseType)[keyof typeof DatabaseType];
@@ -825,8 +1303,48 @@ export type DatabaseType = (typeof DatabaseType)[keyof typeof DatabaseType];
 export const DatabaseType = {
   mysql: 'mysql',
   postgresql: 'postgresql',
-  sqlite: 'sqlite',
 } as const;
+
+/**
+ * 字段映射: {target_field: source_field_or_null}
+ */
+export type FieldMappingMappings = { [key: string]: string | null };
+
+/**
+ * 单个 Raw 的字段映射
+ */
+export interface FieldMapping {
+  /** 原始数据ID */
+  raw_data_id: number;
+  /** 字段映射: {target_field: source_field_or_null} */
+  mappings: FieldMappingMappings;
+  /** 优先级（数值越大优先级越高） */
+  priority?: number;
+  /** 是否启用 */
+  is_enabled?: boolean;
+}
+
+/**
+ * 单个字段映射建议
+ */
+export interface FieldMappingSuggestionResponse {
+  /** 目标字段名 */
+  target_field: string;
+  /** 推荐的源字段名 */
+  source_field: string;
+  /** 来源 RawData ID */
+  raw_data_id: number;
+  /** 来源 RawData 名称 */
+  raw_data_name: string;
+  /**
+   * 匹配置信度 (0-1)
+   * @minimum 0
+   * @maximum 1
+   */
+  confidence: number;
+  /** 推荐理由 */
+  reason: string;
+}
 
 export type FilePreviewResponseColumnsItem = { [key: string]: unknown };
 
@@ -855,7 +1373,6 @@ export const FileType = {
   excel: 'excel',
   json: 'json',
   parquet: 'parquet',
-  sqlite: 'sqlite',
 } as const;
 
 export type GenerateFollowupRequestLastResultAnyOf = { [key: string]: unknown };
@@ -957,6 +1474,28 @@ export interface PageResponseDataSourceResponse {
   items?: DataSourceResponse[];
 }
 
+export interface PageResponseDatabaseConnectionResponse {
+  /** 当前页码 */
+  page_num?: number;
+  /** 每页数量 */
+  page_size?: number;
+  /** 总记录数 */
+  total?: number;
+  /** 分页数据 */
+  items?: DatabaseConnectionResponse[];
+}
+
+export interface PageResponseRawDataResponse {
+  /** 当前页码 */
+  page_num?: number;
+  /** 每页数量 */
+  page_size?: number;
+  /** 总记录数 */
+  total?: number;
+  /** 分页数据 */
+  items?: RawDataResponse[];
+}
+
 export interface PageResponseTaskRecommendationResponse {
   /** 当前页码 */
   page_num?: number;
@@ -1009,6 +1548,308 @@ export interface PasswordChange {
 }
 
 /**
+ * 更新列类型请求
+ */
+export interface RawDataColumnUpdate {
+  /** 列结构列表（支持修正类型） */
+  columns: ColumnSchema[];
+}
+
+/**
+ * 原始数据描述
+ */
+export type RawDataCreateDescription = string | null;
+
+/**
+ * 数据库表配置（raw_type=database_table 时必填）
+ */
+export type RawDataCreateDatabaseTableConfig = RawDataDatabaseTableConfig | null;
+
+/**
+ * 文件配置（raw_type=file 时必填）
+ */
+export type RawDataCreateFileConfig = RawDataFileConfig | null;
+
+/**
+ * 创建原始数据请求
+ */
+export interface RawDataCreate {
+  /**
+   * 原始数据名称
+   * @minLength 1
+   * @maxLength 100
+   */
+  name: string;
+  /** 原始数据描述 */
+  description?: RawDataCreateDescription;
+  /** 原始数据类型: database_table/file */
+  raw_type: RawDataType;
+  /** 数据库表配置（raw_type=database_table 时必填） */
+  database_table_config?: RawDataCreateDatabaseTableConfig;
+  /** 文件配置（raw_type=file 时必填） */
+  file_config?: RawDataCreateFileConfig;
+}
+
+/**
+ * Schema名称
+ */
+export type RawDataDatabaseTableConfigSchemaName = string | null;
+
+/**
+ * 表名
+ */
+export type RawDataDatabaseTableConfigTableName = string | null;
+
+/**
+ * 自定义SQL查询（可选）
+ */
+export type RawDataDatabaseTableConfigCustomSql = string | null;
+
+/**
+ * 数据库表类型配置
+ */
+export interface RawDataDatabaseTableConfig {
+  /** 数据库连接ID */
+  connection_id: number;
+  /** Schema名称 */
+  schema_name?: RawDataDatabaseTableConfigSchemaName;
+  /** 表名 */
+  table_name?: RawDataDatabaseTableConfigTableName;
+  /** 自定义SQL查询（可选） */
+  custom_sql?: RawDataDatabaseTableConfigCustomSql;
+}
+
+/**
+ * 文件类型配置
+ */
+export interface RawDataFileConfig {
+  /** 上传文件ID */
+  file_id: number;
+}
+
+/**
+ * 自动创建的 RawData 简要信息
+ */
+export interface RawDataInfo {
+  /** RawData ID */
+  id: number;
+  /** RawData 名称 */
+  name: string;
+  /** 状态 */
+  status: string;
+}
+
+/**
+ * 原始数据预览请求
+ */
+export interface RawDataPreviewRequest {
+  /**
+   * 预览行数
+   * @minimum 1
+   * @maximum 1000
+   */
+  limit?: number;
+}
+
+export type RawDataPreviewResponseRowsItem = { [key: string]: unknown };
+
+/**
+ * 总行数（估算）
+ */
+export type RawDataPreviewResponseTotalRows = number | null;
+
+/**
+ * 原始数据预览响应
+ */
+export interface RawDataPreviewResponse {
+  /** 列结构 */
+  columns?: ColumnSchema[];
+  /** 数据行 */
+  rows?: RawDataPreviewResponseRowsItem[];
+  /** 总行数（估算） */
+  total_rows?: RawDataPreviewResponseTotalRows;
+  /** 预览时间 */
+  preview_at: string;
+}
+
+/**
+ * 原始数据描述
+ */
+export type RawDataResponseDescription = string | null;
+
+/**
+ * 数据库连接ID
+ */
+export type RawDataResponseConnectionId = number | null;
+
+/**
+ * Schema名称
+ */
+export type RawDataResponseSchemaName = string | null;
+
+/**
+ * 表名
+ */
+export type RawDataResponseTableName = string | null;
+
+/**
+ * 自定义SQL
+ */
+export type RawDataResponseCustomSql = string | null;
+
+/**
+ * 上传文件ID
+ */
+export type RawDataResponseFileId = number | null;
+
+/**
+ * 列结构信息
+ */
+export type RawDataResponseColumnsSchema = ColumnSchema[] | null;
+
+/**
+ * 估算行数
+ */
+export type RawDataResponseRowCountEstimate = number | null;
+
+/**
+ * 最后同步时间
+ */
+export type RawDataResponseSyncedAt = string | null;
+
+/**
+ * 错误信息
+ */
+export type RawDataResponseErrorMessage = string | null;
+
+/**
+ * 创建时间
+ */
+export type RawDataResponseCreateTime = string | null;
+
+/**
+ * 更新时间
+ */
+export type RawDataResponseUpdateTime = string | null;
+
+/**
+ * 原始数据响应
+ */
+export interface RawDataResponse {
+  /**
+   * 原始数据名称
+   * @minLength 1
+   * @maxLength 100
+   */
+  name: string;
+  /** 原始数据描述 */
+  description?: RawDataResponseDescription;
+  /** 原始数据类型: database_table/file */
+  raw_type: RawDataType;
+  /** 原始数据ID */
+  id: number;
+  /** 所属用户ID */
+  user_id: number;
+  /** 数据库连接ID */
+  connection_id?: RawDataResponseConnectionId;
+  /** Schema名称 */
+  schema_name?: RawDataResponseSchemaName;
+  /** 表名 */
+  table_name?: RawDataResponseTableName;
+  /** 自定义SQL */
+  custom_sql?: RawDataResponseCustomSql;
+  /** 上传文件ID */
+  file_id?: RawDataResponseFileId;
+  /** 列结构信息 */
+  columns_schema?: RawDataResponseColumnsSchema;
+  /** 估算行数 */
+  row_count_estimate?: RawDataResponseRowCountEstimate;
+  /** 最后同步时间 */
+  synced_at?: RawDataResponseSyncedAt;
+  /** 状态: pending/syncing/ready/error */
+  status?: string;
+  /** 错误信息 */
+  error_message?: RawDataResponseErrorMessage;
+  /** 创建时间 */
+  create_time?: RawDataResponseCreateTime;
+  /** 更新时间 */
+  update_time?: RawDataResponseUpdateTime;
+}
+
+/**
+ * 原始数据类型
+ */
+export type RawDataType = (typeof RawDataType)[keyof typeof RawDataType];
+
+// eslint-disable-next-line @typescript-eslint/no-redeclare
+export const RawDataType = {
+  database_table: 'database_table',
+  file: 'file',
+} as const;
+
+/**
+ * 原始数据名称
+ */
+export type RawDataUpdateName = string | null;
+
+/**
+ * 原始数据描述
+ */
+export type RawDataUpdateDescription = string | null;
+
+/**
+ * 数据库表配置
+ */
+export type RawDataUpdateDatabaseTableConfig = RawDataDatabaseTableConfig | null;
+
+/**
+ * 文件配置
+ */
+export type RawDataUpdateFileConfig = RawDataFileConfig | null;
+
+/**
+ * 更新原始数据请求
+ */
+export interface RawDataUpdate {
+  /** 原始数据名称 */
+  name?: RawDataUpdateName;
+  /** 原始数据描述 */
+  description?: RawDataUpdateDescription;
+  /** 数据库表配置 */
+  database_table_config?: RawDataUpdateDatabaseTableConfig;
+  /** 文件配置 */
+  file_config?: RawDataUpdateFileConfig;
+}
+
+/**
+ * 原始数据名称
+ */
+export type RawMappingResponseRawDataName = string | null;
+
+/**
+ * 字段映射
+ */
+export type RawMappingResponseFieldMappings = { [key: string]: string | null };
+
+/**
+ * Raw 映射响应
+ */
+export interface RawMappingResponse {
+  /** 映射ID */
+  id: number;
+  /** 原始数据ID */
+  raw_data_id: number;
+  /** 原始数据名称 */
+  raw_data_name?: RawMappingResponseRawDataName;
+  /** 字段映射 */
+  field_mappings?: RawMappingResponseFieldMappings;
+  /** 优先级 */
+  priority?: number;
+  /** 是否启用 */
+  is_enabled?: boolean;
+}
+
+/**
  * 刷新令牌请求
  */
 export interface RefreshTokenRequest {
@@ -1017,27 +1858,133 @@ export interface RefreshTokenRequest {
 }
 
 /**
- * 行数（估算）
+ * 字段映射建议请求
  */
-export type TableSchemaRowCount = number | null;
+export interface SuggestMappingsRequest {
+  /**
+   * 目标字段列表
+   * @minItems 1
+   */
+  target_fields: TargetField[];
+  /**
+   * 原始数据ID列表
+   * @minItems 1
+   */
+  raw_data_ids: number[];
+}
 
 /**
- * 表注释
+ * 字段映射建议响应
  */
-export type TableSchemaComment = string | null;
+export interface SuggestMappingsResponse {
+  /** 字段映射建议列表 */
+  suggestions?: FieldMappingSuggestionResponse[];
+}
 
 /**
- * 表结构
+ * 从原始数据推断目标字段请求
  */
-export interface TableSchema {
-  /** 表名 */
+export interface SuggestTargetFieldsRequest {
+  /**
+   * 原始数据ID列表
+   * @minItems 1
+   */
+  raw_data_ids: number[];
+}
+
+/**
+ * 推断目标字段响应
+ */
+export interface SuggestTargetFieldsResponse {
+  /** 推荐的目标字段列表 */
+  fields?: SuggestedTargetField[];
+}
+
+/**
+ * 字段描述
+ */
+export type SuggestedTargetFieldDescription = string | null;
+
+/**
+ * 推荐的目标字段
+ */
+export interface SuggestedTargetField {
+  /** 字段名 */
   name: string;
-  /** 列信息 */
-  columns?: ColumnSchema[];
-  /** 行数（估算） */
-  row_count?: TableSchemaRowCount;
-  /** 表注释 */
-  comment?: TableSchemaComment;
+  /** 数据类型 */
+  data_type: string;
+  /** 字段描述 */
+  description?: SuggestedTargetFieldDescription;
+  /** 出现在多少个数据源中 */
+  source_count?: number;
+}
+
+/**
+ * 列注释
+ */
+export type TableColumnInfoComment = string | null;
+
+/**
+ * 数据库表的列信息
+ */
+export interface TableColumnInfo {
+  /** 列名 */
+  name: string;
+  /** 数据类型 */
+  data_type: string;
+  /** 是否可空 */
+  nullable?: boolean;
+  /** 是否主键 */
+  primary_key?: boolean;
+  /** 列注释 */
+  comment?: TableColumnInfoComment;
+}
+
+/**
+ * Schema 名称
+ */
+export type TableSelectionSchemaName = string | null;
+
+/**
+ * 自定义显示名称（可选）
+ */
+export type TableSelectionCustomName = string | null;
+
+/**
+ * 表选择
+ */
+export interface TableSelection {
+  /** Schema 名称 */
+  schema_name?: TableSelectionSchemaName;
+  /**
+   * 表名
+   * @minLength 1
+   * @maxLength 255
+   */
+  table_name: string;
+  /** 自定义显示名称（可选） */
+  custom_name?: TableSelectionCustomName;
+}
+
+/**
+ * 字段描述
+ */
+export type TargetFieldDescription = string | null;
+
+/**
+ * 目标字段定义
+ */
+export interface TargetField {
+  /**
+   * 字段名
+   * @minLength 1
+   * @maxLength 100
+   */
+  name: string;
+  /** 数据类型 */
+  data_type: string;
+  /** 字段描述 */
+  description?: TargetFieldDescription;
 }
 
 export type TaskRecommendationResponseDescription = string | null;
@@ -1148,6 +2095,83 @@ export interface UploadedFileResponse {
   create_time?: UploadedFileResponseCreateTime;
   /** 更新时间 */
   update_time?: UploadedFileResponseUpdateTime;
+}
+
+/**
+ * MIME类型
+ */
+export type UploadedFileWithRawDataResponseMimeType = string | null;
+
+/**
+ * 数据行数
+ */
+export type UploadedFileWithRawDataResponseRowCount = number | null;
+
+/**
+ * 数据列数
+ */
+export type UploadedFileWithRawDataResponseColumnCount = number | null;
+
+export type UploadedFileWithRawDataResponseColumnsInfoAnyOfItem = { [key: string]: unknown };
+
+/**
+ * 列信息
+ */
+export type UploadedFileWithRawDataResponseColumnsInfo = UploadedFileWithRawDataResponseColumnsInfoAnyOfItem[] | null;
+
+/**
+ * 错误信息
+ */
+export type UploadedFileWithRawDataResponseErrorMessage = string | null;
+
+/**
+ * 创建时间
+ */
+export type UploadedFileWithRawDataResponseCreateTime = string | null;
+
+/**
+ * 更新时间
+ */
+export type UploadedFileWithRawDataResponseUpdateTime = string | null;
+
+/**
+ * 自动创建的 RawData
+ */
+export type UploadedFileWithRawDataResponseAutoRawData = RawDataInfo | null;
+
+/**
+ * 上传文件响应（含自动创建的 RawData）
+ */
+export interface UploadedFileWithRawDataResponse {
+  /** 文件ID */
+  id: number;
+  /** 上传用户ID */
+  user_id: number;
+  /** 原始文件名 */
+  original_name: string;
+  /** MinIO对象存储Key */
+  object_key: string;
+  file_type: FileType;
+  /** 文件大小(字节) */
+  file_size: number;
+  /** MIME类型 */
+  mime_type?: UploadedFileWithRawDataResponseMimeType;
+  /** 数据行数 */
+  row_count?: UploadedFileWithRawDataResponseRowCount;
+  /** 数据列数 */
+  column_count?: UploadedFileWithRawDataResponseColumnCount;
+  /** 列信息 */
+  columns_info?: UploadedFileWithRawDataResponseColumnsInfo;
+  /** 处理状态 */
+  status: string;
+  /** 错误信息 */
+  error_message?: UploadedFileWithRawDataResponseErrorMessage;
+  /** 创建时间 */
+  create_time?: UploadedFileWithRawDataResponseCreateTime;
+  /** 更新时间 */
+  update_time?: UploadedFileWithRawDataResponseUpdateTime;
+  /** 自动创建的 RawData */
+  auto_raw_data?: UploadedFileWithRawDataResponseAutoRawData;
 }
 
 /**
@@ -1276,6 +2300,46 @@ export type GetUsersApiV1UsersGetParams = {
   is_superuser?: boolean | null;
 };
 
+export type GetConnectionsApiV1DatabaseConnectionsGetParams = {
+  keyword?: string | null;
+  db_type?: string | null;
+  /**
+   * @minimum 1
+   */
+  page_num?: number;
+  /**
+   * @minimum 1
+   */
+  page_size?: number;
+};
+
+export type CreateConnectionApiV1DatabaseConnectionsPostParams = {
+  auto_create_raw_data?: boolean;
+  auto_sync_raw_data?: boolean;
+  max_auto_tables?: number;
+};
+
+export type GetConnectionTableSchemaApiV1DatabaseConnectionsConnectionIdSchemaGetParams = {
+  schema_name?: string | null;
+  table_name?: string | null;
+};
+
+export type GetRawDataListApiV1RawDataGetParams = {
+  /**
+   * @minimum 1
+   */
+  page_num?: number;
+  /**
+   * @minimum 1
+   */
+  page_size?: number;
+  keyword?: string | null;
+  raw_type?: RawDataType | null;
+  status?: string | null;
+};
+
+export type PreviewRawDataApiV1RawDataRawDataIdPreviewPostBody = RawDataPreviewRequest | null;
+
 export type GetDataSourcesApiV1DataSourcesGetParams = {
   /**
    * @minimum 1
@@ -1286,8 +2350,10 @@ export type GetDataSourcesApiV1DataSourcesGetParams = {
    */
   page_size?: number;
   keyword?: string | null;
-  source_type?: DataSourceType | null;
+  category?: DataSourceCategory | null;
 };
+
+export type PreviewDataSourceApiV1DataSourcesDataSourceIdPreviewPostBody = DataSourcePreviewRequest | null;
 
 export type GetFilesApiV1FilesGetParams = {
   /**
@@ -1301,6 +2367,10 @@ export type GetFilesApiV1FilesGetParams = {
   keyword?: string | null;
   file_type?: FileType | null;
   status?: string | null;
+};
+
+export type UploadFileApiV1FilesUploadPostParams = {
+  auto_create_raw_data?: boolean;
 };
 
 export type GetFilePreviewApiV1FilesFileIdPreviewGetParams = {
@@ -1496,6 +2566,239 @@ export const deleteUserApiV1UsersUserIdDelete = <TData = AxiosResponse<BaseRespo
 };
 
 /**
+ * 获取数据库连接列表（分页）
+ * @summary Get Connections
+ */
+export const getConnectionsApiV1DatabaseConnectionsGet = <
+  TData = AxiosResponse<BaseResponsePageResponseDatabaseConnectionResponse>,
+>(
+  params?: GetConnectionsApiV1DatabaseConnectionsGetParams,
+  options?: AxiosRequestConfig
+): Promise<TData> => {
+  return axios.get('/api/v1/database-connections', {
+    ...options,
+    params: { ...params, ...options?.params },
+  });
+};
+
+/**
+ * 创建数据库连接
+ * @summary Create Connection
+ */
+export const createConnectionApiV1DatabaseConnectionsPost = <
+  TData = AxiosResponse<BaseResponseDatabaseConnectionWithRawResponse>,
+>(
+  databaseConnectionCreate: DatabaseConnectionCreate,
+  params?: CreateConnectionApiV1DatabaseConnectionsPostParams,
+  options?: AxiosRequestConfig
+): Promise<TData> => {
+  return axios.post('/api/v1/database-connections', databaseConnectionCreate, {
+    ...options,
+    params: { ...params, ...options?.params },
+  });
+};
+
+/**
+ * 获取单个数据库连接详情
+ * @summary Get Connection
+ */
+export const getConnectionApiV1DatabaseConnectionsConnectionIdGet = <
+  TData = AxiosResponse<BaseResponseDatabaseConnectionResponse>,
+>(
+  connectionId: number,
+  options?: AxiosRequestConfig
+): Promise<TData> => {
+  return axios.get(`/api/v1/database-connections/${connectionId}`, options);
+};
+
+/**
+ * 更新数据库连接
+ * @summary Update Connection
+ */
+export const updateConnectionApiV1DatabaseConnectionsConnectionIdPut = <
+  TData = AxiosResponse<BaseResponseDatabaseConnectionResponse>,
+>(
+  connectionId: number,
+  databaseConnectionUpdate: DatabaseConnectionUpdate,
+  options?: AxiosRequestConfig
+): Promise<TData> => {
+  return axios.put(`/api/v1/database-connections/${connectionId}`, databaseConnectionUpdate, options);
+};
+
+/**
+ * 删除数据库连接
+ * @summary Delete Connection
+ */
+export const deleteConnectionApiV1DatabaseConnectionsConnectionIdDelete = <TData = AxiosResponse<BaseResponseNoneType>>(
+  connectionId: number,
+  options?: AxiosRequestConfig
+): Promise<TData> => {
+  return axios.delete(`/api/v1/database-connections/${connectionId}`, options);
+};
+
+/**
+ * 测试数据库连接
+ * @summary Test Connection
+ */
+export const testConnectionApiV1DatabaseConnectionsConnectionIdTestPost = <
+  TData = AxiosResponse<BaseResponseDatabaseConnectionTestResult>,
+>(
+  connectionId: number,
+  options?: AxiosRequestConfig
+): Promise<TData> => {
+  return axios.post(`/api/v1/database-connections/${connectionId}/test`, undefined, options);
+};
+
+/**
+ * 获取数据库连接的表列表
+ * @summary Get Connection Tables
+ */
+export const getConnectionTablesApiV1DatabaseConnectionsConnectionIdTablesGet = <
+  TData = AxiosResponse<BaseResponseDatabaseConnectionTablesResponse>,
+>(
+  connectionId: number,
+  options?: AxiosRequestConfig
+): Promise<TData> => {
+  return axios.get(`/api/v1/database-connections/${connectionId}/tables`, options);
+};
+
+/**
+ * 获取指定表的列结构
+ * @summary Get Connection Table Schema
+ */
+export const getConnectionTableSchemaApiV1DatabaseConnectionsConnectionIdSchemaGet = <
+  TData = AxiosResponse<BaseResponseDatabaseTableSchemaResponse>,
+>(
+  connectionId: number,
+  params?: GetConnectionTableSchemaApiV1DatabaseConnectionsConnectionIdSchemaGetParams,
+  options?: AxiosRequestConfig
+): Promise<TData> => {
+  return axios.get(`/api/v1/database-connections/${connectionId}/schema`, {
+    ...options,
+    params: { ...params, ...options?.params },
+  });
+};
+
+/**
+ * 获取原始数据列表（分页）
+ * @summary Get Raw Data List
+ */
+export const getRawDataListApiV1RawDataGet = <TData = AxiosResponse<BaseResponsePageResponseRawDataResponse>>(
+  params?: GetRawDataListApiV1RawDataGetParams,
+  options?: AxiosRequestConfig
+): Promise<TData> => {
+  return axios.get('/api/v1/raw-data', {
+    ...options,
+    params: { ...params, ...options?.params },
+  });
+};
+
+/**
+ * 创建原始数据
+ * @summary Create Raw Data
+ */
+export const createRawDataApiV1RawDataPost = <TData = AxiosResponse<BaseResponseRawDataResponse>>(
+  rawDataCreate: RawDataCreate,
+  options?: AxiosRequestConfig
+): Promise<TData> => {
+  return axios.post('/api/v1/raw-data', rawDataCreate, options);
+};
+
+/**
+ * 获取单个原始数据详情
+ * @summary Get Raw Data
+ */
+export const getRawDataApiV1RawDataRawDataIdGet = <TData = AxiosResponse<BaseResponseRawDataResponse>>(
+  rawDataId: number,
+  options?: AxiosRequestConfig
+): Promise<TData> => {
+  return axios.get(`/api/v1/raw-data/${rawDataId}`, options);
+};
+
+/**
+ * 更新原始数据
+ * @summary Update Raw Data
+ */
+export const updateRawDataApiV1RawDataRawDataIdPut = <TData = AxiosResponse<BaseResponseRawDataResponse>>(
+  rawDataId: number,
+  rawDataUpdate: RawDataUpdate,
+  options?: AxiosRequestConfig
+): Promise<TData> => {
+  return axios.put(`/api/v1/raw-data/${rawDataId}`, rawDataUpdate, options);
+};
+
+/**
+ * 删除原始数据
+ * @summary Delete Raw Data
+ */
+export const deleteRawDataApiV1RawDataRawDataIdDelete = <TData = AxiosResponse<BaseResponseNoneType>>(
+  rawDataId: number,
+  options?: AxiosRequestConfig
+): Promise<TData> => {
+  return axios.delete(`/api/v1/raw-data/${rawDataId}`, options);
+};
+
+/**
+ * 从数据库连接批量创建原始数据
+
+用户可以一次性从一个数据库连接中选择多个表创建原始数据
+ * @summary Batch Create Raw Data
+ */
+export const batchCreateRawDataApiV1RawDataBatchFromConnectionPost = <
+  TData = AxiosResponse<BaseResponseBatchCreateFromConnectionResponse>,
+>(
+  batchCreateFromConnectionRequest: BatchCreateFromConnectionRequest,
+  options?: AxiosRequestConfig
+): Promise<TData> => {
+  return axios.post('/api/v1/raw-data/batch-from-connection', batchCreateFromConnectionRequest, options);
+};
+
+/**
+ * 更新原始数据列类型（用户修正）
+ * @summary Update Raw Data Columns
+ */
+export const updateRawDataColumnsApiV1RawDataRawDataIdColumnsPut = <TData = AxiosResponse<BaseResponseRawDataResponse>>(
+  rawDataId: number,
+  rawDataColumnUpdate: RawDataColumnUpdate,
+  options?: AxiosRequestConfig
+): Promise<TData> => {
+  return axios.put(`/api/v1/raw-data/${rawDataId}/columns`, rawDataColumnUpdate, options);
+};
+
+/**
+ * 预览原始数据（抽样）
+
+从数据库表或文件中抽样数据，并推断列类型
+ * @summary Preview Raw Data
+ */
+export const previewRawDataApiV1RawDataRawDataIdPreviewPost = <
+  TData = AxiosResponse<BaseResponseRawDataPreviewResponse>,
+>(
+  rawDataId: number,
+  previewRawDataApiV1RawDataRawDataIdPreviewPostBody: PreviewRawDataApiV1RawDataRawDataIdPreviewPostBody,
+  options?: AxiosRequestConfig
+): Promise<TData> => {
+  return axios.post(
+    `/api/v1/raw-data/${rawDataId}/preview`,
+    previewRawDataApiV1RawDataRawDataIdPreviewPostBody,
+    options
+  );
+};
+
+/**
+ * 同步原始数据 Schema
+
+从数据源获取最新的列结构信息
+ * @summary Sync Raw Data
+ */
+export const syncRawDataApiV1RawDataRawDataIdSyncPost = <TData = AxiosResponse<BaseResponseRawDataResponse>>(
+  rawDataId: number,
+  options?: AxiosRequestConfig
+): Promise<TData> => {
+  return axios.post(`/api/v1/raw-data/${rawDataId}/sync`, undefined, options);
+};
+
+/**
  * 获取数据源列表（分页）
  * @summary Get Data Sources
  */
@@ -1521,7 +2824,7 @@ export const createDataSourceApiV1DataSourcesPost = <TData = AxiosResponse<BaseR
 };
 
 /**
- * 获取单个数据源详情
+ * 获取单个数据源详情（包含映射信息）
  * @summary Get Data Source
  */
 export const getDataSourceApiV1DataSourcesDataSourceIdGet = <TData = AxiosResponse<BaseResponseDataSourceResponse>>(
@@ -1555,42 +2858,69 @@ export const deleteDataSourceApiV1DataSourcesDataSourceIdDelete = <TData = Axios
 };
 
 /**
- * 测试数据源连接
- * @summary Test Data Source Connection
+ * 预览数据源（合并后的数据）
+
+根据字段映射，从各 RawData 获取数据并合并展示
+ * @summary Preview Data Source
  */
-export const testDataSourceConnectionApiV1DataSourcesDataSourceIdTestPost = <
-  TData = AxiosResponse<BaseResponseDataSourceTestResult>,
+export const previewDataSourceApiV1DataSourcesDataSourceIdPreviewPost = <
+  TData = AxiosResponse<BaseResponseDataSourcePreviewResponse>,
 >(
   dataSourceId: number,
+  previewDataSourceApiV1DataSourcesDataSourceIdPreviewPostBody: PreviewDataSourceApiV1DataSourcesDataSourceIdPreviewPostBody,
   options?: AxiosRequestConfig
 ): Promise<TData> => {
-  return axios.post(`/api/v1/data-sources/${dataSourceId}/test`, undefined, options);
+  return axios.post(
+    `/api/v1/data-sources/${dataSourceId}/preview`,
+    previewDataSourceApiV1DataSourcesDataSourceIdPreviewPostBody,
+    options
+  );
 };
 
 /**
- * 同步数据源 Schema
- * @summary Sync Data Source Schema
+ * 智能字段映射建议
+
+根据目标字段和原始数据的列信息，推荐最佳的字段映射关系。
+基于字段名相似度、同义词匹配和数据类型兼容性进行匹配。
+ * @summary Suggest Field Mappings
  */
-export const syncDataSourceSchemaApiV1DataSourcesDataSourceIdSyncSchemaPost = <
-  TData = AxiosResponse<BaseResponseDataSourceSchemaResponse>,
+export const suggestFieldMappingsApiV1DataSourcesSuggestMappingsPost = <
+  TData = AxiosResponse<BaseResponseSuggestMappingsResponse>,
 >(
-  dataSourceId: number,
+  suggestMappingsRequest: SuggestMappingsRequest,
   options?: AxiosRequestConfig
 ): Promise<TData> => {
-  return axios.post(`/api/v1/data-sources/${dataSourceId}/sync-schema`, undefined, options);
+  return axios.post('/api/v1/data-sources/suggest-mappings', suggestMappingsRequest, options);
 };
 
 /**
- * 获取数据源 Schema（从缓存）
- * @summary Get Data Source Schema
+ * 从原始数据推断目标字段
+
+分析多个 RawData 的列结构，合并推断出最佳的目标字段定义。
+ * @summary Suggest Target Fields
  */
-export const getDataSourceSchemaApiV1DataSourcesDataSourceIdSchemaGet = <
-  TData = AxiosResponse<BaseResponseDataSourceSchemaResponse>,
+export const suggestTargetFieldsApiV1DataSourcesSuggestTargetFieldsPost = <
+  TData = AxiosResponse<BaseResponseSuggestTargetFieldsResponse>,
+>(
+  suggestTargetFieldsRequest: SuggestTargetFieldsRequest,
+  options?: AxiosRequestConfig
+): Promise<TData> => {
+  return axios.post('/api/v1/data-sources/suggest-target-fields', suggestTargetFieldsRequest, options);
+};
+
+/**
+ * 刷新数据源 Schema
+
+重新从各 RawData 获取列信息并更新 schema_cache
+ * @summary Refresh Data Source Schema
+ */
+export const refreshDataSourceSchemaApiV1DataSourcesDataSourceIdRefreshSchemaPost = <
+  TData = AxiosResponse<BaseResponseDataSourceResponse>,
 >(
   dataSourceId: number,
   options?: AxiosRequestConfig
 ): Promise<TData> => {
-  return axios.get(`/api/v1/data-sources/${dataSourceId}/schema`, options);
+  return axios.post(`/api/v1/data-sources/${dataSourceId}/refresh-schema`, undefined, options);
 };
 
 /**
@@ -1631,16 +2961,22 @@ export const deleteFileApiV1FilesFileIdDelete = <TData = AxiosResponse<BaseRespo
 
 /**
  * 上传文件
+
+自动创建对应的 RawData（可通过 auto_create_raw_data 参数控制）
  * @summary Upload File
  */
-export const uploadFileApiV1FilesUploadPost = <TData = AxiosResponse<BaseResponseUploadedFileResponse>>(
+export const uploadFileApiV1FilesUploadPost = <TData = AxiosResponse<BaseResponseUploadedFileWithRawDataResponse>>(
   bodyUploadFileApiV1FilesUploadPost: BodyUploadFileApiV1FilesUploadPost,
+  params?: UploadFileApiV1FilesUploadPostParams,
   options?: AxiosRequestConfig
 ): Promise<TData> => {
   const formData = new FormData();
   formData.append('file', bodyUploadFileApiV1FilesUploadPost.file);
 
-  return axios.post('/api/v1/files/upload', formData, options);
+  return axios.post('/api/v1/files/upload', formData, {
+    ...options,
+    params: { ...params, ...options?.params },
+  });
 };
 
 /**
@@ -2007,21 +3343,48 @@ export type CreateUserApiV1UsersPostResult = AxiosResponse<BaseResponseUserRespo
 export type GetUserApiV1UsersUserIdGetResult = AxiosResponse<BaseResponseUserResponse>;
 export type UpdateUserApiV1UsersUserIdPutResult = AxiosResponse<BaseResponseUserResponse>;
 export type DeleteUserApiV1UsersUserIdDeleteResult = AxiosResponse<BaseResponseNoneType>;
+export type GetConnectionsApiV1DatabaseConnectionsGetResult =
+  AxiosResponse<BaseResponsePageResponseDatabaseConnectionResponse>;
+export type CreateConnectionApiV1DatabaseConnectionsPostResult =
+  AxiosResponse<BaseResponseDatabaseConnectionWithRawResponse>;
+export type GetConnectionApiV1DatabaseConnectionsConnectionIdGetResult =
+  AxiosResponse<BaseResponseDatabaseConnectionResponse>;
+export type UpdateConnectionApiV1DatabaseConnectionsConnectionIdPutResult =
+  AxiosResponse<BaseResponseDatabaseConnectionResponse>;
+export type DeleteConnectionApiV1DatabaseConnectionsConnectionIdDeleteResult = AxiosResponse<BaseResponseNoneType>;
+export type TestConnectionApiV1DatabaseConnectionsConnectionIdTestPostResult =
+  AxiosResponse<BaseResponseDatabaseConnectionTestResult>;
+export type GetConnectionTablesApiV1DatabaseConnectionsConnectionIdTablesGetResult =
+  AxiosResponse<BaseResponseDatabaseConnectionTablesResponse>;
+export type GetConnectionTableSchemaApiV1DatabaseConnectionsConnectionIdSchemaGetResult =
+  AxiosResponse<BaseResponseDatabaseTableSchemaResponse>;
+export type GetRawDataListApiV1RawDataGetResult = AxiosResponse<BaseResponsePageResponseRawDataResponse>;
+export type CreateRawDataApiV1RawDataPostResult = AxiosResponse<BaseResponseRawDataResponse>;
+export type GetRawDataApiV1RawDataRawDataIdGetResult = AxiosResponse<BaseResponseRawDataResponse>;
+export type UpdateRawDataApiV1RawDataRawDataIdPutResult = AxiosResponse<BaseResponseRawDataResponse>;
+export type DeleteRawDataApiV1RawDataRawDataIdDeleteResult = AxiosResponse<BaseResponseNoneType>;
+export type BatchCreateRawDataApiV1RawDataBatchFromConnectionPostResult =
+  AxiosResponse<BaseResponseBatchCreateFromConnectionResponse>;
+export type UpdateRawDataColumnsApiV1RawDataRawDataIdColumnsPutResult = AxiosResponse<BaseResponseRawDataResponse>;
+export type PreviewRawDataApiV1RawDataRawDataIdPreviewPostResult = AxiosResponse<BaseResponseRawDataPreviewResponse>;
+export type SyncRawDataApiV1RawDataRawDataIdSyncPostResult = AxiosResponse<BaseResponseRawDataResponse>;
 export type GetDataSourcesApiV1DataSourcesGetResult = AxiosResponse<BaseResponsePageResponseDataSourceResponse>;
 export type CreateDataSourceApiV1DataSourcesPostResult = AxiosResponse<BaseResponseDataSourceResponse>;
 export type GetDataSourceApiV1DataSourcesDataSourceIdGetResult = AxiosResponse<BaseResponseDataSourceResponse>;
 export type UpdateDataSourceApiV1DataSourcesDataSourceIdPutResult = AxiosResponse<BaseResponseDataSourceResponse>;
 export type DeleteDataSourceApiV1DataSourcesDataSourceIdDeleteResult = AxiosResponse<BaseResponseNoneType>;
-export type TestDataSourceConnectionApiV1DataSourcesDataSourceIdTestPostResult =
-  AxiosResponse<BaseResponseDataSourceTestResult>;
-export type SyncDataSourceSchemaApiV1DataSourcesDataSourceIdSyncSchemaPostResult =
-  AxiosResponse<BaseResponseDataSourceSchemaResponse>;
-export type GetDataSourceSchemaApiV1DataSourcesDataSourceIdSchemaGetResult =
-  AxiosResponse<BaseResponseDataSourceSchemaResponse>;
+export type PreviewDataSourceApiV1DataSourcesDataSourceIdPreviewPostResult =
+  AxiosResponse<BaseResponseDataSourcePreviewResponse>;
+export type SuggestFieldMappingsApiV1DataSourcesSuggestMappingsPostResult =
+  AxiosResponse<BaseResponseSuggestMappingsResponse>;
+export type SuggestTargetFieldsApiV1DataSourcesSuggestTargetFieldsPostResult =
+  AxiosResponse<BaseResponseSuggestTargetFieldsResponse>;
+export type RefreshDataSourceSchemaApiV1DataSourcesDataSourceIdRefreshSchemaPostResult =
+  AxiosResponse<BaseResponseDataSourceResponse>;
 export type GetFilesApiV1FilesGetResult = AxiosResponse<BaseResponsePageResponseUploadedFileResponse>;
 export type GetFileApiV1FilesFileIdGetResult = AxiosResponse<BaseResponseUploadedFileResponse>;
 export type DeleteFileApiV1FilesFileIdDeleteResult = AxiosResponse<BaseResponseNoneType>;
-export type UploadFileApiV1FilesUploadPostResult = AxiosResponse<BaseResponseUploadedFileResponse>;
+export type UploadFileApiV1FilesUploadPostResult = AxiosResponse<BaseResponseUploadedFileWithRawDataResponse>;
 export type GetFilePreviewApiV1FilesFileIdPreviewGetResult = AxiosResponse<BaseResponseFilePreviewResponse>;
 export type GetDownloadUrlApiV1FilesFileIdDownloadUrlGetResult = AxiosResponse<BaseResponseStr>;
 export type GetSessionsApiV1SessionsGetResult = AxiosResponse<BaseResponsePageResponseAnalysisSessionResponse>;

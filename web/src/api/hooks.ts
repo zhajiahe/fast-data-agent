@@ -13,15 +13,16 @@ import type {
   AnalysisSessionCreate,
   BaseResponseAnalysisSessionDetail,
   BaseResponseAnalysisSessionResponse,
+  BaseResponseDatabaseConnectionTablesResponse,
+  BaseResponseDatabaseTableSchemaResponse,
   BaseResponseDataSourceResponse,
-  BaseResponseDataSourceSchemaResponse,
-  BaseResponseDataSourceTestResult,
   BaseResponseFilePreviewResponse,
   BaseResponseInt,
   BaseResponseListTaskRecommendationResponse,
   BaseResponseNoneType,
   BaseResponsePageResponseAnalysisSessionResponse,
   BaseResponsePageResponseChatMessageResponse,
+  BaseResponsePageResponseDatabaseConnectionResponse,
   BaseResponsePageResponseDataSourceResponse,
   BaseResponsePageResponseTaskRecommendationResponse,
   BaseResponsePageResponseUploadedFileResponse,
@@ -33,6 +34,8 @@ import type {
   BodyUploadFileApiV1FilesUploadPost,
   DataSourceCreate,
   GenerateRecommendationsApiV1SessionsSessionIdRecommendationsPostBody,
+  GetConnectionsApiV1DatabaseConnectionsGetParams,
+  GetConnectionTableSchemaApiV1DatabaseConnectionsConnectionIdSchemaGetParams,
   GetDataSourcesApiV1DataSourcesGetParams,
   GetFilePreviewApiV1FilesFileIdPreviewGetParams,
   GetMessagesApiV1SessionsSessionIdMessagesGetParams,
@@ -52,6 +55,9 @@ import {
   deleteFileApiV1FilesFileIdDelete,
   deleteSessionApiV1SessionsSessionIdDelete,
   generateRecommendationsApiV1SessionsSessionIdRecommendationsPost,
+  getConnectionsApiV1DatabaseConnectionsGet,
+  getConnectionTableSchemaApiV1DatabaseConnectionsConnectionIdSchemaGet,
+  getConnectionTablesApiV1DatabaseConnectionsConnectionIdTablesGet,
   getCurrentUserInfoApiV1AuthMeGet,
   // Data Sources
   getDataSourcesApiV1DataSourcesGet,
@@ -67,9 +73,8 @@ import {
   getSessionsApiV1SessionsGet,
   // Auth
   loginApiV1AuthLoginPost,
+  refreshDataSourceSchemaApiV1DataSourcesDataSourceIdRefreshSchemaPost,
   registerApiV1AuthRegisterPost,
-  syncDataSourceSchemaApiV1DataSourcesDataSourceIdSyncSchemaPost,
-  testDataSourceConnectionApiV1DataSourcesDataSourceIdTestPost,
   updateRecommendationApiV1SessionsSessionIdRecommendationsRecommendationIdPut,
   uploadFileApiV1FilesUploadPost,
 } from './fastDataAgent';
@@ -124,16 +129,10 @@ export const useDeleteDataSource = () => {
   });
 };
 
-export const useTestDataSourceConnection = () => {
-  return useMutation<AxiosResponse<BaseResponseDataSourceTestResult>, Error, number>({
-    mutationFn: (id) => testDataSourceConnectionApiV1DataSourcesDataSourceIdTestPost(id),
-  });
-};
-
 export const useSyncDataSourceSchema = () => {
   const queryClient = useQueryClient();
-  return useMutation<AxiosResponse<BaseResponseDataSourceSchemaResponse>, Error, number>({
-    mutationFn: (id) => syncDataSourceSchemaApiV1DataSourcesDataSourceIdSyncSchemaPost(id),
+  return useMutation<AxiosResponse<BaseResponseDataSourceResponse>, Error, number>({
+    mutationFn: (id) => refreshDataSourceSchemaApiV1DataSourcesDataSourceIdRefreshSchemaPost(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['dataSources'] });
     },
@@ -175,6 +174,35 @@ export const useFilePreview = (fileId: number, params?: GetFilePreviewApiV1Files
     queryKey: ['filePreview', fileId, params],
     queryFn: () => getFilePreviewApiV1FilesFileIdPreviewGet(fileId, params),
     enabled: !!fileId,
+  });
+};
+
+// ==================== Database Connections ====================
+
+export const useDbConnections = (params?: GetConnectionsApiV1DatabaseConnectionsGetParams) => {
+  return useQuery<AxiosResponse<BaseResponsePageResponseDatabaseConnectionResponse>, Error>({
+    queryKey: ['db-connections', params],
+    queryFn: () => getConnectionsApiV1DatabaseConnectionsGet(params),
+  });
+};
+
+export const useDbTables = (connectionId?: number) => {
+  return useQuery<AxiosResponse<BaseResponseDatabaseConnectionTablesResponse>, Error>({
+    queryKey: ['db-tables', connectionId],
+    queryFn: () => getConnectionTablesApiV1DatabaseConnectionsConnectionIdTablesGet(connectionId as number),
+    enabled: !!connectionId,
+  });
+};
+
+export const useDbTableSchema = (
+  connectionId?: number,
+  params?: GetConnectionTableSchemaApiV1DatabaseConnectionsConnectionIdSchemaGetParams
+) => {
+  return useQuery<AxiosResponse<BaseResponseDatabaseTableSchemaResponse>, Error>({
+    queryKey: ['db-table-schema', connectionId, params],
+    queryFn: () =>
+      getConnectionTableSchemaApiV1DatabaseConnectionsConnectionIdSchemaGet(connectionId as number, params),
+    enabled: !!connectionId && !!params?.table_name,
   });
 };
 

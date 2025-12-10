@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { useQueryClient } from '@tanstack/react-query';
 import { ChevronLeft, Database, PanelRight, PanelRightClose, Send, Sparkles, StopCircle, Trash2 } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';

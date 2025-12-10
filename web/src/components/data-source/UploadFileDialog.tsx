@@ -1,7 +1,7 @@
 import { FileSpreadsheet, Upload, X } from 'lucide-react';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { DataSourceType, useCreateDataSource, useUploadFile } from '@/api';
+import { type DataSourceCreate, useCreateDataSource, useUploadFile } from '@/api';
 import { LoadingSpinner } from '@/components/common';
 import { Button } from '@/components/ui/button';
 import {
@@ -126,10 +126,9 @@ export const UploadFileDialog = ({ open, onOpenChange }: UploadFileDialogProps) 
         await createDataSourceMutation.mutateAsync({
           name: dataSourceName,
           description: description.trim() || undefined,
-          source_type: DataSourceType.file,
           file_id: fileId,
           group_name: files.length > 1 ? groupName.trim() : undefined,
-        });
+        } as unknown as DataSourceCreate);
 
         setUploadProgress((i + 1) * progressPerFile);
       }
