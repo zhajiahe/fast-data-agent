@@ -24,6 +24,7 @@ import type {
   BaseResponsePageResponseChatMessageResponse,
   BaseResponsePageResponseDatabaseConnectionResponse,
   BaseResponsePageResponseDataSourceResponse,
+  BaseResponsePageResponseRawDataResponse,
   BaseResponsePageResponseTaskRecommendationResponse,
   BaseResponsePageResponseUploadedFileResponse,
   BaseResponseTaskRecommendationResponse,
@@ -39,6 +40,7 @@ import type {
   GetDataSourcesApiV1DataSourcesGetParams,
   GetFilePreviewApiV1FilesFileIdPreviewGetParams,
   GetMessagesApiV1SessionsSessionIdMessagesGetParams,
+  GetRawDataListApiV1RawDataGetParams,
   GetRecommendationsApiV1SessionsSessionIdRecommendationsGetParams,
   GetSessionsApiV1SessionsGetParams,
   LoginRequest,
@@ -66,6 +68,8 @@ import {
   getFilesApiV1FilesGet,
   // Messages
   getMessagesApiV1SessionsSessionIdMessagesGet,
+  // RawData
+  getRawDataListApiV1RawDataGet,
   // Recommendations
   getRecommendationsApiV1SessionsSessionIdRecommendationsGet,
   getSessionApiV1SessionsSessionIdGet,
@@ -136,6 +140,15 @@ export const useSyncDataSourceSchema = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['dataSources'] });
     },
+  });
+};
+
+// ==================== RawData Hooks ====================
+
+export const useRawDataList = (params?: GetRawDataListApiV1RawDataGetParams) => {
+  return useQuery<AxiosResponse<BaseResponsePageResponseRawDataResponse>, Error>({
+    queryKey: ['rawData', params],
+    queryFn: () => getRawDataListApiV1RawDataGet(params),
   });
 };
 

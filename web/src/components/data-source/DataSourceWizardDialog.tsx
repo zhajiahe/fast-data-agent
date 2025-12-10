@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useDbConnections, useDbTableSchema, useDbTables, useFiles } from '@/api';
+import { useCreateDataSource, useDbConnections, useDbTableSchema, useDbTables, useFiles, useRawDataList } from '@/api';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -12,9 +12,11 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 
 interface DataSourceWizardDialogProps {
@@ -30,11 +32,14 @@ interface DataSourceWizardDialogProps {
  */
 export const DataSourceWizardDialog = ({ open, onOpenChange }: DataSourceWizardDialogProps) => {
   const { t } = useTranslation();
+  const { toast } = useToast();
+  const createDataSource = useCreateDataSource();
   const [mode, setMode] = useState<'file' | 'database'>('file');
   const [selectedFileId, setSelectedFileId] = useState<number | null>(null);
   const [selectedConnectionId, setSelectedConnectionId] = useState<number | null>(null);
   const [selectedTable, setSelectedTable] = useState<{ schema?: string | null; name: string } | null>(null);
   const [selectedColumns, setSelectedColumns] = useState<Set<string>>(new Set());
+  const [dataSourceName, setDataSourceName] = useState<string>('');
 
   // 文件数据
   const { data: filesResp } = useFiles();
@@ -47,6 +52,10 @@ export const DataSourceWizardDialog = ({ open, onOpenChange }: DataSourceWizardD
   const connections = connResp?.data.data?.items || [];
   const { data: tablesResp } = useDbTables(selectedConnectionId || undefined);
   const tables = tablesResp?.data.data?.tables || [];
+
+  // RawData 列表（用于匹配 raw_data_id）
+  const { data: rawDataResp } = useRawDataList();
+  const rawDataList = rawDataResp?.data.data?.items || [];
 
   // 列信息（数据库表）
   const { data: schemaResp } = useDbTableSchema(
@@ -79,8 +88,79 @@ export const DataSourceWizardDialog = ({ open, onOpenChange }: DataSourceWizardD
     setSelectedConnectionId(null);
     setSelectedTable(null);
     setSelectedColumns(new Set());
+    setDataSourceName('');
     setMode('file');
     onOpenChange(false);
+  };
+
+  const updateDefaultName = (name: string | undefined) => {
+    if (name && !dataSourceName) {
+      setDataSourceName(name);
+    }
+  };
+
+  const findRawDataId = (): number | null => {
+    if (mode === 'file' && selectedFileId) {
+      const rd = rawDataList.find((r: any) => r.file_id === selectedFileId);
+      return rd?.id || null;
+    }
+    if (mode === 'database' && selectedConnectionId && selectedTable) {
+      const rd = rawDataList.find(
+        (r: any) =>
+          r.connection_id === selectedConnectionId &&
+          r.table_name === selectedTable.name &&
+          (r.schema_name || null) === (selectedTable.schema || null)
+      );
+      return rd?.id || null;
+    }
+    return null;
+  };
+
+  const handleSubmit = async () => {
+    const columns = mode === 'file' ? fileColumns : tableColumns;
+    if (!dataSourceName.trim()) {
+      toast({ title: '请填写数据源名称', variant: 'destructive' });
+      return;
+    }
+    if (selectedColumns.size === 0) {
+      toast({ title: '请选择至少一列', variant: 'destructive' });
+      return;
+    }
+    const rawDataId = findRawDataId();
+    if (!rawDataId) {
+      toast({ title: '未找到对应的原始数据，请先确保已自动创建 RawData', variant: 'destructive' });
+      return;
+    }
+
+    const selectedColsArray = columns.filter((c: any) => selectedColumns.has(c.name || c.table_name));
+    const target_fields = selectedColsArray.map((c: any) => ({
+      name: c.name || c.table_name,
+      data_type: c.dtype || c.data_type || 'string',
+      description: c.comment || undefined,
+    }));
+    const mappings: Record<string, string> = {};
+    target_fields.forEach((f: any) => {
+      mappings[f.name] = f.name;
+    });
+
+    try {
+      await createDataSource.mutateAsync({
+        name: dataSourceName.trim(),
+        target_fields,
+        raw_mappings: [
+          {
+            raw_data_id: rawDataId,
+            mappings,
+            priority: 0,
+            is_enabled: true,
+          },
+        ],
+      } as any);
+      toast({ title: '创建数据源成功' });
+      handleClose();
+    } catch (err: any) {
+      toast({ title: '创建失败', description: err?.message || String(err), variant: 'destructive' });
+    }
   };
 
   return (
@@ -102,6 +182,17 @@ export const DataSourceWizardDialog = ({ open, onOpenChange }: DataSourceWizardD
               <TabsTrigger value="database">{t('dataSources.database') || '数据库'}</TabsTrigger>
             </TabsList>
           </Tabs>
+
+          {/* 数据源名称 */}
+          <div className="space-y-2">
+            <Label htmlFor="ds-name">数据源名称</Label>
+            <Input
+              id="ds-name"
+              value={dataSourceName}
+              onChange={(e) => setDataSourceName(e.target.value)}
+              placeholder="例如：销售数据源"
+            />
+          </div>
 
           {/* 选择数据对象 */}
           {mode === 'file' ? (
@@ -125,6 +216,7 @@ export const DataSourceWizardDialog = ({ open, onOpenChange }: DataSourceWizardD
                           onChange={() => {
                             setSelectedFileId(f.id);
                             setSelectedColumns(new Set());
+                            updateDefaultName(f.original_name || '');
                           }}
                         />
                         <div className="flex-1 min-w-0">
@@ -232,6 +324,7 @@ export const DataSourceWizardDialog = ({ open, onOpenChange }: DataSourceWizardD
                             onChange={() => {
                               setSelectedTable({ schema: t.schema_name, name: t.table_name });
                               setSelectedColumns(new Set());
+                              updateDefaultName(t.table_name);
                             }}
                           />
                           <div className="flex-1 min-w-0">
@@ -301,18 +394,13 @@ export const DataSourceWizardDialog = ({ open, onOpenChange }: DataSourceWizardD
           </div>
         </div>
 
-        <DialogFooter>
-          <div className="flex w-full items-center justify-between text-sm text-muted-foreground">
-            <span>当前为预览向导，提交创建数据源的能力稍后打通。</span>
-            <div className="space-x-2">
-              <Button variant="outline" onClick={handleClose}>
-                取消
-              </Button>
-              <Button disabled className="cursor-not-allowed" title="即将支持提交创建数据源">
-                创建数据源（即将）
-              </Button>
-            </div>
-          </div>
+        <DialogFooter className="gap-2 sm:gap-0">
+          <Button variant="outline" onClick={handleClose}>
+            取消
+          </Button>
+          <Button onClick={handleSubmit} disabled={createDataSource.isPending}>
+            {createDataSource.isPending ? '创建中...' : '创建数据源'}
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

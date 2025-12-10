@@ -262,7 +262,7 @@ export const ChatMessage = ({ message, isStreaming }: ChatMessageProps) => {
   }
 
   // AI 消息
-  const hasContent = message.content && message.content.trim();
+  const hasContent = message.content?.trim();
   const hasToolCalls = message.tool_calls && message.tool_calls.length > 0;
 
   return (
@@ -287,13 +287,11 @@ export const ChatMessage = ({ message, isStreaming }: ChatMessageProps) => {
         {/* 工具调用提示（当没有文本但有工具调用时） */}
         {!hasContent && hasToolCalls && (
           <div className="text-sm text-muted-foreground italic">
-            正在调用工具: {message.tool_calls!.map((tc) => tc.name).join(', ')}
+            正在调用工具: {message.tool_calls?.map((tc) => tc.name).join(', ')}
           </div>
         )}
         {/* 流式占位符 */}
-        {!hasContent && !hasToolCalls && isStreaming && (
-          <div className="text-muted-foreground animate-pulse">...</div>
-        )}
+        {!hasContent && !hasToolCalls && isStreaming && <div className="text-muted-foreground animate-pulse">...</div>}
         {renderArtifact()}
       </div>
     </div>

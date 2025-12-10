@@ -12,6 +12,8 @@ declare module '@/api/fastDataAgent' {
     file_id?: number | null;
     group_name?: string | null;
     db_config?: any;
+    target_fields?: any;
+    raw_mappings?: any;
   }
 
   interface AnalysisSessionCreate {

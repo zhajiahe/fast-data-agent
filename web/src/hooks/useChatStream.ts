@@ -47,7 +47,7 @@ export function useChatStream({
       setCurrentToolCall(null);
 
       abortControllerRef.current = new AbortController();
-      
+
       // 累积的文本内容
       let accumulatedText = '';
       // 已处理的工具调用 ID
