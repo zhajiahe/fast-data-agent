@@ -124,7 +124,7 @@ class RecommendService:
     async def generate_initial_recommendations(
         self,
         session: AnalysisSession,
-        data_sources: list[DataSource],
+        data_source: DataSource | None,
         max_count: int = 5,
     ) -> list[RecommendationItem]:
         """
@@ -134,20 +134,20 @@ class RecommendService:
 
         Args:
             session: 分析会话
-            data_sources: 数据源列表
+            data_source: 数据源（可选）
             max_count: 最大推荐数量
 
         Returns:
             推荐任务列表
         """
         # 收集 Schema 信息
-        schema_info = self._collect_schema_info(data_sources)
+        schema_info = self._collect_schema_info(data_source)
         logger.debug(f"收集到 {len(schema_info)} 个数据源的 Schema 信息")
 
         if not schema_info:
             # 如果没有 Schema 信息，尝试使用数据源名称生成推荐
             logger.warning("数据源没有 Schema 缓存，使用数据源名称生成推荐")
-            return self._get_recommendations_without_schema(data_sources)
+            return self._get_recommendations_without_schema(data_source)
 
         # 使用 LLM 生成推荐
         try:
@@ -171,7 +171,7 @@ class RecommendService:
     async def generate_followup_recommendations(
         self,
         session: AnalysisSession,
-        data_sources: list[DataSource],
+        data_source: DataSource | None,
         conversation_context: str,
         last_result: dict | None = None,
         max_count: int = 3,
@@ -183,7 +183,7 @@ class RecommendService:
 
         Args:
             session: 分析会话
-            data_sources: 数据源列表
+            data_source: 数据源（可选）
             conversation_context: 对话上下文
             last_result: 上一次分析结果
             max_count: 最大推荐数量
@@ -191,7 +191,7 @@ class RecommendService:
         Returns:
             推荐任务列表
         """
-        schema_info = self._collect_schema_info(data_sources)
+        schema_info = self._collect_schema_info(data_source)
 
         try:
             recommendations = await self._generate_followup_with_llm(
@@ -212,16 +212,15 @@ class RecommendService:
 
         return self._get_generic_followup_recommendations()
 
-    def _collect_schema_info(self, data_sources: list[DataSource]) -> dict[str, Any]:
+    def _collect_schema_info(self, data_source: DataSource | None) -> dict[str, Any]:
         """收集数据源 Schema 信息"""
         schema_info = {}
-        for ds in data_sources:
-            if ds.schema_cache:
-                schema_info[ds.name] = {
-                    "category": ds.category,
-                    "target_fields": ds.target_fields,
-                    "tables": ds.schema_cache.get("tables", []),
-                }
+        if data_source and data_source.schema_cache:
+            schema_info[data_source.name] = {
+                "category": data_source.category,
+                "target_fields": data_source.target_fields,
+                "tables": data_source.schema_cache.get("tables", []),
+            }
         return schema_info
 
     async def _generate_with_llm(
@@ -381,18 +380,17 @@ class RecommendService:
 
         return recommendations[:max_count]
 
-    def _get_recommendations_without_schema(self, data_sources: list[DataSource]) -> list[RecommendationItem]:
+    def _get_recommendations_without_schema(self, data_source: DataSource | None) -> list[RecommendationItem]:
         """当数据源没有 Schema 时，基于数据源信息生成推荐"""
         recommendations = []
         priority = 0
 
-        # 获取数据源名称列表
-        ds_names = [ds.name for ds in data_sources]
-        ds_names_str = "、".join(ds_names) if ds_names else "数据"
+        # 获取数据源名称
+        ds_name = data_source.name if data_source else "数据"
 
         recommendations.append(
             RecommendationItem(
-                title=f"快速分析 {ds_names_str}",
+                title=f"快速分析 {ds_name}",
                 description="获取数据的基本结构、行数、列信息和统计摘要",
                 category=RecommendationCategory.OVERVIEW.value,
                 priority=priority,
@@ -493,7 +491,7 @@ class RecommendService:
     async def generate_and_save_initial(
         self,
         session: AnalysisSession,
-        data_sources: list[DataSource],
+        data_source: DataSource | None,
         user_id: int,
         max_count: int = 5,
         *,
@@ -504,7 +502,7 @@ class RecommendService:
 
         Args:
             session: 分析会话
-            data_sources: 数据源列表
+            data_source: 数据源（可选）
             user_id: 用户 ID
             max_count: 最大推荐数量
             force_regenerate: 是否强制重新生成
@@ -520,7 +518,7 @@ class RecommendService:
         try:
             items = await self.generate_initial_recommendations(
                 session=session,
-                data_sources=data_sources,
+                data_source=data_source,
                 max_count=max_count,
             )
         except Exception as e:
@@ -537,7 +535,7 @@ class RecommendService:
     async def generate_and_save_followup(
         self,
         session: AnalysisSession,
-        data_sources: list[DataSource],
+        data_source: DataSource | None,
         conversation_context: str,
         user_id: int,
         *,
@@ -550,7 +548,7 @@ class RecommendService:
 
         Args:
             session: 分析会话
-            data_sources: 数据源列表
+            data_source: 数据源（可选）
             conversation_context: 对话上下文
             user_id: 用户 ID
             last_result: 上次分析结果
@@ -564,7 +562,7 @@ class RecommendService:
         try:
             items = await self.generate_followup_recommendations(
                 session=session,
-                data_sources=data_sources,
+                data_source=data_source,
                 conversation_context=conversation_context,
                 last_result=last_result,
                 max_count=max_count,

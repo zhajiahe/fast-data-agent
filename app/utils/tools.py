@@ -92,7 +92,7 @@ class ChatContext(BaseModel):
 
     user_id: int
     thread_id: int
-    data_sources: list[DataSourceContext] = Field(default_factory=list)
+    data_source: DataSourceContext | None = None
 
 
 # ==================== 错误处理工具 ====================
@@ -172,35 +172,26 @@ async def list_local_files(runtime: ToolRuntime) -> tuple[str, dict[str, Any]]:
 
 @tool(response_format="content_and_artifact")
 async def quick_analysis(
-    data_source_id: int,
     runtime: ToolRuntime,
 ) -> tuple[str, dict[str, Any]]:
     """
-    快速分析数据源，返回数据概览。
-    支持文件类型（CSV/Excel/JSON/Parquet）和数据库类型（MySQL/PostgreSQL/SQLite）。
+    快速分析当前会话的数据源，返回数据概览。
+    支持文件类型（CSV/Excel/JSON/Parquet）和数据库类型（MySQL/PostgreSQL）。
 
     对于文件类型：返回行数、列数、缺失值统计、数据类型、统计摘要。
     对于数据库类型：返回表列表、每个表的行数和列信息。
-
-    Args:
-        data_source_id: 数据源 ID，从可用数据源列表中选择
 
     Returns:
         content: 格式化的分析摘要（给 LLM）
         artifact: 完整分析结果（给前端）
     """
-    runtime.stream_writer(f"正在分析数据源 {data_source_id}...")
+    runtime.stream_writer("正在分析数据源...")
     ctx: ChatContext = runtime.context  # type: ignore[assignment]
 
-    # 从 context 中查找数据源
-    ds_ctx: DataSourceContext | None = None
-    for ds in ctx.data_sources:
-        if ds.id == data_source_id:
-            ds_ctx = ds
-            break
-
+    # 从 context 获取数据源
+    ds_ctx = ctx.data_source
     if ds_ctx is None:
-        error_msg = f"数据源 {data_source_id} 不在当前会话的可用数据源列表中"
+        error_msg = "当前会话没有关联数据源"
         return error_msg, {"type": "error", "error": error_msg}
 
     if not ds_ctx.raw_data_list:
@@ -300,17 +291,17 @@ async def quick_analysis(
 @tool(
     response_format="content_and_artifact",
     description="""使用 DuckDB SQL 方言查询数据。
-**数据源访问方式**：
-1. 会话数据源：使用数据源名称或 ds_ID
-   - `SELECT * FROM "电商订单数据" LIMIT 10`
-   - `SELECT * FROM ds_19`
-2. 本地文件：直接读取会话目录中的文件
+**数据访问方式**：
+1. 数据源 VIEW：使用 RawData 名称（会话初始化时自动创建）
+   - `SELECT * FROM "pg_orders" LIMIT 10`
+   - `SELECT * FROM "sales_csv"`
+2. 会话目录文件：直接读取本地文件
    - CSV: `SELECT * FROM read_csv_auto('file.csv')`
    - Parquet: `SELECT * FROM 'file.parquet'`
    - JSON: `SELECT * FROM read_json_auto('file.json')`
 
 **示例**：
-- 查询数据源：`SELECT category, SUM(amount) FROM "电商订单数据" GROUP BY category`
+- 查询 VIEW：`SELECT category, SUM(amount) FROM "pg_orders" GROUP BY category`
 - 读取上次结果：`SELECT * FROM 'sql_result_xxx.parquet' WHERE amount > 1000`
 
 **重要**：结果自动保存为 parquet 文件（result_file），供后续工具使用""",
@@ -321,10 +312,10 @@ async def execute_sql(
 ) -> tuple[str, dict[str, Any]]:
     """
     执行 DuckDB SQL 查询。
-    支持对会话中所有数据源进行 SQL 查询分析。
+    查询会话 DuckDB 中的 VIEWs（以 RawData 名称命名）。
 
     Args:
-        sql: duckdb sql query，表名使用数据源名称或 ds_{id} 格式
+        sql: DuckDB SQL 查询，表名使用 RawData 名称
 
     Returns:
         content: 给 LLM 看的简短描述
@@ -333,25 +324,6 @@ async def execute_sql(
     runtime.stream_writer("正在执行 SQL 查询...")
     ctx: ChatContext = runtime.context  # type: ignore[assignment]
 
-    # 构建数据源信息列表传递给沙盒
-    data_sources_info = []
-    for ds in ctx.data_sources:
-        for raw in ds.raw_data_list:
-            ds_info: dict[str, Any] = {
-                "id": ds.id,
-                "name": ds.name,
-            }
-            if raw.raw_type == "file":
-                ds_info.update(
-                    {
-                        "source_type": "file",
-                        "file_type": raw.file_type,
-                        "object_key": raw.object_key,
-                        "bucket_name": raw.bucket_name,
-                    }
-                )
-            data_sources_info.append(ds_info)
-
     client = get_sandbox_client()
     response = await client.post(
         "/execute_sql",
@@ -359,10 +331,7 @@ async def execute_sql(
             "user_id": ctx.user_id,
             "thread_id": ctx.thread_id,
         },
-        json={
-            "sql": sql,
-            "data_sources": data_sources_info,
-        },
+        json={"sql": sql},
     )
     result = response.json()
 

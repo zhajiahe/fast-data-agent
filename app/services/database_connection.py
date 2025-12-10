@@ -209,3 +209,4 @@ class DatabaseConnectionService:
         }
 
         return await self.repo.update(connection, update_data)
+

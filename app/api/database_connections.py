@@ -150,3 +150,4 @@ async def get_connection_tables(connection_id: int, current_user: CurrentUser, d
         msg="获取表列表成功",
         data=DatabaseConnectionTablesResponse(connection_id=connection_id, tables=tables),
     )
+

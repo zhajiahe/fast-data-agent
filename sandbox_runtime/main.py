@@ -129,22 +129,11 @@ class CodeRequest(BaseModel):
     code: str
 
 
-class DataSourceInfoForSql(BaseModel):
-    """SQL 执行时的数据源信息"""
-
-    id: int
-    name: str
-    source_type: str
-    file_type: str | None = None
-    object_key: str | None = None
-    bucket_name: str | None = None
-
-
 class SqlRequest(BaseModel):
     """Request model for SQL execution."""
 
     sql: str
-    data_sources: list[DataSourceInfoForSql] | None = None  # 可选的数据源列表
+    # data_sources 已移除，AI 现在通过 session.duckdb 中的 VIEWs 访问数据
 
 
 class ChartRequest(BaseModel):
@@ -798,41 +787,40 @@ async def execute_sql(
     thread_id: int = Query(..., description="Thread/Session ID"),
 ):
     """
-    使用 DuckDB 执行 SQL 查询。
-    支持对会话中的数据源进行查询（自动创建 VIEW）。
+    使用会话的 DuckDB 文件执行 SQL 查询。
+
+    数据通过会话初始化时创建的 VIEWs 访问，AI 可以直接查询这些 VIEWs。
     """
+    import duckdb
+
     session_dir = ensure_session_dir(user_id, thread_id)
+    duckdb_path = session_dir / "session.duckdb"
 
     try:
-        # 使用连接管理器获取配置好 S3 的连接
-        conn = duckdb_manager.get_connection(with_s3=True)
+        # 如果会话 DuckDB 文件不存在，创建一个空的
+        if not duckdb_path.exists():
+            logger.warning(f"Session DuckDB not found, creating empty: {duckdb_path}")
 
-        # 切换工作目录以便相对路径访问文件
+        # 打开会话的 DuckDB 文件
+        conn = duckdb.connect(str(duckdb_path))
+
+        # 设置扩展目录
+        extensions_dir = SANDBOX_ROOT / "duckdb_extensions"
+        conn.execute(f"SET extension_directory='{extensions_dir}';")
+
+        # 配置 S3 访问（用于读取会话目录中的临时文件）
+        conn.execute("LOAD httpfs;")
+        conn.execute(f"SET s3_endpoint='{MINIO_ENDPOINT}';")
+        conn.execute(f"SET s3_access_key_id='{MINIO_ACCESS_KEY}';")
+        conn.execute(f"SET s3_secret_access_key='{MINIO_SECRET_KEY}';")
+        conn.execute("SET s3_url_style='path';")
+        conn.execute(f"SET s3_use_ssl={'true' if MINIO_SECURE else 'false'};")
+
+        # 切换工作目录以便相对路径访问本地文件
         original_cwd = os.getcwd()
         os.chdir(session_dir)
 
         try:
-            # 自动为每个数据源创建 VIEW
-            if request.data_sources:
-                for ds in request.data_sources:
-                    if ds.source_type != "file" or not ds.object_key or not ds.bucket_name:
-                        continue
-
-                    s3_url = f"s3://{ds.bucket_name}/{ds.object_key}"
-                    # 创建两个别名：按名称和按 ID
-                    view_names = [ds.name, f"ds_{ds.id}"]
-
-                    for view_name in view_names:
-                        try:
-                            if ds.file_type == "csv":
-                                conn.execute(f'CREATE OR REPLACE VIEW "{view_name}" AS SELECT * FROM read_csv_auto(\'{s3_url}\', header=True)')
-                            elif ds.file_type == "parquet":
-                                conn.execute(f'CREATE OR REPLACE VIEW "{view_name}" AS SELECT * FROM parquet_scan(\'{s3_url}\')')
-                            elif ds.file_type == "json":
-                                conn.execute(f'CREATE OR REPLACE VIEW "{view_name}" AS SELECT * FROM read_json_auto(\'{s3_url}\')')
-                        except Exception as e:
-                            logger.warning(f"Failed to create view for {ds.name}: {e}")
-
             # 先用 EXPLAIN 检查 SQL 语法（不实际执行）
             try:
                 conn.execute(f"EXPLAIN {request.sql}")
@@ -851,7 +839,7 @@ async def execute_sql(
             result_file = None
             if rows and columns:
                 import pandas as pd
-                
+
                 try:
                     df = pd.DataFrame(rows, columns=columns)
                     result_file = generate_unique_filename(session_dir, "sql_result_", ".parquet")
@@ -873,6 +861,7 @@ async def execute_sql(
 
     except Exception as e:
         import traceback
+
         error_traceback = traceback.format_exc()
         logger.exception("SQL execution failed")
         return {"success": False, "error": f"{e!s}\n\n{error_traceback}"}

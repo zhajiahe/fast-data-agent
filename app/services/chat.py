@@ -76,28 +76,28 @@ class ChatService:
             streaming=True,
         )
 
-    def _format_data_sources(self, data_sources: list[DataSource]) -> str:
+    def _format_data_source(self, data_source: DataSource | None) -> str:
         """格式化数据源信息供 LLM 使用"""
-        if not data_sources:
+        if not data_source:
             return "当前没有可用的数据源。"
 
         lines = ["可用的数据源："]
-        for ds in data_sources:
-            # 基础信息
-            lines.append(f"- **{ds.name}** (ID: {ds.id})")
-            if ds.category:
-                lines.append(f"  - 分类: {ds.category}")
-            lines.append(f'  - SQL 访问: `SELECT * FROM "{ds.name}" LIMIT 10`')
-            if ds.description:
-                lines.append(f"  - 描述: {ds.description}")
+        ds = data_source
+        # 基础信息
+        lines.append(f"- **{ds.name}** (ID: {ds.id})")
+        if ds.category:
+            lines.append(f"  - 分类: {ds.category}")
+        lines.append(f'  - SQL 访问: `SELECT * FROM "{ds.name}" LIMIT 10`')
+        if ds.description:
+            lines.append(f"  - 描述: {ds.description}")
 
-            # 目标字段
-            if ds.target_fields:
-                field_names = [f.get("name", "") for f in ds.target_fields[:5]]
-                info = ", ".join(field_names)
-                if len(ds.target_fields) > 5:
-                    info += f" 等共 {len(ds.target_fields)} 个字段"
-                lines.append(f"  - 字段: {info}")
+        # 目标字段
+        if ds.target_fields:
+            field_names = [f.get("name", "") for f in ds.target_fields[:5]]
+            info = ", ".join(field_names)
+            if len(ds.target_fields) > 5:
+                info += f" 等共 {len(ds.target_fields)} 个字段"
+            lines.append(f"  - 字段: {info}")
 
         return "\n".join(lines)
 
@@ -140,12 +140,12 @@ class ChatService:
 
     async def _get_system_prompt(
         self,
-        data_sources: list[DataSource],
+        data_source: DataSource | None,
         user_id: int,
         session_id: int,
     ) -> str:
         """构建系统提示词"""
-        data_source_info = self._format_data_sources(data_sources)
+        data_source_info = self._format_data_source(data_source)
 
         # 获取会话文件列表
         local_files = await self._get_local_files(user_id, session_id)
@@ -178,9 +178,9 @@ class ChatService:
 - 使用中文交流
 """
 
-    async def _create_agent(self, data_sources: list[DataSource], user_id: int, session_id: int):
+    async def _create_agent(self, data_source: DataSource | None, user_id: int, session_id: int):
         """创建 ReAct Agent"""
-        system_prompt = await self._get_system_prompt(data_sources, user_id, session_id)
+        system_prompt = await self._get_system_prompt(data_source, user_id, session_id)
         return create_agent(
             model=self._get_llm(),
             tools=self.tools,
@@ -188,62 +188,62 @@ class ChatService:
             context_schema=ChatContext,
         )
 
-    def _build_data_source_contexts(self, data_sources: list[DataSource]) -> list[DataSourceContext]:
+    def _build_data_source_context(self, data_source: DataSource | None) -> DataSourceContext | None:
         """将 DataSource 模型转换为 DataSourceContext"""
-        contexts = []
-        for ds in data_sources:
-            # 构建原始数据上下文列表
-            raw_data_list: list[RawDataContext] = []
-            if ds.raw_mappings:
-                for mapping in ds.raw_mappings:
-                    raw = mapping.raw_data
-                    if not raw:
-                        continue
+        if not data_source:
+            return None
 
-                    raw_ctx_data: dict[str, Any] = {
-                        "id": raw.id,
-                        "name": raw.name,
-                        "raw_type": raw.raw_type,
-                    }
+        ds = data_source
+        # 构建原始数据上下文列表
+        raw_data_list: list[RawDataContext] = []
+        if ds.raw_mappings:
+            for mapping in ds.raw_mappings:
+                raw = mapping.raw_data
+                if not raw:
+                    continue
 
-                    if raw.raw_type == "file" and raw.uploaded_file:
-                        raw_ctx_data.update(
-                            {
-                                "file_type": raw.uploaded_file.file_type,
-                                "object_key": raw.uploaded_file.object_key,
-                                "bucket_name": raw.uploaded_file.bucket_name,
-                            }
-                        )
-                    elif raw.raw_type == "database_table" and raw.connection:
-                        raw_ctx_data.update(
-                            {
-                                "connection_id": raw.connection_id,
-                                "db_type": raw.connection.db_type,
-                                "host": raw.connection.host,
-                                "port": raw.connection.port,
-                                "database": raw.connection.database,
-                                "username": raw.connection.username,
-                                "password": raw.connection.password,
-                                "schema_name": raw.schema_name,
-                                "table_name": raw.table_name,
-                            }
-                        )
+                raw_ctx_data: dict[str, Any] = {
+                    "id": raw.id,
+                    "name": raw.name,
+                    "raw_type": raw.raw_type,
+                }
 
-                    raw_data_list.append(RawDataContext(**raw_ctx_data))
+                if raw.raw_type == "file" and raw.uploaded_file:
+                    raw_ctx_data.update(
+                        {
+                            "file_type": raw.uploaded_file.file_type,
+                            "object_key": raw.uploaded_file.object_key,
+                            "bucket_name": raw.uploaded_file.bucket_name,
+                        }
+                    )
+                elif raw.raw_type == "database_table" and raw.connection:
+                    raw_ctx_data.update(
+                        {
+                            "connection_id": raw.connection_id,
+                            "db_type": raw.connection.db_type,
+                            "host": raw.connection.host,
+                            "port": raw.connection.port,
+                            "database": raw.connection.database,
+                            "username": raw.connection.username,
+                            "password": raw.connection.password,
+                            "schema_name": raw.schema_name,
+                            "table_name": raw.table_name,
+                        }
+                    )
 
-            # 构建数据源上下文
-            ctx_data: dict[str, Any] = {
-                "id": ds.id,
-                "name": ds.name,
-                "description": ds.description,
-                "category": ds.category,
-                "raw_data_list": raw_data_list,
-                "target_fields": ds.target_fields,
-            }
+                raw_data_list.append(RawDataContext(**raw_ctx_data))
 
-            contexts.append(DataSourceContext(**ctx_data))
+        # 构建数据源上下文
+        ctx_data: dict[str, Any] = {
+            "id": ds.id,
+            "name": ds.name,
+            "description": ds.description,
+            "category": ds.category,
+            "raw_data_list": raw_data_list,
+            "target_fields": ds.target_fields,
+        }
 
-        return contexts
+        return DataSourceContext(**ctx_data)
 
     async def get_history(
         self,
@@ -308,23 +308,24 @@ class ChatService:
         Yields:
             流式 (message, metadata) 元组，或 error dict
         """
-        # 获取会话关联的数据源（包含 raw_mappings）
-        data_source_ids = session.data_source_ids or []
-        data_sources: list[DataSource] = []
-        if data_source_ids:
-            data_sources = await self.data_source_repo.get_by_ids(data_source_ids, session.user_id)
+        # 获取会话关联的数据源（只有一个或没有）
+        data_source: DataSource | None = None
+        if session.data_source_ids:
+            data_sources = await self.data_source_repo.get_by_ids(session.data_source_ids, session.user_id)
+            if data_sources:
+                data_source = data_sources[0]
 
         # 创建 Agent
-        agent = await self._create_agent(data_sources, session.user_id, session.id)
+        agent = await self._create_agent(data_source, session.user_id, session.id)
 
-        # 构建数据源上下文列表
-        ds_contexts = self._build_data_source_contexts(data_sources)
+        # 构建数据源上下文
+        ds_context = self._build_data_source_context(data_source)
 
         # 创建上下文
         context = ChatContext(
             user_id=session.user_id,
             thread_id=session.id,
-            data_sources=ds_contexts,
+            data_source=ds_context,
         )
         logger.debug(f"上下文: {context}")
 
