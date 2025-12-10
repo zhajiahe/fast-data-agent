@@ -174,10 +174,12 @@ class DataSourceInfo(BaseModel):
 
 
 class QuickAnalysisRequest(BaseModel):
-    """快速分析请求模型（新版：基于会话 VIEW）"""
+    """快速分析请求模型（新版：支持 VIEW 和文件）"""
 
     # 要分析的 VIEW 名称列表，为空则分析所有 VIEW
     view_names: list[str] | None = None
+    # 要分析的会话文件名（如 'sql_result_abcd.parquet'）
+    file_name: str | None = None
 
 
 
@@ -1084,15 +1086,66 @@ async def quick_analysis(
     thread_id: int = Query(..., description="Thread/Session ID"),
 ):
     """
-    快速分析会话 DuckDB 中的 VIEW。
+    快速分析数据，支持两种模式：
     
-    基于会话初始化时创建的 VIEW 进行分析，无需传递连接信息。
-    - view_names 为空时分析所有 VIEW
-    - view_names 指定时只分析指定的 VIEW
+    1. 分析会话文件：指定 file_name 参数
+    2. 分析数据源 VIEW：指定 view_names 或留空分析所有 VIEW
     """
     import duckdb
+    import os
 
     session_dir = get_session_dir(user_id, thread_id)
+
+    # ===== 模式 1：分析会话文件 =====
+    if request.file_name:
+        file_path = session_dir / request.file_name
+
+        # 安全检查：防止路径穿越
+        try:
+            file_path.resolve().relative_to(session_dir.resolve())
+        except ValueError:
+            return {"success": False, "error": "Invalid file path: path traversal detected"}
+
+        if not file_path.exists():
+            return {"success": False, "error": f"File not found: {request.file_name}"}
+
+        conn = None
+        try:
+            conn = duckdb.connect(":memory:")
+            extensions_dir = SANDBOX_ROOT / "duckdb_extensions"
+            conn.execute(f"SET extension_directory='{extensions_dir}';")
+
+            # 根据文件类型选择读取方式
+            file_ext = file_path.suffix.lower()
+            original_cwd = os.getcwd()
+            os.chdir(session_dir)
+
+            try:
+                if file_ext == ".parquet":
+                    conn.execute(f"CREATE OR REPLACE TEMP VIEW data_preview AS SELECT * FROM '{request.file_name}'")
+                elif file_ext == ".csv":
+                    conn.execute(f"CREATE OR REPLACE TEMP VIEW data_preview AS SELECT * FROM read_csv_auto('{request.file_name}', header=True)")
+                elif file_ext == ".json":
+                    conn.execute(f"CREATE OR REPLACE TEMP VIEW data_preview AS SELECT * FROM read_json_auto('{request.file_name}')")
+                else:
+                    return {"success": False, "error": f"Unsupported file type: {file_ext}"}
+
+                analysis = analyze_data_with_duckdb(conn, "data_preview")
+                analysis["file_name"] = request.file_name
+
+                return {"success": True, "analysis": analysis}
+
+            finally:
+                os.chdir(original_cwd)
+
+        except Exception as e:
+            logger.exception(f"Failed to analyze file {request.file_name}")
+            return {"success": False, "error": str(e)}
+        finally:
+            if conn:
+                conn.close()
+
+    # ===== 模式 2：分析数据源 VIEW =====
     duckdb_path = session_dir / "session.duckdb"
 
     if not duckdb_path.exists():

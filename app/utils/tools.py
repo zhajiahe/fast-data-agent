@@ -173,19 +173,88 @@ async def list_local_files(runtime: ToolRuntime) -> tuple[str, dict[str, Any]]:
 @tool(response_format="content_and_artifact")
 async def quick_analysis(
     runtime: ToolRuntime,
+    file_name: str = "",
 ) -> tuple[str, dict[str, Any]]:
     """
-    快速分析当前会话的数据源，返回数据概览。
-    基于会话 DuckDB 中预创建的 VIEW 进行分析，无需传递连接信息。
+    快速分析数据，返回数据概览和统计摘要。
 
-    返回：行数、列数、缺失值统计、数据类型、统计摘要。
+    支持两种模式：
+    1. 分析数据源 VIEW：file_name 为空时，分析当前会话绑定的数据源
+    2. 分析会话文件：file_name 指定时，分析会话目录中的文件（如 sql_result_xxx.parquet）
+
+    Args:
+        file_name: 可选，要分析的会话文件名（如 'sql_result_abcd.parquet'）。
+                   留空则分析数据源 VIEW。
 
     Returns:
         content: 格式化的分析摘要（给 LLM）
         artifact: 完整分析结果（给前端）
     """
-    runtime.stream_writer("正在分析数据源...")
     ctx: ChatContext = runtime.context  # type: ignore[assignment]
+    client = get_sandbox_client()
+
+    # 模式 1：分析会话文件
+    if file_name:
+        runtime.stream_writer(f"正在分析文件: {file_name}...")
+        response = await client.post(
+            "/quick_analysis",
+            params={
+                "user_id": ctx.user_id,
+                "thread_id": ctx.thread_id,
+            },
+            json={"file_name": file_name},
+        )
+        result = response.json()
+
+        if not result.get("success"):
+            error_msg = result.get("error", "分析失败")
+            return f"文件分析失败: {error_msg}", {"type": "error", "error": error_msg}
+
+        analysis = result.get("analysis", {})
+
+        # 构建格式化的分析摘要
+        content_lines = [f"## 文件: {file_name}"]
+        content_lines.append(f"- 行数: {analysis.get('row_count', 'N/A')}")
+        content_lines.append(f"- 列数: {analysis.get('column_count', 'N/A')}")
+
+        # 列信息
+        columns = analysis.get("columns", [])
+        if columns:
+            content_lines.append("\n### 列信息:")
+            for col in columns[:15]:
+                col_name = col.get("name", "")
+                col_type = col.get("dtype", "")
+                null_count = col.get("null_count", 0)
+                null_info = f", 缺失 {null_count}" if null_count > 0 else ""
+                content_lines.append(f"  - {col_name} ({col_type}{null_info})")
+            if len(columns) > 15:
+                content_lines.append(f"  ...等共 {len(columns)} 列")
+
+        # 数值统计摘要
+        numeric_cols = [c for c in columns if c.get("stats")]
+        if numeric_cols:
+            content_lines.append("\n### 数值统计摘要:")
+            for col in numeric_cols[:5]:
+                col_name = col.get("name", "")
+                stats = col.get("stats", {})
+
+                def _fmt_num(value: Any) -> str:
+                    return f"{value:.2f}" if isinstance(value, (int, float)) else str(value)
+
+                content_lines.append(
+                    f"  - {col_name}: 均值={_fmt_num(stats.get('mean', 'N/A'))}, "
+                    f"范围=[{_fmt_num(stats.get('min', 'N/A'))}, {_fmt_num(stats.get('max', 'N/A'))}]"
+                )
+
+        artifact = {
+            "type": "analysis",
+            "file_name": file_name,
+            **analysis,
+        }
+        return "\n".join(content_lines), artifact
+
+    # 模式 2：分析数据源 VIEW
+    runtime.stream_writer("正在分析数据源...")
 
     # 从 context 获取数据源
     ds_ctx = ctx.data_source
@@ -200,7 +269,6 @@ async def quick_analysis(
     # 提取所有 RawData 的名称作为 VIEW 名称
     view_names = [raw.name for raw in ds_ctx.raw_data_list]
 
-    client = get_sandbox_client()
     response = await client.post(
         "/quick_analysis",
         params={
