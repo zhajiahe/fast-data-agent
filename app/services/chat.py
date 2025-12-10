@@ -114,8 +114,25 @@ class ChatService:
             if has_field_mappings and ds.target_fields:
                 target_field_names = ", ".join(f.get("name", "") for f in ds.target_fields[:5])
                 lines.append(f'- `"{ds.name}"` ← **统一视图**（字段: {target_field_names}）')
-            for view_name in view_names:
-                lines.append(f'- `"{view_name}"` ← 原始数据')
+
+            # 显示每个 RawData VIEW 的列信息
+            for mapping in ds.raw_mappings:
+                raw = mapping.raw_data
+                if not raw:
+                    continue
+                view_line = f'- `"{raw.name}"`'
+
+                # 获取列信息
+                if raw.columns_schema:
+                    # columns_schema 格式: [{name, data_type, ...}]
+                    col_info = ", ".join(f"{c.get('name')}({c.get('data_type', '?')})" for c in raw.columns_schema[:6])
+                    if len(raw.columns_schema) > 6:
+                        col_info += f" ...共{len(raw.columns_schema)}列"
+                    view_line += f"\n  列: {col_info}"
+                else:
+                    view_line += " (列信息未同步)"
+
+                lines.append(view_line)
         else:
             lines.append("\n⚠️ 没有可用的 VIEW，请先配置数据源映射。")
 
