@@ -71,7 +71,9 @@ def verify_access_token(token: str, credentials_exception) -> uuid.UUID:
         if payload.get("type") != "access":
             raise credentials_exception
         # 从令牌中获取用户ID并转换为UUID
-        user_id_str = payload.get("user_id")
+        user_id_raw = payload.get("user_id")
+        # 兼容旧 token 中的 int 类型 ID
+        user_id_str = str(user_id_raw) if user_id_raw is not None else None
         if not user_id_str:
             raise credentials_exception
         return uuid.UUID(user_id_str)
@@ -86,7 +88,9 @@ def verify_refresh_token(token: str, credentials_exception) -> uuid.UUID:
         if payload.get("type") != "refresh":
             raise credentials_exception
         # 从令牌中获取用户ID并转换为UUID
-        user_id_str = payload.get("user_id")
+        user_id_raw = payload.get("user_id")
+        # 兼容旧 token 中的 int 类型 ID
+        user_id_str = str(user_id_raw) if user_id_raw is not None else None
         if not user_id_str:
             raise credentials_exception
         return uuid.UUID(user_id_str)
