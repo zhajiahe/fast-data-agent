@@ -150,15 +150,25 @@ class AnalysisSessionService:
                 # 获取数据源的 RawData 列表
                 raw_data_list = await self._build_raw_data_configs(data_source)
 
-                # 构建字段映射配置
+                # 构建字段映射配置（含自动生成默认映射）
                 raw_mappings = self._build_raw_mappings(data_source)
+
+                # 获取 target_fields，如果未定义则自动生成
+                target_fields = data_source.target_fields
+                if not target_fields and raw_mappings:
+                    # 从第一个 RawData 的 columns_schema 自动生成 target_fields
+                    first_mapping = raw_mappings[0]
+                    target_fields = [
+                        {"name": col_name, "data_type": "unknown"}
+                        for col_name in first_mapping.get("mappings", {}).keys()
+                    ]
 
                 init_request = {
                     "data_source": {
                         "id": data_source.id,
                         "name": data_source.name,
                         "raw_data_list": raw_data_list,
-                        "target_fields": data_source.target_fields,
+                        "target_fields": target_fields,
                         "raw_mappings": raw_mappings,
                     }
                 }
@@ -251,13 +261,17 @@ class AnalysisSessionService:
 
     def _build_raw_mappings(self, data_source: Any) -> list[dict[str, Any]]:
         """
-        构建字段映射配置列表
+        构建字段映射配置列表（含自动生成默认映射）
 
         Args:
             data_source: 数据源
 
         Returns:
             字段映射配置列表: [{raw_data_id, raw_data_name, mappings}]
+
+        自动映射逻辑：
+        - 如果没有定义 field_mappings，自动生成恒等映射（column_name → column_name）
+        - 基于 RawData 的 columns_schema 生成
         """
         raw_mappings: list[dict[str, Any]] = []
 
@@ -268,15 +282,32 @@ class AnalysisSessionService:
             if not mapping.is_enabled or not mapping.raw_data:
                 continue
 
-            # field_mappings 格式: {target_field: source_field}
+            raw = mapping.raw_data
+
+            # 优先使用用户定义的 field_mappings
             if mapping.field_mappings:
                 raw_mappings.append(
                     {
                         "raw_data_id": mapping.raw_data_id,
-                        "raw_data_name": mapping.raw_data.name,
+                        "raw_data_name": raw.name,
                         "mappings": mapping.field_mappings,
                     }
                 )
+            # 自动生成恒等映射：column_name → column_name
+            elif raw.columns_schema:
+                auto_mappings = {}
+                for col in raw.columns_schema:
+                    col_name = col.get("name", "")
+                    if col_name:
+                        auto_mappings[col_name] = col_name  # 恒等映射
+                if auto_mappings:
+                    raw_mappings.append(
+                        {
+                            "raw_data_id": mapping.raw_data_id,
+                            "raw_data_name": raw.name,
+                            "mappings": auto_mappings,
+                        }
+                    )
 
         return raw_mappings
 
