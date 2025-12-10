@@ -82,15 +82,13 @@ class ChatService:
         if not data_source:
             return "当前没有可用的数据源。"
 
-        lines = ["可用的数据源："]
         ds = data_source
-        # 基础信息
-        lines.append(f"- **{ds.name}** (ID: {ds.id})")
+        lines = [f"**数据源: {ds.name}** (ID: {ds.id})"]
+
         if ds.category:
-            lines.append(f"  - 分类: {ds.category}")
-        lines.append(f'  - SQL 访问: `SELECT * FROM "{ds.name}" LIMIT 10`')
+            lines.append(f"- 分类: {ds.category}")
         if ds.description:
-            lines.append(f"  - 描述: {ds.description}")
+            lines.append(f"- 描述: {ds.description}")
 
         # 目标字段
         if ds.target_fields:
@@ -98,17 +96,35 @@ class ChatService:
             info = ", ".join(field_names)
             if len(ds.target_fields) > 5:
                 info += f" 等共 {len(ds.target_fields)} 个字段"
-            lines.append(f"  - 字段: {info}")
+            lines.append(f"- 字段: {info}")
+
+        # 提取 VIEW 名称（RawData 名称）
+        view_names: list[str] = []
+        if ds.raw_mappings:
+            for mapping in ds.raw_mappings:
+                if mapping.raw_data:
+                    view_names.append(mapping.raw_data.name)
+
+        if view_names:
+            lines.append(f"\n**可用 VIEW（SQL 表名）:**")
+            for view_name in view_names:
+                lines.append(f'- `"{view_name}"` → `SELECT * FROM "{view_name}" LIMIT 10`')
+        else:
+            lines.append("\n⚠️ 没有可用的 VIEW，请先配置数据源映射。")
 
         return "\n".join(lines)
 
     def _format_local_files(self, files: list[dict[str, Any]]) -> str:
-        """格式化会话文件列表"""
-        if not files:
-            return "暂无文件"
+        """格式化会话文件列表（过滤内部文件）"""
+        # 过滤掉内部文件（如 session.duckdb）
+        internal_files = {"session.duckdb"}
+        user_files = [f for f in files if f.get("name", "") not in internal_files]
+
+        if not user_files:
+            return "暂无文件（SQL 查询结果会自动保存为 .parquet 文件）"
 
         lines = []
-        for f in files[:10]:  # 最多显示 10 个文件
+        for f in user_files[:10]:  # 最多显示 10 个文件
             name = f.get("name", "")
             size = f.get("size", 0)
             # 格式化文件大小
@@ -118,10 +134,10 @@ class ChatService:
                 size_str = f"{size / 1024:.1f}KB"
             else:
                 size_str = f"{size / 1024 / 1024:.1f}MB"
-            lines.append(f"- {name} ({size_str})")
+            lines.append(f"- `{name}` ({size_str})")
 
-        if len(files) > 10:
-            lines.append(f"- ... 等共 {len(files)} 个文件")
+        if len(user_files) > 10:
+            lines.append(f"- ... 等共 {len(user_files)} 个文件")
 
         return "\n".join(lines)
 
@@ -157,7 +173,7 @@ class ChatService:
 ## 可用工具
 | 工具 | 用途 |
 |------|------|
-| quick_analysis | 获取数据概况（行数、列数、类型、统计摘要）|
+| quick_analysis | 获取数据概况；可指定 file_name 分析会话文件 |
 | execute_sql | DuckDB SQL 查询，结果自动保存为 parquet |
 | generate_chart | 基于数据生成 Plotly 图表 |
 | execute_python | 复杂数据处理和自定义分析 |
@@ -170,11 +186,13 @@ class ChatService:
 {local_files_info}
 
 ## 数据访问规则 ⚠️
-1. **访问数据源**：在 execute_sql 中使用数据源名称，如 `SELECT * FROM "数据源名称"`
+1. **访问数据源**：使用 VIEW 名称（见上方"可用 VIEW"），如 `SELECT * FROM "view_name"`
 2. **读取 SQL 结果**：execute_sql 返回的 result_file 可用于后续分析，如 `SELECT * FROM 'sql_result_xxx.parquet'`
-3. **generate_chart**：先用 execute_sql 查询数据，再用返回的 parquet 文件绘图
+3. **分析文件**：quick_analysis(file_name='xxx.parquet') 可分析会话中的文件
+4. **generate_chart**：先用 execute_sql 查询数据，再用返回的 parquet 文件绘图
 
 ## 要点
+- SQL 表名使用 VIEW 名称（非数据源名称），VIEW 名称需用双引号包裹
 - SQL 查询大数据量时使用 LIMIT
 - 使用中文交流
 """
