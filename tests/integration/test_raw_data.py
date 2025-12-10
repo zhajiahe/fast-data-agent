@@ -161,6 +161,44 @@ class TestRawDataCRUD:
         get_response = client.get(f"/api/v1/raw-data/{raw_data_id}", headers=auth_headers)
         assert get_response.status_code == 404
 
+    def test_delete_raw_data_with_data_source(
+        self, client: TestClient, auth_headers: dict, test_raw_data: dict[str, Any]
+    ):
+        """当 RawData 被 DataSource 引用时禁止删除"""
+        raw_id = test_raw_data["id"]
+
+        # 创建引用该 RawData 的 DataSource
+        ds_resp = client.post(
+            "/api/v1/data-sources",
+            headers=auth_headers,
+            json={
+                "name": "DS using raw",
+                "category": "fact",
+                "target_fields": [
+                    {"name": "id", "data_type": "integer"},
+                    {"name": "name", "data_type": "string"},
+                ],
+                "raw_mappings": [
+                    {
+                        "raw_data_id": raw_id,
+                        "mappings": {"id": "id", "name": "name"},
+                        "priority": 0,
+                        "is_enabled": True,
+                    }
+                ],
+            },
+        )
+        ds_id = ds_resp.json()["data"]["id"]
+
+        # 尝试删除 RawData，预期 400
+        delete_resp = client.delete(f"/api/v1/raw-data/{raw_id}", headers=auth_headers)
+        assert delete_resp.status_code == 400
+
+        # 清理：先删除数据源，再删除 RawData
+        client.delete(f"/api/v1/data-sources/{ds_id}", headers=auth_headers)
+        final_resp = client.delete(f"/api/v1/raw-data/{raw_id}", headers=auth_headers)
+        assert final_resp.status_code in (200, 404)
+
 
 class TestRawDataPreview:
     """原始数据预览测试"""

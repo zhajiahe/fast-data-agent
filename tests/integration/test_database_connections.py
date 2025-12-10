@@ -12,6 +12,7 @@ from typing import Any
 from starlette.testclient import TestClient
 
 
+
 class TestDatabaseConnectionCRUD:
     """数据库连接 CRUD 测试"""
 
@@ -151,6 +152,38 @@ class TestDatabaseConnectionCRUD:
             headers=auth_headers,
         )
         assert get_response.status_code == 404
+
+    def test_delete_connection_when_in_use(
+        self, client: TestClient, auth_headers: dict, test_connection: dict[str, Any]
+    ):
+        """当存在引用的 RawData 时，删除连接应被阻止"""
+        conn_id = test_connection["id"]
+
+        # 创建一个依赖该连接的 RawData（database_table 类型）
+        raw_resp = client.post(
+            "/api/v1/raw-data",
+            headers=auth_headers,
+            json={
+                "name": "raw_from_conn",
+                "raw_type": "database_table",
+                "database_table_config": {
+                    "connection_id": conn_id,
+                    "schema_name": "public",
+                    "table_name": "dummy",
+                    "custom_sql": "select 1",
+                },
+            },
+        )
+        raw_id = raw_resp.json()["data"]["id"]
+
+        # 删除连接，预期被拒绝
+        delete_resp = client.delete(f"/api/v1/database-connections/{conn_id}", headers=auth_headers)
+        assert delete_resp.status_code == 400
+
+        # 清理：先删除 RawData，再删除连接
+        client.delete(f"/api/v1/raw-data/{raw_id}", headers=auth_headers)
+        final_resp = client.delete(f"/api/v1/database-connections/{conn_id}", headers=auth_headers)
+        assert final_resp.status_code in (200, 404)
 
 
 class TestDatabaseConnectionTest:

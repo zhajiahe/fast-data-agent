@@ -103,6 +103,16 @@ class RawDataRepository(BaseRepository[RawData]):
         result = await self.db.execute(query)
         return list(result.scalars().all())
 
+    async def exists_by_connection(self, connection_id: int, user_id: int) -> bool:
+        """是否存在使用指定数据库连接的 RawData。"""
+        query = select(func.count()).select_from(RawData).where(
+            RawData.connection_id == connection_id,
+            RawData.user_id == user_id,
+            RawData.deleted == 0,
+        )
+        result = await self.db.execute(query)
+        return (result.scalar() or 0) > 0
+
     async def get_with_relations(self, id: int) -> RawData | None:
         """
         获取原始数据（包含关联的 connection 和 uploaded_file）

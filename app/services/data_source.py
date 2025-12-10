@@ -17,6 +17,8 @@ from app.schemas.data_source import (
     DataSourceCreate,
     DataSourceListQuery,
     DataSourceUpdate,
+    DataSourcePreviewResponse,
+    TargetField,
     FieldMapping,
 )
 
@@ -67,6 +69,73 @@ class DataSourceService:
         if not data_source or data_source.user_id != user_id:
             raise NotFoundException(msg="数据源不存在")
         return data_source
+
+    async def preview_data_source(self, data_source_id: int, user_id: int, *, limit: int = 100) -> DataSourcePreviewResponse:
+        """
+        基于 RawData.sample_data 和字段映射，合并生成预览数据。
+
+        仅使用已启用的映射；当样本数据缺失时跳过该 RawData。
+        """
+        data_source = await self.get_data_source_with_mappings(data_source_id, user_id)
+
+        if not data_source.target_fields:
+            raise BadRequestException(msg="数据源未定义目标字段")
+        if not data_source.raw_mappings:
+            raise BadRequestException(msg="数据源未配置原始数据映射")
+
+        # 目标字段顺序
+        target_fields = [TargetField.model_validate(f) for f in data_source.target_fields]
+        target_order = [f.name for f in target_fields]
+
+        rows: list[dict[str, Any]] = []
+        source_stats: dict[str, int] = {}
+
+        # 按优先级从高到低处理映射
+        sorted_mappings = sorted(
+            (m for m in data_source.raw_mappings if m.is_enabled),
+            key=lambda m: m.priority,
+            reverse=True,
+        )
+
+        for mapping in sorted_mappings:
+            raw = mapping.raw_data
+            if not raw or not raw.sample_data:
+                continue
+
+            sample_columns = raw.sample_data.get("columns") or []
+            sample_rows = raw.sample_data.get("rows") or []
+
+            def _row_to_dict(row: Any) -> dict[str, Any]:
+                if isinstance(row, dict):
+                    return row
+                if isinstance(row, (list, tuple)):
+                    return {col: row[idx] if idx < len(row) else None for idx, col in enumerate(sample_columns)}
+                return {}
+
+            for sample_row in sample_rows:
+                source_row = _row_to_dict(sample_row)
+                merged_row = {t: None for t in target_order}
+
+                for target_name in target_order:
+                    source_field = mapping.field_mappings.get(target_name)
+                    if source_field:
+                        merged_row[target_name] = source_row.get(source_field)
+
+                rows.append(merged_row)
+                source_stats[str(raw.id)] = source_stats.get(str(raw.id), 0) + 1
+
+                if len(rows) >= limit:
+                    break
+
+            if len(rows) >= limit:
+                break
+
+        return DataSourcePreviewResponse(
+            columns=target_fields,
+            rows=rows[:limit],
+            source_stats=source_stats,
+            preview_at=datetime.now().isoformat(),
+        )
 
     async def get_data_sources(
         self,

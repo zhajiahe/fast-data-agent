@@ -20,6 +20,7 @@ from loguru import logger
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
+from app.core.encryption import decrypt_str
 from app.models.data_source import DataSource
 from app.models.message import ChatMessage
 from app.models.session import AnalysisSession
@@ -225,7 +226,8 @@ class ChatService:
                             "port": raw.connection.port,
                             "database": raw.connection.database,
                             "username": raw.connection.username,
-                            "password": raw.connection.password,
+                            # 使用解密后的密码，避免将密文透传到 Agent
+                            "password": decrypt_str(raw.connection.password),
                             "schema_name": raw.schema_name,
                             "table_name": raw.table_name,
                         }

@@ -11,6 +11,7 @@ from loguru import logger
 from sqlalchemy import create_engine, inspect, text
 from sqlalchemy.engine import Engine
 
+from app.core.encryption import decrypt_str
 from app.core.exceptions import BadRequestException
 from app.models.database_connection import DatabaseConnection, DatabaseType
 from app.schemas.database_connection import DatabaseConnectionTestResult
@@ -41,8 +42,10 @@ class DBConnectorService:
         if not driver:
             raise BadRequestException(msg=f"不支持的数据库类型: {db_type}")
 
+        password = decrypt_str(connection.password)
+
         # 构建标准 URL
-        url = f"{driver}://{connection.username}:{connection.password}@{connection.host}:{connection.port}/{connection.database}"
+        url = f"{driver}://{connection.username}:{password}@{connection.host}:{connection.port}/{connection.database}"
 
         # 添加额外参数
         if connection.extra_params:

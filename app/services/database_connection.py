@@ -9,9 +9,11 @@ from typing import Any
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.encryption import encrypt_str
 from app.core.exceptions import BadRequestException, NotFoundException
 from app.models.database_connection import DatabaseConnection
 from app.repositories.database_connection import DatabaseConnectionRepository
+from app.repositories.raw_data import RawDataRepository
 from app.schemas.database_connection import (
     DatabaseConnectionCreate,
     DatabaseConnectionUpdate,
@@ -24,6 +26,7 @@ class DatabaseConnectionService:
     def __init__(self, db: AsyncSession):
         self.db = db
         self.repo = DatabaseConnectionRepository(db)
+        self.raw_data_repo = RawDataRepository(db)
 
     async def get_connection(self, connection_id: int, user_id: int) -> DatabaseConnection:
         """
@@ -103,7 +106,8 @@ class DatabaseConnectionService:
             "port": data.config.port,
             "database": data.config.database,
             "username": data.config.username,
-            "password": data.config.password,  # TODO: 加密存储
+            # 加密存储密码
+            "password": encrypt_str(data.config.password),
             "extra_params": data.config.extra_params,
         }
 
@@ -153,7 +157,7 @@ class DatabaseConnectionService:
                     "port": data.config.port,
                     "database": data.config.database,
                     "username": data.config.username,
-                    "password": data.config.password,
+                    "password": encrypt_str(data.config.password),
                     "extra_params": data.config.extra_params,
                 }
             )
@@ -177,7 +181,9 @@ class DatabaseConnectionService:
         # 验证权限
         await self.get_connection(connection_id, user_id)
 
-        # TODO: 检查是否有 RawData 引用此连接
+        # 检查是否有 RawData 引用此连接
+        if await self.raw_data_repo.exists_by_connection(connection_id, user_id):
+            raise BadRequestException(msg="存在使用该连接的原始数据，请先解绑后再删除")
 
         success = await self.repo.delete(connection_id, soft_delete=True)
         if not success:

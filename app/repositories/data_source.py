@@ -168,3 +168,12 @@ class DataSourceRawMappingRepository(BaseRepository[DataSourceRawMapping]):
 
         await self.db.flush()
         return count
+
+    async def exists_by_raw_data(self, raw_data_id: int) -> bool:
+        """是否存在引用指定 RawData 的映射。"""
+        query = select(func.count()).select_from(DataSourceRawMapping).where(
+            DataSourceRawMapping.raw_data_id == raw_data_id,
+            DataSourceRawMapping.deleted == 0,
+        )
+        result = await self.db.execute(query)
+        return (result.scalar() or 0) > 0

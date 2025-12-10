@@ -67,6 +67,8 @@ class RawMappingResponse(BaseModel):
     priority: int = Field(default=0, description="优先级")
     is_enabled: bool = Field(default=True, description="是否启用")
 
+    model_config = {"from_attributes": True}
+
 
 class DataSourceResponse(DataSourceBase):
     """数据源响应"""

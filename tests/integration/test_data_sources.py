@@ -342,10 +342,14 @@ class TestDataSourceOperations:
             assert data["success"] is True
 
     def test_preview_data(
-        self, client: TestClient, auth_headers: dict, test_data_source: dict[str, Any]
+        self,
+        client: TestClient,
+        auth_headers: dict,
+        test_data_source: dict[str, Any],
     ):
         """测试预览数据"""
         data_source_id = test_data_source["id"]
+
         response = client.post(
             f"/api/v1/data-sources/{data_source_id}/preview",
             headers=auth_headers,
@@ -355,6 +359,9 @@ class TestDataSourceOperations:
         assert response.status_code == 200
         data = response.json()
         assert data["success"] is True
+        assert "rows" in data["data"]
+        assert "columns" in data["data"]
+        assert "source_stats" in data["data"]
 
     def test_refresh_schema_not_found(self, client: TestClient, auth_headers: dict):
         """测试刷新不存在数据源的 Schema"""

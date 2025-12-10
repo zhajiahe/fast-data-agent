@@ -165,35 +165,18 @@ async def preview_data_source(
     if request is None:
         request = DataSourcePreviewRequest()
 
-    # 获取数据源
     service = DataSourceService(db)
-    data_source = await service.get_data_source_with_mappings(data_source_id, current_user.id)
-
-    if not data_source.target_fields:
-        raise BadRequestException(msg="数据源未定义目标字段")
-
-    if not data_source.raw_mappings:
-        raise BadRequestException(msg="数据源未配置原始数据映射")
-
-    # TODO: 实现合并预览逻辑
-    # 1. 遍历每个 raw_mapping
-    # 2. 从对应的 RawData 获取数据
-    # 3. 根据 field_mappings 进行字段转换
-    # 4. 合并所有数据
-
-    # 暂时返回空数据
-    columns = [TargetField.model_validate(f) for f in data_source.target_fields]
+    preview_result = await service.preview_data_source(
+        data_source_id=data_source_id,
+        user_id=current_user.id,
+        limit=request.limit,
+    )
 
     return BaseResponse(
         success=True,
         code=200,
         msg="预览成功",
-        data=DataSourcePreviewResponse(
-            columns=columns,
-            rows=[],
-            source_stats={},
-            preview_at=datetime.now().isoformat(),
-        ),
+        data=preview_result,
     )
 
 

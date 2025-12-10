@@ -12,6 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.exceptions import BadRequestException, NotFoundException
 from app.models.raw_data import RawData, RawDataType
 from app.repositories.database_connection import DatabaseConnectionRepository
+from app.repositories.data_source import DataSourceRawMappingRepository
 from app.repositories.raw_data import RawDataRepository
 from app.repositories.uploaded_file import UploadedFileRepository
 from app.schemas.raw_data import (
@@ -30,6 +31,7 @@ class RawDataService:
         self.repo = RawDataRepository(db)
         self.connection_repo = DatabaseConnectionRepository(db)
         self.file_repo = UploadedFileRepository(db)
+        self.mapping_repo = DataSourceRawMappingRepository(db)
 
     async def get_raw_data(self, raw_data_id: int, user_id: int) -> RawData:
         """
@@ -308,7 +310,9 @@ class RawDataService:
         # 验证权限
         await self.get_raw_data(raw_data_id, user_id)
 
-        # TODO: 检查是否有 DataSource 引用此 RawData
+        # 检查是否有 DataSource 引用此 RawData
+        if await self.mapping_repo.exists_by_raw_data(raw_data_id):
+            raise BadRequestException(msg="有数据源正在使用该原始数据，请先解除映射后再删除")
 
         success = await self.repo.delete(raw_data_id, soft_delete=True)
         if not success:
