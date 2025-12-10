@@ -213,15 +213,60 @@ class RecommendService:
         return self._get_generic_followup_recommendations()
 
     def _collect_schema_info(self, data_source: DataSource | None) -> dict[str, Any]:
-        """收集数据源 Schema 信息"""
-        schema_info = {}
-        if data_source and data_source.schema_cache:
-            schema_info[data_source.name] = {
-                "category": data_source.category,
-                "target_fields": data_source.target_fields,
-                "tables": data_source.schema_cache.get("tables", []),
-            }
-        return schema_info
+        """
+        收集数据源 Schema 信息
+        
+        优先级：
+        1. schema_cache（如果已缓存）
+        2. target_fields（统一字段定义）
+        3. raw_mappings -> raw_data -> column_types（原始数据列信息）
+        """
+        if not data_source:
+            return {}
+
+        schema_info: dict[str, Any] = {
+            "name": data_source.name,
+            "category": data_source.category,
+            "description": data_source.description,
+        }
+
+        # 优先使用 schema_cache
+        if data_source.schema_cache:
+            schema_info["tables"] = data_source.schema_cache.get("tables", [])
+            return {data_source.name: schema_info}
+
+        # 使用 target_fields（统一字段定义）
+        if data_source.target_fields:
+            schema_info["target_fields"] = data_source.target_fields
+
+        # 收集 raw_data 的列信息
+        raw_data_schemas: list[dict[str, Any]] = []
+        if data_source.raw_mappings:
+            for mapping in data_source.raw_mappings:
+                raw = mapping.raw_data
+                if not raw:
+                    continue
+                
+                raw_schema: dict[str, Any] = {
+                    "name": raw.name,
+                    "raw_type": raw.raw_type,
+                }
+                
+                # 获取列结构信息
+                if raw.columns_schema:
+                    # columns_schema 格式: [{name, data_type, nullable, user_type_override}]
+                    raw_schema["columns"] = raw.columns_schema
+                
+                raw_data_schemas.append(raw_schema)
+
+        if raw_data_schemas:
+            schema_info["raw_data"] = raw_data_schemas
+
+        # 只有收集到有效信息才返回
+        if schema_info.get("target_fields") or schema_info.get("raw_data") or schema_info.get("tables"):
+            return {data_source.name: schema_info}
+
+        return {}
 
     async def _generate_with_llm(
         self,
