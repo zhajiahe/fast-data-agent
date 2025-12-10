@@ -2,11 +2,18 @@
 文件上传 API 路由
 """
 
+from typing import Any
+
 from fastapi import APIRouter, Depends, File, UploadFile, status
 
 from app.core.deps import CurrentUser, DBSession
 from app.models.base import BasePageQuery, BaseResponse, PageResponse
-from app.schemas.uploaded_file import FileListQuery, FilePreviewResponse, UploadedFileResponse
+from app.schemas.uploaded_file import (
+    FileListQuery,
+    FilePreviewResponse,
+    UploadedFileResponse,
+    UploadedFileWithRawDataResponse,
+)
 from app.services.uploaded_file import UploadedFileService
 
 router = APIRouter(prefix="/files", tags=["files"])
@@ -44,22 +51,51 @@ async def get_file(file_id: int, current_user: CurrentUser, db: DBSession):
     return BaseResponse(success=True, code=200, msg="获取文件成功", data=UploadedFileResponse.model_validate(item))
 
 
-@router.post("/upload", response_model=BaseResponse[UploadedFileResponse], status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/upload", response_model=BaseResponse[UploadedFileWithRawDataResponse], status_code=status.HTTP_201_CREATED
+)
 async def upload_file(
     current_user: CurrentUser,
     db: DBSession,
     file: UploadFile = File(..., description="要上传的文件"),
+    auto_create_raw_data: bool = True,
 ):
-    """上传文件"""
+    """
+    上传文件
+
+    自动创建对应的 RawData（可通过 auto_create_raw_data 参数控制）
+    """
     content = await file.read()
     service = UploadedFileService(db)
-    item = await service.upload_file(
+    uploaded_file, raw_data = await service.upload_file(
         user_id=current_user.id,
         filename=file.filename or "unknown",
         content=content,
         content_type=file.content_type,
+        auto_create_raw_data=auto_create_raw_data,
     )
-    return BaseResponse(success=True, code=201, msg="文件上传成功", data=UploadedFileResponse.model_validate(item))
+
+    # 构建响应（手动构建避免触发关联关系懒加载）
+    response_dict: dict[str, Any] = {
+        "id": uploaded_file.id,
+        "user_id": uploaded_file.user_id,
+        "original_name": uploaded_file.original_name,
+        "object_key": uploaded_file.object_key,
+        "file_type": uploaded_file.file_type,
+        "file_size": uploaded_file.file_size,
+        "mime_type": uploaded_file.mime_type,
+        "row_count": uploaded_file.row_count,
+        "column_count": uploaded_file.column_count,
+        "columns_info": uploaded_file.columns_info,
+        "status": uploaded_file.status,
+        "error_message": uploaded_file.error_message,
+        "create_time": uploaded_file.create_time,
+        "update_time": uploaded_file.update_time,
+        "auto_raw_data": raw_data,
+    }
+    response_data = UploadedFileWithRawDataResponse.model_validate(response_dict)
+
+    return BaseResponse(success=True, code=201, msg="文件上传成功", data=response_data)
 
 
 @router.delete("/{file_id}", response_model=BaseResponse[None])

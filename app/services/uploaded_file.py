@@ -80,7 +80,8 @@ class UploadedFileService:
         filename: str,
         content: bytes,
         content_type: str | None = None,
-    ) -> UploadedFile:
+        auto_create_raw_data: bool = True,
+    ) -> tuple[UploadedFile, Any | None]:
         """
         上传文件
 
@@ -155,7 +156,45 @@ class UploadedFileService:
         final_file = await self.repo.get_by_id(file_id)
         if not final_file:
             raise BadRequestException(msg="文件创建失败")
-        return final_file
+
+        # 自动创建 RawData
+        raw_data_info: dict[str, Any] | None = None
+        if auto_create_raw_data and final_file.status == "ready":
+            from app.models.raw_data import RawDataType
+            from app.schemas.raw_data import RawDataCreate, RawDataFileConfig
+            from app.services.raw_data import RawDataService
+
+            # 生成 RawData 名称（去掉扩展名）
+            base_name = filename.rsplit(".", 1)[0] if "." in filename else filename
+            # 清理名称中的特殊字符
+            import re
+
+            clean_name = re.sub(r"[^\w\u4e00-\u9fff-]", "_", base_name)[:80]
+
+            try:
+                raw_data_service = RawDataService(self.db)
+                raw_data = await raw_data_service.create_raw_data(
+                    user_id=user_id,
+                    data=RawDataCreate(
+                        name=clean_name,
+                        description=f"自动创建自文件: {filename}",
+                        raw_type=RawDataType.FILE,
+                        file_config=RawDataFileConfig(file_id=final_file.id),
+                    ),
+                )
+                # 只提取必要信息，避免懒加载问题
+                raw_data_info = {
+                    "id": raw_data.id,
+                    "name": raw_data.name,
+                    "status": raw_data.status,
+                }
+            except Exception as e:
+                # 自动创建 RawData 失败不影响文件上传
+                from loguru import logger
+
+                logger.warning(f"自动创建 RawData 失败: {e}")
+
+        return final_file, raw_data_info
 
     async def delete_file(self, file_id: int, user_id: int) -> None:
         """

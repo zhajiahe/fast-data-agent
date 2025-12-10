@@ -4,12 +4,11 @@
 
 步骤：
 1. 注册 & 登录
-2. 上传 CSV / JSON / Parquet 文件
-3. 基于文件创建 RawData
-4. 创建 DataSource（使用其中一个 RawData 做字段映射）
-5. 创建 Analysis Session
-6. 生成任务推荐（初始）
-7. Chat 对话（流式 SSE），验证可读数据并总结
+2. 上传 CSV / JSON / Parquet 文件 → 自动创建 RawData
+3. 创建 DataSource（使用自动创建的 RawData）
+4. 创建 Analysis Session
+5. 生成任务推荐（初始）
+6. Chat 对话（流式 SSE），验证可读数据并总结
 
 运行：
     python scripts/e2e_flow.py --base-url http://localhost:8000/api/v1
@@ -71,48 +70,32 @@ async def main(base_url: str) -> None:
         headers = {"Authorization": f"Bearer {token}"}
         _log("登录", r.status_code == 200, "")
 
-        # 3. 上传文件（CSV/JSON/Parquet）
+        # 3. 上传文件（CSV/JSON/Parquet）→ 自动创建 RawData
         uploads: list[tuple[str, bytes, str]] = [
             ("sample.csv", b"id,name,value\n1,Alice,100\n2,Bob,200\n", "text/csv"),
             ("sample.json", json.dumps([{"id": 1, "name": "Foo"}, {"id": 2, "name": "Bar"}]).encode(), "application/json"),
             ("sample.parquet", _make_parquet_bytes(), "application/octet-stream"),
         ]
-        file_ids: list[int] = []
+        raw_ids: list[int] = []
         for name, content, mime in uploads:
             files = {"file": (name, content, mime)}
             r = await client.post("/files/upload", headers=headers, files=files)
-            ok = r.status_code in (200, 201) and r.json().get("success")
-            _log(f"上传 {name}", ok, r.text if not ok else "")
-            if ok:
-                file_ids.append(r.json()["data"]["id"])
+            resp_data = r.json()
+            ok = r.status_code in (200, 201) and resp_data.get("success")
 
-        if not file_ids:
-            _log("文件上传", False, "没有成功的文件，停止")
-            return
-
-        # 4. 创建 RawData（分别对应三个文件）
-        raw_ids: list[int] = []
-        for idx, fid in enumerate(file_ids):
-            r = await client.post(
-                "/raw-data",
-                headers=headers,
-                json={
-                    "name": f"raw_file_{idx}_{uid}",
-                    "description": "e2e raw data",
-                    "raw_type": "file",
-                    "file_config": {"file_id": fid},
-                },
-            )
-            ok = r.status_code in (200, 201) and r.json().get("success")
-            _log(f"创建 RawData {idx}", ok, r.text if not ok else "")
-            if ok:
-                raw_ids.append(r.json()["data"]["id"])
+            # 检查自动创建的 RawData
+            auto_raw_data = resp_data.get("data", {}).get("auto_raw_data")
+            if ok and auto_raw_data:
+                raw_ids.append(auto_raw_data["id"])
+                _log(f"上传 {name}", True, f"auto_raw_data_id={auto_raw_data['id']}")
+            else:
+                _log(f"上传 {name}", ok, r.text if not ok else "auto_raw_data 未创建")
 
         if not raw_ids:
-            _log("创建 RawData", False, "没有成功的 RawData，停止")
+            _log("文件上传", False, "没有自动创建的 RawData，停止")
             return
 
-        # 5. 创建 DataSource（使用第一个 RawData 作为字段映射）
+        # 4. 创建 DataSource（使用第一个自动创建的 RawData）
         ds_payload = {
             "name": f"ds_e2e_{uid}",
             "description": "e2e data source",
@@ -138,7 +121,7 @@ async def main(base_url: str) -> None:
         data_source_id = r.json()["data"]["id"]
         _log("创建 DataSource", True, f"id={data_source_id}")
 
-        # 6. 创建 Session
+        # 5. 创建 Session
         r = await client.post(
             "/sessions",
             headers=headers,
@@ -154,7 +137,7 @@ async def main(base_url: str) -> None:
         session_id = r.json()["data"]["id"]
         _log("创建 Session", True, f"id={session_id}")
 
-        # 6.1 校验会话详情，确保绑定数据源
+        # 5.1 校验会话详情，确保绑定数据源
         r = await client.get(f"/sessions/{session_id}", headers=headers)
         if not (r.status_code == 200 and r.json().get("success")):
             _log("校验 Session 详情", False, r.text)
@@ -165,18 +148,18 @@ async def main(base_url: str) -> None:
             return
         _log("校验 Session 详情", True, f"data_source_ids={ds_ids}")
 
-        # 7. 生成初始推荐
+        # 6. 生成初始推荐
         r = await client.post(f"/sessions/{session_id}/recommendations", headers=headers, json={"max_count": 5})
         ok = r.status_code in (200, 201) and r.json().get("success")
         _log("生成任务推荐", ok, r.text if not ok else "")
 
-        # 8. 查询推荐列表
+        # 7. 查询推荐列表
         r = await client.get(f"/sessions/{session_id}/recommendations", headers=headers)
         ok = r.status_code == 200 and r.json().get("success")
         items = r.json().get("data", {}).get("items", []) if ok else []
         _log("查询推荐列表", ok, f"count={len(items)}" if ok else r.text)
 
-        # 9. Chat 对话（流式）- 测试 quick_analysis 工具
+        # 8. Chat 对话（流式）- 测试 quick_analysis 工具
         chat_prompt = "洞察当前数据源"
         print(f"\n{'='*60}")
         print(f"📝 用户输入: {chat_prompt}")
