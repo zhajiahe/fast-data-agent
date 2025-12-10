@@ -302,6 +302,44 @@ def list_files_in_dir(directory: Path) -> list[dict[str, Any]]:
     return files
 
 
+# ==================== 应用生命周期 ====================
+
+
+from contextlib import asynccontextmanager
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """
+    应用生命周期管理
+    
+    Startup:
+    - 预加载 DuckDB 扩展（httpfs、postgres、mysql 等）
+    - 确保扩展目录存在
+    
+    Shutdown:
+    - 清理临时资源（如有）
+    """
+    # ===== Startup =====
+    logger.info("🚀 Sandbox Runtime 启动中...")
+    
+    # 预加载 DuckDB 扩展
+    duckdb_manager.preload_extensions()
+    
+    # 确保 sessions 目录存在
+    sessions_dir = SANDBOX_ROOT / "sessions"
+    sessions_dir.mkdir(parents=True, exist_ok=True)
+    
+    logger.info("✅ Sandbox Runtime 启动完成")
+    
+    yield  # 应用运行中
+    
+    # ===== Shutdown =====
+    logger.info("🛑 Sandbox Runtime 关闭中...")
+    # 目前没有需要清理的资源
+    logger.info("👋 Sandbox Runtime 已关闭")
+
+
 # ==================== FastAPI App ====================
 
 
@@ -309,13 +347,8 @@ app = FastAPI(
     title="Agentic Sandbox Runtime",
     description="An API server for executing commands and managing files in a secure sandbox.",
     version="2.0.0",
+    lifespan=lifespan,
 )
-
-
-@app.on_event("startup")
-async def startup_event():
-    """应用启动时预加载 DuckDB 扩展"""
-    duckdb_manager.preload_extensions()
 
 
 # ==================== 健康检查 ====================
