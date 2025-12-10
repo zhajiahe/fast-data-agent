@@ -161,6 +161,7 @@ class UploadedFileService:
         raw_data_info: dict[str, Any] | None = None
         if auto_create_raw_data and final_file.status == "ready":
             from app.models.raw_data import RawDataType
+            from app.repositories.raw_data import RawDataRepository
             from app.schemas.raw_data import RawDataCreate, RawDataFileConfig
             from app.services.raw_data import RawDataService
 
@@ -170,6 +171,11 @@ class UploadedFileService:
             import re
 
             clean_name = re.sub(r"[^\w\u4e00-\u9fff-]", "_", base_name)[:80]
+
+            # 检查名称是否冲突，如果冲突则添加 file_id 后缀
+            raw_data_repo = RawDataRepository(self.db)
+            if await raw_data_repo.name_exists(clean_name, user_id):
+                clean_name = f"{clean_name}_{final_file.id}"
 
             try:
                 raw_data_service = RawDataService(self.db)
