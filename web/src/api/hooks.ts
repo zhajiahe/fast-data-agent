@@ -29,6 +29,7 @@ import type {
   BaseResponsePageResponseRawDataResponse,
   BaseResponsePageResponseTaskRecommendationResponse,
   BaseResponsePageResponseUploadedFileResponse,
+  BaseResponseRawDataPreviewResponse,
   BaseResponseRawDataResponse,
   BaseResponseTaskRecommendationResponse,
   // Response types
@@ -50,6 +51,7 @@ import type {
   GetSessionsApiV1SessionsGetParams,
   LoginRequest,
   PreviewDataSourceApiV1DataSourcesDataSourceIdPreviewPostBody,
+  PreviewRawDataApiV1RawDataRawDataIdPreviewPostBody,
   RawDataCreate,
   TaskRecommendationUpdate,
   UserCreate,
@@ -73,6 +75,7 @@ import {
   getConnectionTablesApiV1DatabaseConnectionsConnectionIdTablesGet,
   getCurrentUserInfoApiV1AuthMeGet,
   // Data Sources
+  getDataSourceApiV1DataSourcesDataSourceIdGet,
   getDataSourcesApiV1DataSourcesGet,
   // Files
   getFilePreviewApiV1FilesFileIdPreviewGet,
@@ -88,6 +91,7 @@ import {
   // Auth
   loginApiV1AuthLoginPost,
   previewDataSourceApiV1DataSourcesDataSourceIdPreviewPost,
+  previewRawDataApiV1RawDataRawDataIdPreviewPost,
   refreshDataSourceSchemaApiV1DataSourcesDataSourceIdRefreshSchemaPost,
   registerApiV1AuthRegisterPost,
   updateRecommendationApiV1SessionsSessionIdRecommendationsRecommendationIdPut,
@@ -121,6 +125,14 @@ export const useDataSources = (params?: GetDataSourcesApiV1DataSourcesGetParams)
   return useQuery<AxiosResponse<BaseResponsePageResponseDataSourceResponse>, Error>({
     queryKey: ['dataSources', params],
     queryFn: () => getDataSourcesApiV1DataSourcesGet(params),
+  });
+};
+
+export const useDataSourceDetail = (dataSourceId?: string) => {
+  return useQuery<AxiosResponse<BaseResponseDataSourceResponse>, Error>({
+    queryKey: ['dataSource', dataSourceId],
+    queryFn: () => getDataSourceApiV1DataSourcesDataSourceIdGet(dataSourceId as string),
+    enabled: !!dataSourceId,
   });
 };
 
@@ -162,6 +174,17 @@ export const useDataSourcePreview = (
     queryKey: ['data-source-preview', dataSourceId, body],
     queryFn: () => previewDataSourceApiV1DataSourcesDataSourceIdPreviewPost(dataSourceId as string, body),
     enabled: !!dataSourceId,
+  });
+};
+
+export const useRawDataPreview = (
+  rawDataId?: string,
+  body: PreviewRawDataApiV1RawDataRawDataIdPreviewPostBody = {}
+) => {
+  return useQuery<AxiosResponse<BaseResponseRawDataPreviewResponse>, Error>({
+    queryKey: ['rawDataPreview', rawDataId, body],
+    queryFn: () => previewRawDataApiV1RawDataRawDataIdPreviewPost(rawDataId as string, body),
+    enabled: !!rawDataId,
   });
 };
 
