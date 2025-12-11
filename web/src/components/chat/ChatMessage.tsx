@@ -276,12 +276,16 @@ export const ChatMessage = ({ message, isStreaming }: ChatMessageProps) => {
               'prose prose-sm dark:prose-invert max-w-none',
               'prose-pre:bg-muted prose-pre:border prose-pre:rounded-lg',
               'prose-code:before:content-none prose-code:after:content-none',
-              isStreaming && 'animate-pulse'
+              isStreaming && 'streaming-text'
             )}
           >
             <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeHighlight]}>
               {message.content}
             </ReactMarkdown>
+            {/* 流式光标 */}
+            {isStreaming && (
+              <span className="inline-block w-0.5 h-5 ml-0.5 bg-primary/70 animate-blink align-text-bottom" />
+            )}
           </div>
         )}
         {/* 工具调用提示（当没有文本但有工具调用时） */}
@@ -292,10 +296,31 @@ export const ChatMessage = ({ message, isStreaming }: ChatMessageProps) => {
         )}
         {/* 流式占位符 */}
         {!hasContent && !hasToolCalls && isStreaming && (
-          <div className="text-muted-foreground animate-pulse">...</div>
+          <div className="text-muted-foreground">
+            <span className="inline-block w-0.5 h-5 bg-primary/70 animate-blink" />
+          </div>
         )}
         {renderArtifact()}
       </div>
+      {/* 流式效果样式 */}
+      {isStreaming && (
+        <style>{`
+          @keyframes blink {
+            0%, 49% { opacity: 1; }
+            50%, 100% { opacity: 0; }
+          }
+          .animate-blink {
+            animation: blink 1s step-end infinite;
+          }
+          .streaming-text {
+            animation: fadeIn 0.3s ease-out;
+          }
+          @keyframes fadeIn {
+            from { opacity: 0.7; }
+            to { opacity: 1; }
+          }
+        `}</style>
+      )}
     </div>
   );
 };
