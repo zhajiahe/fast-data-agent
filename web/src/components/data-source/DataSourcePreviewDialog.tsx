@@ -60,19 +60,6 @@ export const DataSourcePreviewDialog = ({ open, onOpenChange, dataSourceId }: Da
           <div className="text-sm text-muted-foreground">无可用数据对象</div>
         ) : (
           <Tabs value={activeRawId} onValueChange={(v) => setActiveRawId(v)}>
-            <div className="text-xs text-muted-foreground mb-2">
-              共 {rawMappings.length} 张表/文件：
-              <div className="mt-2 flex flex-wrap gap-2">
-                {rawMappings.map((m: any) => (
-                  <span
-                    key={`badge-${m.raw_data_id}`}
-                    className="px-2 py-1 rounded-md border bg-muted/50 text-xs"
-                  >
-                    {m.raw_data_name || m.raw_data_id}
-                  </span>
-                ))}
-              </div>
-            </div>
             <TabsList className="w-full overflow-auto">
               {rawMappings.map((m: any) => (
                 <TabsTrigger key={m.raw_data_id} value={m.raw_data_id} className="whitespace-nowrap">
