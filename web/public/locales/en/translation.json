@@ -46,6 +46,17 @@
     "noRecentSessions": "No sessions yet",
     "createFirstSession": "Create your first session",
     "dataSources": "data sources",
+    "quickStart": {
+      "title": "Quick Start",
+      "subtitle": "Follow these steps to begin your data analysis journey",
+      "stepLabel": "Step {{n}}:",
+      "step1Title": "Add Data Source",
+      "step1Desc": "Connect database or upload CSV/Excel files",
+      "step2Title": "Create Analysis Session",
+      "step2Desc": "Select data source and start AI conversation",
+      "step3Title": "Start Conversational Analysis",
+      "step3Desc": "Ask questions in natural language, AI helps analyze data and generate charts"
+    },
     "stats": {
       "total_users": "Total Users",
       "active_users": "Active Users",
@@ -123,6 +134,13 @@
     "invalidSession": "Invalid session",
     "welcome": "Start Your Analysis",
     "welcomeHint": "Ask questions and AI will help analyze data and generate charts",
+    "exampleQuestionsTitle": "Try these questions:",
+    "exampleQuestions": {
+      "overview": "Analyze the data overview, what are the key metrics?",
+      "trend": "Show recent trends",
+      "detail": "Are there any anomalies in the data?",
+      "comparison": "What are the differences between categories?"
+    },
     "inputPlaceholder": "Type your question...",
     "send": "Send",
     "stop": "Stop",

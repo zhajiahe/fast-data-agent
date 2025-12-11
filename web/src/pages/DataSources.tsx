@@ -2,6 +2,7 @@ import {
   Database,
   FileSpreadsheet,
   HardDrive,
+  HelpCircle,
   Layers,
   MoreHorizontal,
   Plus,
@@ -48,6 +49,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { useToast } from '@/hooks/use-toast';
 
 // 辅助函数：格式化文件大小
@@ -261,25 +263,43 @@ const DataSourceTablesInline = ({ dataSourceId }: { dataSourceId: string }) => {
       </div>
 
       {/* 主内容区 - Tab 布局 */}
-      <Tabs defaultValue="data-sources" className="space-y-4">
-        <TabsList>
-          <TabsTrigger value="data-sources" className="gap-2">
-            <Layers className="h-4 w-4" />
-            数据源
-          </TabsTrigger>
-          <TabsTrigger value="connections" className="gap-2">
-            <Database className="h-4 w-4" />
-            数据库连接
-          </TabsTrigger>
-          <TabsTrigger value="files" className="gap-2">
-            <FileSpreadsheet className="h-4 w-4" />
-            已上传文件
-          </TabsTrigger>
-          <TabsTrigger value="raw-data" className="gap-2">
-            <HardDrive className="h-4 w-4" />
-            数据对象
-          </TabsTrigger>
-        </TabsList>
+      <TooltipProvider delayDuration={300}>
+        <Tabs defaultValue="data-sources" className="space-y-4">
+          <div className="flex items-center gap-2">
+            <TabsList>
+              <TabsTrigger value="data-sources" className="gap-2">
+                <Layers className="h-4 w-4" />
+                数据源
+              </TabsTrigger>
+              <TabsTrigger value="connections" className="gap-2">
+                <Database className="h-4 w-4" />
+                数据库连接
+              </TabsTrigger>
+              <TabsTrigger value="files" className="gap-2">
+                <FileSpreadsheet className="h-4 w-4" />
+                已上传文件
+              </TabsTrigger>
+              <TabsTrigger value="raw-data" className="gap-2">
+                <HardDrive className="h-4 w-4" />
+                数据对象
+              </TabsTrigger>
+            </TabsList>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button type="button" className="p-1 text-muted-foreground hover:text-foreground transition-colors">
+                  <HelpCircle className="h-4 w-4" />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent side="right" className="max-w-xs">
+                <div className="space-y-2 text-xs">
+                  <p><strong>数据库连接</strong>：配置外部数据库（MySQL/PostgreSQL）的连接信息</p>
+                  <p><strong>已上传文件</strong>：上传的 CSV/Excel 等数据文件</p>
+                  <p><strong>数据对象</strong>：从连接或文件自动生成，是原始数据的映射</p>
+                  <p><strong>数据源</strong>：组合多个数据对象，定义字段映射后可用于分析</p>
+                </div>
+              </TooltipContent>
+            </Tooltip>
+          </div>
 
         {/* 数据源 Tab */}
         <TabsContent value="data-sources">
@@ -593,7 +613,8 @@ const DataSourceTablesInline = ({ dataSourceId }: { dataSourceId: string }) => {
             </CardContent>
           </Card>
         </TabsContent>
-      </Tabs>
+        </Tabs>
+      </TooltipProvider>
 
       {/* 对话框 */}
       <CreateDataSourceDialog open={showCreateDataSourceDialog} onOpenChange={setShowCreateDataSourceDialog} />

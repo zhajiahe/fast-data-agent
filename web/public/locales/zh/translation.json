@@ -46,6 +46,17 @@
     "noRecentSessions": "暂无会话记录",
     "createFirstSession": "创建第一个会话",
     "dataSources": "个数据源",
+    "quickStart": {
+      "title": "快速开始",
+      "subtitle": "按照以下步骤开始您的数据分析之旅",
+      "stepLabel": "第 {{n}} 步：",
+      "step1Title": "添加数据源",
+      "step1Desc": "连接数据库或上传 CSV/Excel 文件",
+      "step2Title": "创建分析会话",
+      "step2Desc": "选择要分析的数据源，开启 AI 对话",
+      "step3Title": "开始对话分析",
+      "step3Desc": "用自然语言提问，AI 帮您分析数据、生成图表"
+    },
     "stats": {
       "total_users": "总用户",
       "active_users": "活跃用户",
@@ -123,6 +134,13 @@
     "invalidSession": "无效的会话",
     "welcome": "开始您的数据分析",
     "welcomeHint": "输入问题，AI 将帮您分析数据、生成图表",
+    "exampleQuestionsTitle": "试试这些问题：",
+    "exampleQuestions": {
+      "overview": "帮我分析数据概况，有哪些关键指标？",
+      "trend": "展示最近的趋势变化",
+      "detail": "数据中有哪些异常值？",
+      "comparison": "不同类别之间有什么差异？"
+    },
     "inputPlaceholder": "输入您的问题...",
     "send": "发送",
     "stop": "停止",

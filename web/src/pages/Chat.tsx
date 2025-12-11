@@ -437,10 +437,35 @@ export const Chat = () => {
           >
           <div className="max-w-3xl mx-auto space-y-4">
             {localMessages.length === 0 && !isGenerating ? (
-              <div className="flex flex-col items-center justify-center py-12 text-center">
+              <div className="flex flex-col items-center justify-center py-8 text-center">
                 <Sparkles className="h-12 w-12 text-primary/50 mb-4" />
                 <h2 className="text-xl font-semibold mb-2">{t('chat.welcome')}</h2>
-                <p className="text-muted-foreground max-w-md">{t('chat.welcomeHint')}</p>
+                <p className="text-muted-foreground max-w-md mb-6">{t('chat.welcomeHint')}</p>
+
+                {/* 示例问题卡片 */}
+                <div className="w-full max-w-lg">
+                  <p className="text-sm text-muted-foreground mb-3">{t('chat.exampleQuestionsTitle')}</p>
+                  <div className="grid gap-2">
+                    {[
+                      { icon: '📊', text: t('chat.exampleQuestions.overview') },
+                      { icon: '📈', text: t('chat.exampleQuestions.trend') },
+                      { icon: '🔍', text: t('chat.exampleQuestions.detail') },
+                      { icon: '📉', text: t('chat.exampleQuestions.comparison') },
+                    ].map((item) => (
+                      <button
+                        key={item.text}
+                        type="button"
+                        className="flex items-center gap-3 p-3 rounded-lg border border-border/50 hover:border-primary/50 hover:bg-muted/50 transition-all text-left group"
+                        onClick={() => handleSend(item.text)}
+                      >
+                        <span className="text-lg">{item.icon}</span>
+                        <span className="text-sm text-muted-foreground group-hover:text-foreground transition-colors">
+                          {item.text}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
               </div>
             ) : (
               <>
