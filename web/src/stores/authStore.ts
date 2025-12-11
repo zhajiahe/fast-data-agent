@@ -48,8 +48,8 @@ export const useAuthStore = create<AuthState>((set) => ({
   logout: () => {
     storage.clearAuth();
     set({ user: null, token: null, isAuthenticated: false });
-    // 跳转到登录页
-    window.location.href = '/login';
+    // 注意：不在这里跳转，让调用者使用 react-router 的 navigate
+    // 这样可以正确处理 basename
   },
 
   updateUser: (user) => {
