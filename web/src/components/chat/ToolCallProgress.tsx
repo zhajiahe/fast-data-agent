@@ -1,5 +1,5 @@
 import { CheckCircle2, ChevronRight } from 'lucide-react';
-import { useState } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { cn } from '@/lib/utils';
 import type { LocalMessage, ToolCallState } from '@/types';
 import { DataTable } from './DataTable';
@@ -40,7 +40,36 @@ interface ToolCallProgressProps {
  * 使用动画效果展示执行状态，减少文字干扰
  */
 export const ToolCallProgress = ({ toolMessages, currentToolCall }: ToolCallProgressProps) => {
+  // 计算默认展开的图表类型工具 ID
+  const defaultExpandedCharts = useMemo(() => {
+    return new Set(
+      toolMessages
+        .filter((msg) => msg.artifact?.type === 'plotly')
+        .map((msg) => String(msg.id))
+    );
+  }, [toolMessages]);
+
   const [expandedTools, setExpandedTools] = useState<Set<string>>(new Set());
+  const [initialized, setInitialized] = useState(false);
+
+  // 当消息更新时，自动展开新的图表
+  useEffect(() => {
+    if (!initialized && defaultExpandedCharts.size > 0) {
+      setExpandedTools(defaultExpandedCharts);
+      setInitialized(true);
+    } else if (initialized) {
+      // 检查是否有新增的图表，自动展开
+      setExpandedTools((prev) => {
+        const next = new Set(prev);
+        for (const id of defaultExpandedCharts) {
+          if (!prev.has(id)) {
+            next.add(id);
+          }
+        }
+        return next;
+      });
+    }
+  }, [defaultExpandedCharts, initialized]);
 
   const isExecuting = !!currentToolCall && currentToolCall.status !== 'completed';
 
