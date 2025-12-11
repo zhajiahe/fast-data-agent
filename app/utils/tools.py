@@ -366,7 +366,7 @@ async def quick_analysis(
 - 查询 VIEW：`SELECT category, SUM(amount) FROM "pg_orders" GROUP BY category`
 - 读取上次结果：`SELECT * FROM 'sql_result_xxx.parquet' WHERE amount > 1000`
 
-**重要**：结果自动保存为 parquet 文件（result_file），供后续工具使用""",
+**重要**：结果自动保存为 parquet 文件（result_file），供后续工具使用"""
 )
 async def execute_sql(
     sql: str,
@@ -383,6 +383,7 @@ async def execute_sql(
         content: 给 LLM 看的简短描述
         artifact: 包含 SQL 和查询结果的字典（前端渲染用）
     """
+    logger.info(f"execute_sql sql: {sql}")
     runtime.stream_writer("正在执行 SQL 查询...")
     ctx: ChatContext = runtime.context  # type: ignore[assignment]
 

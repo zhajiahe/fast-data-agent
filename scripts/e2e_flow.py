@@ -163,7 +163,7 @@ async def main(base_url: str) -> None:
         _log("查询推荐列表", ok, f"count={len(items)}" if ok else r.text)
 
         # 8. Chat 对话（流式）- 测试 quick_analysis 工具
-        chat_prompt = "分析当前数据源的概况"
+        chat_prompt = "分析当前数据源的概况, 查看前10行，可视化图表"
         print(f"\n{'='*60}")
         print(f"📝 用户输入: {chat_prompt}")
         print(f"{'='*60}\n")

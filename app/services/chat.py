@@ -16,6 +16,7 @@ from typing import Any
 from langchain.agents import create_agent
 from langchain_core.messages import AIMessage, BaseMessage, HumanMessage
 from langchain_openai import ChatOpenAI
+from openai import AsyncOpenAI
 from loguru import logger
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -438,6 +439,8 @@ class ChatService:
 
         except Exception as e:
             logger.exception("聊天流处理失败: {}", e)
+            error_message = str(e)
+            error_type = e.__class__.__name__
             yield {
-                "error": {"message": str(e), "type": type(e).__name__},
+                "error": {"message": error_message, "type": error_type},
             }
