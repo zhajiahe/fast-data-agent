@@ -145,7 +145,6 @@ class SqlRequest(BaseModel):
     """Request model for SQL execution."""
 
     sql: str
-    # data_sources 已移除，AI 现在通过 session.duckdb 中的 VIEWs 访问数据
 
 
 class ChartRequest(BaseModel):

@@ -3,7 +3,7 @@ from typing import Any
 import httpx
 from langchain.tools import ToolRuntime, tool
 from pydantic import BaseModel, Field
-
+from loguru import logger
 from app.core.config import settings
 
 # ==================== HTTP 客户端连接池 ====================
