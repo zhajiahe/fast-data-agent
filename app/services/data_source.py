@@ -101,11 +101,19 @@ class DataSourceService:
 
         for mapping in sorted_mappings:
             raw = mapping.raw_data
-            if not raw or not raw.sample_data:
+            if not raw:
                 continue
 
-            sample_columns = raw.sample_data.get("columns") or []
-            sample_rows = raw.sample_data.get("rows") or []
+            # 选择样本数据来源：优先 raw.sample_data，其次上传文件的 preview_data
+            sample_data = raw.sample_data
+            if not sample_data and getattr(raw, "uploaded_file", None):
+                sample_data = raw.uploaded_file.preview_data
+
+            if not sample_data:
+                continue
+
+            sample_columns = sample_data.get("columns") or []
+            sample_rows = sample_data.get("rows") or []
 
             def _row_to_dict(row: Any, columns: list[str] = sample_columns) -> dict[str, Any]:
                 if isinstance(row, dict):
