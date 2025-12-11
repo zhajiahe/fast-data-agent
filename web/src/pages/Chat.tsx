@@ -486,6 +486,22 @@ export const Chat = () => {
                     currentToolCall={currentToolCall}
                   />
                 )}
+
+                {/* AI 正在思考 - 当正在生成但还没有任何输出时 */}
+                {isGenerating && !streamingText && !currentToolCall && (
+                  <div className="flex gap-3">
+                    <div className="w-8 h-8 rounded-full bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center shrink-0">
+                      <Sparkles className="w-4 h-4 text-white animate-pulse" />
+                    </div>
+                    <div className="flex items-center gap-2 text-muted-foreground">
+                      <div className="flex gap-1">
+                        <span className="w-2 h-2 rounded-full bg-violet-500 animate-bounce" style={{ animationDelay: '0ms' }} />
+                        <span className="w-2 h-2 rounded-full bg-violet-500 animate-bounce" style={{ animationDelay: '150ms' }} />
+                        <span className="w-2 h-2 rounded-full bg-violet-500 animate-bounce" style={{ animationDelay: '300ms' }} />
+                      </div>
+                    </div>
+                  </div>
+                )}
               </>
             )}
           </div>
