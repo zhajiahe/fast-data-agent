@@ -23,11 +23,25 @@ export type SSEEventType =
  */
 export interface ToolArtifact {
   type: string;
+  // plotly
   chart_json?: string;
+  // table / sql
   columns?: string[];
   rows?: unknown[][];
   title?: string;
+  // sql
+  sql?: string;
+  total_rows?: number;
+  truncated?: boolean;
+  result_file?: string;
+  // code
+  code?: string;
+  output?: string;
+  files_created?: string[];
+  // error
+  tool?: string;
   error_message?: string;
+  // file
   filename?: string;
 }
 
