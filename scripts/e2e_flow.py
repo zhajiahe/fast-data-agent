@@ -142,11 +142,14 @@ async def main(base_url: str) -> None:
         if not (r.status_code == 200 and r.json().get("success")):
             _log("校验 Session 详情", False, r.text)
             return
-        ds_ids = r.json().get("data", {}).get("data_source_ids") or []
-        if not ds_ids:
-            _log("校验 Session 详情", False, "data_source_ids 为空")
+        # 检查 data_source_id（单数）或 data_source 对象
+        session_data = r.json().get("data", {})
+        ds_id = session_data.get("data_source_id")
+        ds_obj = session_data.get("data_source")
+        if not ds_id and not ds_obj:
+            _log("校验 Session 详情", False, "data_source_id 为空")
             return
-        _log("校验 Session 详情", True, f"data_source_ids={ds_ids}")
+        _log("校验 Session 详情", True, f"data_source_id={ds_id}")
 
         # 6. 生成初始推荐
         r = await client.post(f"/sessions/{session_id}/recommendations", headers=headers, json={"max_count": 5})
