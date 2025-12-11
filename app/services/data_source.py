@@ -112,8 +112,22 @@ class DataSourceService:
             if not sample_data:
                 continue
 
-            sample_columns = sample_data.get("columns") or []
-            sample_rows = sample_data.get("rows") or []
+            # 兼容不同格式：
+            # 1) dict: {"columns": [...], "rows": [...]}
+            # 2) list: [ {...}, {...} ] 或 [ [..], [..] ]
+            sample_columns: list[str] = []
+            sample_rows: list[Any] = []
+            if isinstance(sample_data, dict):
+                sample_columns = sample_data.get("columns") or []
+                sample_rows = sample_data.get("rows") or []
+            elif isinstance(sample_data, list):
+                sample_rows = sample_data
+                if sample_rows and isinstance(sample_rows[0], dict):
+                    # 从第一行推断列名
+                    sample_columns = list(sample_rows[0].keys())
+                elif sample_rows and isinstance(sample_rows[0], (list, tuple)):
+                    # 如果是列表形式且没有列名，则使用 target 字段顺序
+                    sample_columns = []
 
             def _row_to_dict(row: Any, columns: list[str] = sample_columns) -> dict[str, Any]:
                 if isinstance(row, dict):
