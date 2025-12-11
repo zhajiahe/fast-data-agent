@@ -27,6 +27,7 @@ from app.models.message import ChatMessage
 from app.models.session import AnalysisSession
 from app.repositories.data_source import DataSourceRepository
 from app.repositories.message import ChatMessageRepository
+from app.repositories.session import AnalysisSessionRepository
 from app.utils.tools import (
     ChatContext,
     DataSourceContext,
@@ -58,6 +59,7 @@ class ChatService:
         self.db = db
         self.data_source_repo = DataSourceRepository(db)
         self.message_repo = ChatMessageRepository(db)
+        self.session_repo = AnalysisSessionRepository(db)
         self.tools = [
             list_local_files,
             quick_analysis,
@@ -436,6 +438,15 @@ class ChatService:
                     # 显式 commit，确保消息在发送 [DONE] 之前持久化
                     # 避免前端 refetch 时看不到最新消息
                     await self.db.commit()
+                    # 同步更新会话的消息计数，确保列表页显示正确
+                    try:
+                        msg_count = await self.message_repo.count_by_session(session.id)
+                        session_obj = await self.session_repo.get_by_id(session.id)
+                        if session_obj:
+                            await self.session_repo.update(session_obj, {"message_count": msg_count})
+                            await self.db.commit()
+                    except Exception as update_err:
+                        logger.warning(f"更新会话消息计数失败: {update_err}")
 
         except Exception as e:
             logger.exception("聊天流处理失败: {}", e)

@@ -2,7 +2,7 @@ import { Archive, Calendar, Database, MessageSquare, MoreHorizontal, Plus, Searc
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
-import { useArchiveSession, useDeleteSession, useSessions } from '@/api';
+import { useArchiveSession, useDataSources, useDeleteSession, useSessions } from '@/api';
 import { EmptyState } from '@/components/common';
 import { CreateSessionDialog } from '@/components/session/CreateSessionDialog';
 import {
@@ -114,10 +114,17 @@ export const Sessions = () => {
 
   // API Hooks
   const { data: sessionsRes, isLoading } = useSessions({ page_size: 100 });
+  const { data: dataSourcesRes } = useDataSources({ page_size: 200 });
   const deleteSessionMutation = useDeleteSession();
   const archiveSessionMutation = useArchiveSession();
 
   const sessions = sessionsRes?.data.data?.items || [];
+  const dataSources = dataSourcesRes?.data.data?.items || [];
+  const dataSourceNameMap = useMemo(() => {
+    const map = new Map<string, string>();
+    dataSources.forEach((ds) => map.set(ds.id, ds.name));
+    return map;
+  }, [dataSources]);
 
   // 过滤和分组
   const filteredSessions = useMemo(() => {
@@ -276,10 +283,10 @@ export const Sessions = () => {
                             {session.data_source_id && (
                               <span className="flex items-center gap-1">
                                 <Database className="h-3 w-3" />
-                                数据源
+                                {dataSourceNameMap.get(session.data_source_id) || '数据源'}
                               </span>
                             )}
-                            <span>{session.message_count || 0} 条消息</span>
+                            <span>{session.message_count ?? 0} 条消息</span>
                             <span>{formatRelativeTime(session.update_time || session.create_time)}</span>
                           </div>
                         </div>
