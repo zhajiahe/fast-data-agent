@@ -401,7 +401,8 @@ class DataSourceService:
 
                 raw_data_info.append(
                     {
-                        "id": raw_data.id,
+                        # 转为字符串，避免 JSONB 序列化 UUID 报错
+                        "id": str(raw_data.id),
                         "name": raw_data.name,
                         "raw_type": raw_data.raw_type,
                         "column_count": len(columns),
