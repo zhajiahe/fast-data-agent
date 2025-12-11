@@ -1,7 +1,7 @@
 // @ts-nocheck
 import { useQueryClient } from '@tanstack/react-query';
-import { ChevronLeft, Database, PanelRight, PanelRightClose, Send, Sparkles, StopCircle, Trash2 } from 'lucide-react';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { ArrowDown, ChevronLeft, Database, PanelRight, PanelRightClose, Send, Sparkles, StopCircle, Trash2 } from 'lucide-react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate, useParams } from 'react-router-dom';
 import {
@@ -14,12 +14,29 @@ import {
 import { ChatMessage } from '@/components/chat/ChatMessage';
 import { RecommendationPanel } from '@/components/chat/RecommendationPanel';
 import { SessionFilesPanel } from '@/components/chat/SessionFilesPanel';
-import { ToolCallDisplay } from '@/components/chat/ToolCallDisplay';
+import { ToolCallProgress } from '@/components/chat/ToolCallProgress';
 import { Button } from '@/components/ui/button';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { Textarea } from '@/components/ui/textarea';
 import { useChatStream, useToast } from '@/hooks';
+import { cn } from '@/lib/utils';
 import type { LocalMessage } from '@/types';
+
+/**
+ * 消息分组类型
+ * - single: 单条消息（人类消息、独立 AI 消息）
+ * - tool-group: 工具调用组（一个 AI 消息后跟多个工具消息）
+ */
+interface MessageGroup {
+  type: 'single' | 'tool-group';
+  /** AI 消息（仅 tool-group 时有） */
+  aiMessage?: LocalMessage;
+  /** 工具消息列表（仅 tool-group 时有） */
+  toolMessages?: LocalMessage[];
+  /** 单条消息（仅 single 时有） */
+  message?: LocalMessage;
+  /** 用于 React key */
+  key: string;
+}
 
 /**
  * 聊天页面 - 核心交互界面
@@ -34,11 +51,14 @@ export const Chat = () => {
   const navigate = useNavigate();
   const scrollRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const shouldAutoScrollRef = useRef(true);
+  const lastScrollTopRef = useRef(0);
+  const isUserScrollingRef = useRef(false);
 
   const [input, setInput] = useState('');
   const [showPanel, setShowPanel] = useState(true);
   const [localMessages, setLocalMessages] = useState<LocalMessage[]>([]);
+  const [isAutoScrollEnabled, setIsAutoScrollEnabled] = useState(true);
+  const [showScrollToBottom, setShowScrollToBottom] = useState(false);
 
   const queryClient = useQueryClient();
 
@@ -140,25 +160,186 @@ export const Chat = () => {
     setLocalMessages(convertApiMessages(apiMessagesItems));
   }, [apiMessagesItems, isGenerating, isMessagesFetching, convertApiMessages]);
 
-  // 检测用户是否在底部附近
+  /**
+   * 将消息列表分组，优化连续消息的显示：
+   * - 人类消息单独一组
+   * - 连续的工具相关消息（AI+tool/tool）合并为一组
+   * - AI 消息如果有实际内容则单独显示
+   *
+   * 合并规则：如果相邻的两个组都是 tool-group，则合并它们
+   */
+  const messageGroups = useMemo((): MessageGroup[] => {
+    const rawGroups: MessageGroup[] = [];
+    let i = 0;
+
+    // 第一遍：基本分组
+    while (i < localMessages.length) {
+      const msg = localMessages[i];
+
+      if (msg.message_type === 'human') {
+        // 人类消息单独一组
+        rawGroups.push({
+          type: 'single',
+          message: msg,
+          key: `single-${msg.id}`,
+        });
+        i++;
+      } else if (msg.message_type === 'ai') {
+        const hasContent = msg.content?.trim();
+        const hasToolCalls = msg.tool_calls && msg.tool_calls.length > 0;
+
+        // 检查后续是否有工具消息
+        const toolMessages: LocalMessage[] = [];
+        let j = i + 1;
+        while (j < localMessages.length && localMessages[j].message_type === 'tool') {
+          toolMessages.push(localMessages[j]);
+          j++;
+        }
+
+        if (toolMessages.length > 0) {
+          // 有工具消息
+          if (hasContent) {
+            // AI 消息有内容，先显示 AI 消息
+            rawGroups.push({
+              type: 'single',
+              message: msg,
+              key: `single-${msg.id}`,
+            });
+          }
+          // 再显示工具组
+          rawGroups.push({
+            type: 'tool-group',
+            toolMessages,
+            key: `tool-group-${msg.id}`,
+          });
+          i = j;
+        } else if (hasContent) {
+          // 没有工具消息但有内容，单独显示 AI 消息
+          rawGroups.push({
+            type: 'single',
+            message: msg,
+            key: `single-${msg.id}`,
+          });
+          i++;
+        } else if (hasToolCalls) {
+          // 没有内容但有 tool_calls（工具调用中），跳过这条消息
+          i++;
+        } else {
+          // 空消息，跳过
+          i++;
+        }
+      } else if (msg.message_type === 'tool') {
+        // 收集连续的工具消息
+        const toolMessages: LocalMessage[] = [msg];
+        let j = i + 1;
+        while (j < localMessages.length && localMessages[j].message_type === 'tool') {
+          toolMessages.push(localMessages[j]);
+          j++;
+        }
+
+        rawGroups.push({
+          type: 'tool-group',
+          toolMessages,
+          key: `tool-group-${msg.id}`,
+        });
+        i = j;
+      } else {
+        // 其他类型消息
+        rawGroups.push({
+          type: 'single',
+          message: msg,
+          key: `single-${msg.id}`,
+        });
+        i++;
+      }
+    }
+
+    // 第二遍：合并相邻的 tool-group
+    const mergedGroups: MessageGroup[] = [];
+    for (const group of rawGroups) {
+      const lastGroup = mergedGroups[mergedGroups.length - 1];
+
+      if (
+        group.type === 'tool-group' &&
+        lastGroup?.type === 'tool-group' &&
+        group.toolMessages &&
+        lastGroup.toolMessages
+      ) {
+        // 合并到上一个工具组
+        lastGroup.toolMessages.push(...group.toolMessages);
+      } else {
+        mergedGroups.push(group);
+      }
+    }
+
+    return mergedGroups;
+  }, [localMessages]);
+
+  /**
+   * 智能滚动处理
+   * - 向上滚动：暂停自动跟踪，显示"滚动到底部"按钮
+   * - 滚动到底部：恢复自动跟踪
+   */
   const handleScroll = useCallback(() => {
     if (!scrollRef.current) return;
+
     const { scrollTop, scrollHeight, clientHeight } = scrollRef.current;
-    shouldAutoScrollRef.current = scrollHeight - scrollTop - clientHeight < 100;
+    const isAtBottom = scrollHeight - scrollTop - clientHeight < 100;
+    const isScrollingUp = scrollTop < lastScrollTopRef.current;
+
+    lastScrollTopRef.current = scrollTop;
+
+    // 如果用户主动向上滚动，暂停自动滚动
+    if (isScrollingUp && isUserScrollingRef.current) {
+      setIsAutoScrollEnabled(false);
+      setShowScrollToBottom(true);
+    }
+
+    // 如果滚动到底部，恢复自动滚动
+    if (isAtBottom) {
+      setIsAutoScrollEnabled(true);
+      setShowScrollToBottom(false);
+    } else if (!isScrollingUp && !isAtBottom) {
+      // 向下滚动但还没到底部，显示按钮
+      setShowScrollToBottom(true);
+    }
+  }, []);
+
+  // 监听用户滚动交互
+  const handleWheel = useCallback(() => {
+    isUserScrollingRef.current = true;
+    // 短暂延迟后重置
+    setTimeout(() => {
+      isUserScrollingRef.current = false;
+    }, 150);
+  }, []);
+
+  // 滚动到底部
+  const scrollToBottom = useCallback(() => {
+    if (!scrollRef.current) return;
+    scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    setIsAutoScrollEnabled(true);
+    setShowScrollToBottom(false);
   }, []);
 
   // 自动滚动到底部
   // biome-ignore lint/correctness/useExhaustiveDependencies: 需要在消息/流式文本变化时滚动
   useEffect(() => {
-    if (scrollRef.current && shouldAutoScrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    if (isAutoScrollEnabled && scrollRef.current) {
+      // 使用 requestAnimationFrame 确保在渲染后滚动
+      requestAnimationFrame(() => {
+        if (scrollRef.current) {
+          scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+        }
+      });
     }
-  }, [localMessages, streamingText]);
+  }, [localMessages, streamingText, currentToolCall, isAutoScrollEnabled]);
 
-  // 发送消息时重置自动滚动
+  // 发送消息或开始生成时启用自动滚动
   useEffect(() => {
     if (isGenerating) {
-      shouldAutoScrollRef.current = true;
+      setIsAutoScrollEnabled(true);
+      setShowScrollToBottom(false);
     }
   }, [isGenerating]);
 
@@ -247,8 +428,14 @@ export const Chat = () => {
         </div>
 
         {/* 消息列表 */}
-        <ScrollArea className="flex-1 p-4" ref={scrollRef} onScrollCapture={handleScroll}>
-          <div className="max-w-3xl mx-auto space-y-6">
+        <div className="flex-1 relative min-h-0">
+          <div
+            ref={scrollRef}
+            className="h-full overflow-auto p-4"
+            onScroll={handleScroll}
+            onWheel={handleWheel}
+          >
+          <div className="max-w-3xl mx-auto space-y-4">
             {localMessages.length === 0 && !isGenerating ? (
               <div className="flex flex-col items-center justify-center py-12 text-center">
                 <Sparkles className="h-12 w-12 text-primary/50 mb-4" />
@@ -257,9 +444,27 @@ export const Chat = () => {
               </div>
             ) : (
               <>
-                {localMessages.map((message) => (
-                  <ChatMessage key={message.id} message={message} />
-                ))}
+                {messageGroups.map((group) => {
+                  if (group.type === 'single' && group.message) {
+                    return <ChatMessage key={group.key} message={group.message} />;
+                  }
+
+                  if (group.type === 'tool-group') {
+                    return (
+                      <div key={group.key} className="space-y-2">
+                        {/* AI 消息（如果有内容） */}
+                        {group.aiMessage?.content?.trim() && (
+                          <ChatMessage message={group.aiMessage} />
+                        )}
+                        {/* 工具调用进度组件 */}
+                        <ToolCallProgress toolMessages={group.toolMessages || []} />
+                      </div>
+                    );
+                  }
+
+                  return null;
+                })}
+
                 {/* 流式文本 */}
                 {streamingText && (
                   <ChatMessage
@@ -273,12 +478,46 @@ export const Chat = () => {
                     isStreaming
                   />
                 )}
-                {/* 工具调用状态 */}
-                {currentToolCall && <ToolCallDisplay toolCall={currentToolCall} />}
+
+                {/* 当前工具调用状态（流式进行中） */}
+                {currentToolCall && (
+                  <ToolCallProgress
+                    toolMessages={[]}
+                    currentToolCall={currentToolCall}
+                  />
+                )}
               </>
             )}
           </div>
-        </ScrollArea>
+          </div>
+
+          {/* 滚动到底部按钮 */}
+          {showScrollToBottom && (
+            <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-10">
+              <Button
+                size="sm"
+                variant="secondary"
+                className={cn(
+                  'shadow-lg transition-all duration-200',
+                  'hover:shadow-xl hover:scale-105'
+                )}
+                onClick={scrollToBottom}
+              >
+                <ArrowDown className="h-4 w-4 mr-1" />
+                {isGenerating ? '跟踪对话' : '滚动到底部'}
+              </Button>
+            </div>
+          )}
+
+          {/* 自动滚动暂停提示 */}
+          {isGenerating && !isAutoScrollEnabled && (
+            <div className="absolute top-4 left-1/2 -translate-x-1/2 z-10">
+              <div className="bg-amber-100 dark:bg-amber-900/50 text-amber-700 dark:text-amber-300 text-xs px-3 py-1.5 rounded-full shadow-sm">
+                已暂停自动跟踪
+              </div>
+            </div>
+          )}
+        </div>
 
         {/* 输入区域 */}
         <div className="border-t p-4 shrink-0">

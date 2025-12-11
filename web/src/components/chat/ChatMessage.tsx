@@ -265,9 +265,33 @@ export const ChatMessage = ({ message, isStreaming }: ChatMessageProps) => {
   const hasContent = message.content?.trim();
   const hasToolCalls = message.tool_calls && message.tool_calls.length > 0;
 
+  // AI 头像（带呼吸效果）
+  const aiAvatar = (
+    <div className="relative">
+      <div
+        className={cn(
+          'w-8 h-8 rounded-full bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center shrink-0',
+          isStreaming && 'shadow-lg shadow-violet-500/40'
+        )}
+      >
+        <Bot className="w-4 h-4 text-white" />
+      </div>
+      {/* 呼吸效果光环 */}
+      {isStreaming && (
+        <>
+          <div className="absolute inset-0 rounded-full bg-violet-400 animate-breath opacity-0" />
+          <div
+            className="absolute inset-0 rounded-full bg-violet-300 animate-breath opacity-0"
+            style={{ animationDelay: '0.5s' }}
+          />
+        </>
+      )}
+    </div>
+  );
+
   return (
     <div className="flex gap-3">
-      {avatar}
+      {aiAvatar}
       <div className="flex-1 min-w-0">
         {/* 文本内容 */}
         {hasContent && (
@@ -275,13 +299,14 @@ export const ChatMessage = ({ message, isStreaming }: ChatMessageProps) => {
             className={cn(
               'prose prose-sm dark:prose-invert max-w-none',
               'prose-pre:bg-muted prose-pre:border prose-pre:rounded-lg',
-              'prose-code:before:content-none prose-code:after:content-none',
-              isStreaming && 'animate-pulse'
+              'prose-code:before:content-none prose-code:after:content-none'
             )}
           >
             <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeHighlight]}>
               {message.content}
             </ReactMarkdown>
+            {/* 流式光标 */}
+            {isStreaming && <span className="inline-block w-2 h-4 ml-1 bg-primary/70 animate-blink align-middle" />}
           </div>
         )}
         {/* 工具调用提示（当没有文本但有工具调用时） */}
@@ -290,10 +315,40 @@ export const ChatMessage = ({ message, isStreaming }: ChatMessageProps) => {
             正在调用工具: {message.tool_calls?.map((tc) => tc.name).join(', ')}
           </div>
         )}
-        {/* 流式占位符 */}
-        {!hasContent && !hasToolCalls && isStreaming && <div className="text-muted-foreground animate-pulse">...</div>}
+        {/* 流式占位符 - 呼吸点动画 */}
+        {!hasContent && !hasToolCalls && isStreaming && (
+          <div className="flex items-center gap-1.5">
+            <span className="w-2 h-2 rounded-full bg-violet-500 animate-breath-dot" />
+            <span className="w-2 h-2 rounded-full bg-violet-500 animate-breath-dot" style={{ animationDelay: '0.2s' }} />
+            <span className="w-2 h-2 rounded-full bg-violet-500 animate-breath-dot" style={{ animationDelay: '0.4s' }} />
+          </div>
+        )}
         {renderArtifact()}
       </div>
+      {/* 呼吸动画样式 */}
+      <style>{`
+        @keyframes breath {
+          0%, 100% { transform: scale(1); opacity: 0; }
+          50% { transform: scale(1.8); opacity: 0.3; }
+        }
+        @keyframes breath-dot {
+          0%, 100% { transform: scale(0.8); opacity: 0.4; }
+          50% { transform: scale(1.2); opacity: 1; }
+        }
+        @keyframes blink {
+          0%, 50% { opacity: 1; }
+          51%, 100% { opacity: 0; }
+        }
+        .animate-breath {
+          animation: breath 2s ease-in-out infinite;
+        }
+        .animate-breath-dot {
+          animation: breath-dot 1.4s ease-in-out infinite;
+        }
+        .animate-blink {
+          animation: blink 1s step-end infinite;
+        }
+      `}</style>
     </div>
   );
 };
