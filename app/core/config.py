@@ -59,6 +59,7 @@ class Settings(BaseSettings):
     OPENAI_API_KEY: str = ""
     OPENAI_API_BASE: str = "OPENAI_MODEL"
     LLM_MODEL: str = "google/gemini-2.0-flash-exp:free"
+    LLM_STREAMING: bool = True  # 是否启用流式响应（OpenRouter 等代理可能需要禁用）
 
     # Python 沙箱配置
     SANDBOX_URL: str = "http://localhost:8080"  # 沙箱服务地址

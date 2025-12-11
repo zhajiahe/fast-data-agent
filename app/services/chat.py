@@ -67,14 +67,14 @@ class ChatService:
 
     def _get_llm(self, *, temperature: float = 0.0):
         """获取 LLM 实例（每次新建，避免全局共享状态）"""
-        logger.debug(f"创建 LLM 实例: temperature={temperature}")
+        logger.debug(f"创建 LLM 实例: temperature={temperature}, streaming={settings.LLM_STREAMING}")
         return ChatOpenAI(
             model=settings.LLM_MODEL,
             temperature=temperature,
             api_key=settings.OPENAI_API_KEY,  # type: ignore[arg-type]
             base_url=settings.OPENAI_API_BASE,
             timeout=60,
-            streaming=True,
+            streaming=settings.LLM_STREAMING,  # 可通过 LLM_STREAMING 环境变量控制
         )
 
     def _format_data_source(self, data_source: DataSource | None) -> str:
