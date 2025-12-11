@@ -81,7 +81,7 @@ class FieldMappingService:
 
         Args:
             target_fields: 目标字段列表 [{name, data_type, description}]
-            raw_data_sources: 原始数据源列表 [{id, name, columns_schema}]
+            raw_data_sources: 数据对象源列表 [{id, name, columns_schema}]
 
         Returns:
             字段映射建议列表
@@ -212,12 +212,12 @@ class FieldMappingService:
         raw_data_sources: list[dict],
     ) -> list[dict]:
         """
-        从原始数据源推断目标字段定义
+        从数据对象源推断目标字段定义
 
         合并多个 RawData 的列，选择最常见的类型
 
         Args:
-            raw_data_sources: 原始数据源列表 [{id, name, columns_schema}]
+            raw_data_sources: 数据对象源列表 [{id, name, columns_schema}]
 
         Returns:
             推荐的目标字段列表 [{name, data_type, description, source_count}]

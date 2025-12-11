@@ -148,9 +148,9 @@ def upgrade() -> None:
     )
     op.create_index(op.f('ix_chat_messages_session_id'), 'chat_messages', ['session_id'], unique=False)
     op.create_table('raw_data',
-    sa.Column('name', sa.String(length=100), nullable=False, comment='原始数据名称，如 pg_orders_raw'),
-    sa.Column('description', sa.Text(), nullable=True, comment='原始数据描述'),
-    sa.Column('raw_type', sa.String(length=20), nullable=False, comment='原始数据类型: database_table/file'),
+    sa.Column('name', sa.String(length=100), nullable=False, comment='数据对象名称，如 pg_orders_raw'),
+    sa.Column('description', sa.Text(), nullable=True, comment='数据对象描述'),
+    sa.Column('raw_type', sa.String(length=20), nullable=False, comment='数据对象类型: database_table/file'),
     sa.Column('user_id', sa.Integer(), nullable=False, comment='所属用户ID'),
     sa.Column('connection_id', sa.Integer(), nullable=True, comment='数据库连接ID'),
     sa.Column('schema_name', sa.String(length=100), nullable=True, comment='Schema名称'),
@@ -177,7 +177,7 @@ def upgrade() -> None:
     op.create_index(op.f('ix_raw_data_user_id'), 'raw_data', ['user_id'], unique=False)
     op.create_table('data_source_raw_mappings',
     sa.Column('data_source_id', sa.Integer(), nullable=False, comment='数据源ID'),
-    sa.Column('raw_data_id', sa.Integer(), nullable=False, comment='原始数据ID'),
+    sa.Column('raw_data_id', sa.Integer(), nullable=False, comment='数据对象ID'),
     sa.Column('field_mappings', postgresql.JSONB(astext_type=sa.Text()), nullable=False, comment='字段映射(JSON): {target_field: source_field/expression}'),
     sa.Column('priority', sa.Integer(), nullable=False, comment='映射优先级（数值越大优先级越高）'),
     sa.Column('is_enabled', sa.Boolean(), nullable=False, comment='是否启用该映射'),

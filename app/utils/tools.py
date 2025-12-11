@@ -49,7 +49,7 @@ def get_sandbox_client() -> httpx.AsyncClient:
 
 
 class RawDataContext(BaseModel):
-    """原始数据上下文信息"""
+    """数据对象上下文信息"""
 
     id: str  # UUID 字符串
     name: str
@@ -80,7 +80,7 @@ class DataSourceContext(BaseModel):
     description: str | None = None
     category: str | None = None
 
-    # 关联的原始数据
+    # 关联的数据对象
     raw_data_list: list[RawDataContext] = Field(default_factory=list)
 
     # 目标字段定义
@@ -263,7 +263,7 @@ async def quick_analysis(
         return error_msg, {"type": "error", "error": error_msg}
 
     if not ds_ctx.raw_data_list:
-        error_msg = f"数据源 {ds_ctx.name} 没有关联的原始数据"
+        error_msg = f"数据源 {ds_ctx.name} 没有关联的数据对象"
         return error_msg, {"type": "error", "error": error_msg}
 
     # 提取所有 RawData 的名称作为 VIEW 名称

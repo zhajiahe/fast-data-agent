@@ -50,7 +50,7 @@ class UploadedFile(Base, BaseTableMixin):
 
     # 关系
     user: Mapped["User"] = relationship("User", back_populates="uploaded_files")  # type: ignore  # noqa: F821
-    # 关联原始数据（一个文件对应一个 RawData）
+    # 关联数据对象（一个文件对应一个 RawData）
     raw_data: Mapped["RawData | None"] = relationship(  # type: ignore  # noqa: F821
         "RawData", back_populates="uploaded_file", uselist=False
     )

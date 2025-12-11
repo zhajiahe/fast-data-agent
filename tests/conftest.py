@@ -143,14 +143,14 @@ def test_raw_data(
     client: TestClient, auth_headers: dict[str, str], test_file: dict[str, Any]
 ) -> Generator[dict[str, Any], None, None]:
     """
-    创建测试用的原始数据（文件类型）
+    创建测试用的数据对象（文件类型）
     """
     response = client.post(
         "/api/v1/raw-data",
         headers=auth_headers,
         json={
             "name": "test_csv_raw",
-            "description": "测试 CSV 原始数据",
+            "description": "测试 CSV 数据对象",
             "raw_type": "file",
             "file_config": {"file_id": test_file["id"]},
         },
@@ -159,7 +159,7 @@ def test_raw_data(
     data = response.json().get("data", {})
     yield data
 
-    # 清理：删除原始数据
+    # 清理：删除数据对象
     if data.get("id"):
         client.delete(
             f"/api/v1/raw-data/{data['id']}",

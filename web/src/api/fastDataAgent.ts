@@ -224,9 +224,9 @@ export type AutoCreatedRawDataErrorMessage = string | null;
  * 自动创建的 RawData 简要信息
  */
 export interface AutoCreatedRawData {
-  /** 原始数据ID */
+  /** 数据对象ID */
   raw_data_id: number;
-  /** 原始数据名称 */
+  /** 数据对象名称 */
   name: string;
   /** 来源表名 */
   table_name: string;
@@ -638,7 +638,7 @@ export interface BaseResponseStr {
 export type BatchCreateFromConnectionRequestNamePrefix = string | null;
 
 /**
- * 从数据库连接批量创建原始数据请求
+ * 从数据库连接批量创建数据对象请求
  */
 export interface BatchCreateFromConnectionRequest {
   /** 数据库连接ID */
@@ -655,7 +655,7 @@ export interface BatchCreateFromConnectionRequest {
 }
 
 /**
- * 从数据库连接批量创建原始数据响应
+ * 从数据库连接批量创建数据对象响应
  */
 export interface BatchCreateFromConnectionResponse {
   /** 成功创建的数量 */
@@ -675,9 +675,9 @@ export type BatchCreateResultErrorMessage = string | null;
  * 批量创建结果
  */
 export interface BatchCreateResult {
-  /** 创建的原始数据ID */
+  /** 创建的数据对象ID */
   raw_data_id: number;
-  /** 原始数据名称 */
+  /** 数据对象名称 */
   name: string;
   /** 表名 */
   table_name: string;
@@ -841,7 +841,7 @@ export interface DataSourceCreate {
   category?: DataSourceCreateCategory;
   /** 目标字段定义 */
   target_fields?: TargetField[];
-  /** 原始数据字段映射 */
+  /** 数据对象字段映射 */
   raw_mappings?: FieldMapping[];
 }
 
@@ -901,7 +901,7 @@ export type DataSourceResponseSchemaCacheAnyOf = { [key: string]: unknown };
 export type DataSourceResponseSchemaCache = DataSourceResponseSchemaCacheAnyOf | null;
 
 /**
- * 原始数据映射
+ * 数据对象映射
  */
 export type DataSourceResponseRawMappings = RawMappingResponse[] | null;
 
@@ -937,7 +937,7 @@ export interface DataSourceResponse {
   target_fields?: DataSourceResponseTargetFields;
   /** 表结构缓存 */
   schema_cache?: DataSourceResponseSchemaCache;
-  /** 原始数据映射 */
+  /** 数据对象映射 */
   raw_mappings?: DataSourceResponseRawMappings;
   /** 创建时间 */
   create_time?: DataSourceResponseCreateTime;
@@ -966,7 +966,7 @@ export type DataSourceUpdateCategory = DataSourceCategory | null;
 export type DataSourceUpdateTargetFields = TargetField[] | null;
 
 /**
- * 原始数据字段映射
+ * 数据对象字段映射
  */
 export type DataSourceUpdateRawMappings = FieldMapping[] | null;
 
@@ -982,7 +982,7 @@ export interface DataSourceUpdate {
   category?: DataSourceUpdateCategory;
   /** 目标字段定义 */
   target_fields?: DataSourceUpdateTargetFields;
-  /** 原始数据字段映射 */
+  /** 数据对象字段映射 */
   raw_mappings?: DataSourceUpdateRawMappings;
 }
 
@@ -1314,7 +1314,7 @@ export type FieldMappingMappings = { [key: string]: string | null };
  * 单个 Raw 的字段映射
  */
 export interface FieldMapping {
-  /** 原始数据ID */
+  /** 数据对象ID */
   raw_data_id: number;
   /** 字段映射: {target_field: source_field_or_null} */
   mappings: FieldMappingMappings;
@@ -1556,7 +1556,7 @@ export interface RawDataColumnUpdate {
 }
 
 /**
- * 原始数据描述
+ * 数据对象描述
  */
 export type RawDataCreateDescription = string | null;
 
@@ -1571,18 +1571,18 @@ export type RawDataCreateDatabaseTableConfig = RawDataDatabaseTableConfig | null
 export type RawDataCreateFileConfig = RawDataFileConfig | null;
 
 /**
- * 创建原始数据请求
+ * 创建数据对象请求
  */
 export interface RawDataCreate {
   /**
-   * 原始数据名称
+   * 数据对象名称
    * @minLength 1
    * @maxLength 100
    */
   name: string;
-  /** 原始数据描述 */
+  /** 数据对象描述 */
   description?: RawDataCreateDescription;
-  /** 原始数据类型: database_table/file */
+  /** 数据对象类型: database_table/file */
   raw_type: RawDataType;
   /** 数据库表配置（raw_type=database_table 时必填） */
   database_table_config?: RawDataCreateDatabaseTableConfig;
@@ -1640,7 +1640,7 @@ export interface RawDataInfo {
 }
 
 /**
- * 原始数据预览请求
+ * 数据对象预览请求
  */
 export interface RawDataPreviewRequest {
   /**
@@ -1659,7 +1659,7 @@ export type RawDataPreviewResponseRowsItem = { [key: string]: unknown };
 export type RawDataPreviewResponseTotalRows = number | null;
 
 /**
- * 原始数据预览响应
+ * 数据对象预览响应
  */
 export interface RawDataPreviewResponse {
   /** 列结构 */
@@ -1673,7 +1673,7 @@ export interface RawDataPreviewResponse {
 }
 
 /**
- * 原始数据描述
+ * 数据对象描述
  */
 export type RawDataResponseDescription = string | null;
 
@@ -1733,20 +1733,20 @@ export type RawDataResponseCreateTime = string | null;
 export type RawDataResponseUpdateTime = string | null;
 
 /**
- * 原始数据响应
+ * 数据对象响应
  */
 export interface RawDataResponse {
   /**
-   * 原始数据名称
+   * 数据对象名称
    * @minLength 1
    * @maxLength 100
    */
   name: string;
-  /** 原始数据描述 */
+  /** 数据对象描述 */
   description?: RawDataResponseDescription;
-  /** 原始数据类型: database_table/file */
+  /** 数据对象类型: database_table/file */
   raw_type: RawDataType;
-  /** 原始数据ID */
+  /** 数据对象ID */
   id: number;
   /** 所属用户ID */
   user_id: number;
@@ -1777,7 +1777,7 @@ export interface RawDataResponse {
 }
 
 /**
- * 原始数据类型
+ * 数据对象类型
  */
 export type RawDataType = (typeof RawDataType)[keyof typeof RawDataType];
 
@@ -1788,12 +1788,12 @@ export const RawDataType = {
 } as const;
 
 /**
- * 原始数据名称
+ * 数据对象名称
  */
 export type RawDataUpdateName = string | null;
 
 /**
- * 原始数据描述
+ * 数据对象描述
  */
 export type RawDataUpdateDescription = string | null;
 
@@ -1808,12 +1808,12 @@ export type RawDataUpdateDatabaseTableConfig = RawDataDatabaseTableConfig | null
 export type RawDataUpdateFileConfig = RawDataFileConfig | null;
 
 /**
- * 更新原始数据请求
+ * 更新数据对象请求
  */
 export interface RawDataUpdate {
-  /** 原始数据名称 */
+  /** 数据对象名称 */
   name?: RawDataUpdateName;
-  /** 原始数据描述 */
+  /** 数据对象描述 */
   description?: RawDataUpdateDescription;
   /** 数据库表配置 */
   database_table_config?: RawDataUpdateDatabaseTableConfig;
@@ -1822,7 +1822,7 @@ export interface RawDataUpdate {
 }
 
 /**
- * 原始数据名称
+ * 数据对象名称
  */
 export type RawMappingResponseRawDataName = string | null;
 
@@ -1837,9 +1837,9 @@ export type RawMappingResponseFieldMappings = { [key: string]: string | null };
 export interface RawMappingResponse {
   /** 映射ID */
   id: number;
-  /** 原始数据ID */
+  /** 数据对象ID */
   raw_data_id: number;
-  /** 原始数据名称 */
+  /** 数据对象名称 */
   raw_data_name?: RawMappingResponseRawDataName;
   /** 字段映射 */
   field_mappings?: RawMappingResponseFieldMappings;
@@ -1867,7 +1867,7 @@ export interface SuggestMappingsRequest {
    */
   target_fields: TargetField[];
   /**
-   * 原始数据ID列表
+   * 数据对象ID列表
    * @minItems 1
    */
   raw_data_ids: number[];
@@ -1882,11 +1882,11 @@ export interface SuggestMappingsResponse {
 }
 
 /**
- * 从原始数据推断目标字段请求
+ * 从数据对象推断目标字段请求
  */
 export interface SuggestTargetFieldsRequest {
   /**
-   * 原始数据ID列表
+   * 数据对象ID列表
    * @minItems 1
    */
   raw_data_ids: number[];
@@ -2680,7 +2680,7 @@ export const getConnectionTableSchemaApiV1DatabaseConnectionsConnectionIdSchemaG
 };
 
 /**
- * 获取原始数据列表（分页）
+ * 获取数据对象列表（分页）
  * @summary Get Raw Data List
  */
 export const getRawDataListApiV1RawDataGet = <TData = AxiosResponse<BaseResponsePageResponseRawDataResponse>>(
@@ -2694,7 +2694,7 @@ export const getRawDataListApiV1RawDataGet = <TData = AxiosResponse<BaseResponse
 };
 
 /**
- * 创建原始数据
+ * 创建数据对象
  * @summary Create Raw Data
  */
 export const createRawDataApiV1RawDataPost = <TData = AxiosResponse<BaseResponseRawDataResponse>>(
@@ -2705,7 +2705,7 @@ export const createRawDataApiV1RawDataPost = <TData = AxiosResponse<BaseResponse
 };
 
 /**
- * 获取单个原始数据详情
+ * 获取单个数据对象详情
  * @summary Get Raw Data
  */
 export const getRawDataApiV1RawDataRawDataIdGet = <TData = AxiosResponse<BaseResponseRawDataResponse>>(
@@ -2716,7 +2716,7 @@ export const getRawDataApiV1RawDataRawDataIdGet = <TData = AxiosResponse<BaseRes
 };
 
 /**
- * 更新原始数据
+ * 更新数据对象
  * @summary Update Raw Data
  */
 export const updateRawDataApiV1RawDataRawDataIdPut = <TData = AxiosResponse<BaseResponseRawDataResponse>>(
@@ -2728,7 +2728,7 @@ export const updateRawDataApiV1RawDataRawDataIdPut = <TData = AxiosResponse<Base
 };
 
 /**
- * 删除原始数据
+ * 删除数据对象
  * @summary Delete Raw Data
  */
 export const deleteRawDataApiV1RawDataRawDataIdDelete = <TData = AxiosResponse<BaseResponseNoneType>>(
@@ -2739,9 +2739,9 @@ export const deleteRawDataApiV1RawDataRawDataIdDelete = <TData = AxiosResponse<B
 };
 
 /**
- * 从数据库连接批量创建原始数据
+ * 从数据库连接批量创建数据对象
 
-用户可以一次性从一个数据库连接中选择多个表创建原始数据
+用户可以一次性从一个数据库连接中选择多个表创建数据对象
  * @summary Batch Create Raw Data
  */
 export const batchCreateRawDataApiV1RawDataBatchFromConnectionPost = <
@@ -2754,7 +2754,7 @@ export const batchCreateRawDataApiV1RawDataBatchFromConnectionPost = <
 };
 
 /**
- * 更新原始数据列类型（用户修正）
+ * 更新数据对象列类型（用户修正）
  * @summary Update Raw Data Columns
  */
 export const updateRawDataColumnsApiV1RawDataRawDataIdColumnsPut = <TData = AxiosResponse<BaseResponseRawDataResponse>>(
@@ -2766,7 +2766,7 @@ export const updateRawDataColumnsApiV1RawDataRawDataIdColumnsPut = <TData = Axio
 };
 
 /**
- * 预览原始数据（抽样）
+ * 预览数据对象（抽样）
 
 从数据库表或文件中抽样数据，并推断列类型
  * @summary Preview Raw Data
@@ -2786,7 +2786,7 @@ export const previewRawDataApiV1RawDataRawDataIdPreviewPost = <
 };
 
 /**
- * 同步原始数据 Schema
+ * 同步数据对象 Schema
 
 从数据源获取最新的列结构信息
  * @summary Sync Raw Data
@@ -2880,7 +2880,7 @@ export const previewDataSourceApiV1DataSourcesDataSourceIdPreviewPost = <
 /**
  * 智能字段映射建议
 
-根据目标字段和原始数据的列信息，推荐最佳的字段映射关系。
+根据目标字段和数据对象的列信息，推荐最佳的字段映射关系。
 基于字段名相似度、同义词匹配和数据类型兼容性进行匹配。
  * @summary Suggest Field Mappings
  */
@@ -2894,7 +2894,7 @@ export const suggestFieldMappingsApiV1DataSourcesSuggestMappingsPost = <
 };
 
 /**
- * 从原始数据推断目标字段
+ * 从数据对象推断目标字段
 
 分析多个 RawData 的列结构，合并推断出最佳的目标字段定义。
  * @summary Suggest Target Fields

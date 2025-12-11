@@ -68,7 +68,7 @@ const getColumnsFromRawData = (rd: RawDataResponse): Array<{ name: string; dataT
 /**
  * 创建数据源对话框
  *
- * 左侧选择原始数据表，右侧显示选中表的字段并配置映射
+ * 左侧选择数据对象表，右侧显示选中表的字段并配置映射
  */
 export const CreateDataSourceDialog = ({ open, onOpenChange }: CreateDataSourceDialogProps) => {
   const { t } = useTranslation();
@@ -220,7 +220,7 @@ export const CreateDataSourceDialog = ({ open, onOpenChange }: CreateDataSourceD
 
   const onSubmit = async (data: FormData) => {
     if (selectedRawDataIds.length === 0) {
-      toast({ title: t('common.error'), description: '请至少选择一个原始数据', variant: 'destructive' });
+      toast({ title: t('common.error'), description: '请至少选择一个数据对象', variant: 'destructive' });
       return;
     }
 
@@ -294,7 +294,7 @@ export const CreateDataSourceDialog = ({ open, onOpenChange }: CreateDataSourceD
             <Layers className="h-5 w-5" />
             创建数据源
           </DialogTitle>
-          <DialogDescription>选择原始数据表，配置字段映射（留空使用原字段名，输入 - 排除字段）</DialogDescription>
+          <DialogDescription>选择数据对象表，配置字段映射（留空使用原字段名，输入 - 排除字段）</DialogDescription>
         </DialogHeader>
 
         <form onSubmit={handleSubmit(onSubmit)} className="flex-1 flex flex-col min-h-0 space-y-4 overflow-hidden">
@@ -313,12 +313,12 @@ export const CreateDataSourceDialog = ({ open, onOpenChange }: CreateDataSourceD
 
           {/* 主体区域：左右分栏 */}
           <div className="flex-1 grid grid-cols-5 gap-4 min-h-0 overflow-hidden">
-            {/* 左侧：选择原始数据（占 2 列） */}
+            {/* 左侧：选择数据对象（占 2 列） */}
             <div className="col-span-2 flex flex-col min-h-0 border rounded-lg overflow-hidden">
               <div className="px-3 py-2 border-b bg-muted/30 shrink-0">
                 <h4 className="font-medium text-sm flex items-center gap-2">
                   <HardDrive className="h-4 w-4" />
-                  选择原始数据
+                  选择数据对象
                   {selectedRawDataIds.length > 0 && (
                     <Badge variant="secondary" className="text-xs">
                       已选 {selectedRawDataIds.length}
@@ -333,7 +333,7 @@ export const CreateDataSourceDialog = ({ open, onOpenChange }: CreateDataSourceD
               ) : rawDataList.length === 0 ? (
                 <div className="text-center py-8 px-4">
                   <HardDrive className="h-8 w-8 mx-auto text-muted-foreground mb-2" />
-                  <p className="text-sm text-muted-foreground">暂无原始数据</p>
+                  <p className="text-sm text-muted-foreground">暂无数据对象</p>
                   <p className="text-xs text-muted-foreground mt-1">请先连接数据库或上传文件</p>
                 </div>
               ) : (
@@ -394,7 +394,7 @@ export const CreateDataSourceDialog = ({ open, onOpenChange }: CreateDataSourceD
                   {selectedRawDataIds.length === 0 ? (
                     <div className="text-center py-12 px-4">
                       <Layers className="h-10 w-10 mx-auto text-muted-foreground/50 mb-3" />
-                      <p className="text-sm text-muted-foreground">请先在左侧选择原始数据</p>
+                      <p className="text-sm text-muted-foreground">请先在左侧选择数据对象</p>
                       <p className="text-xs text-muted-foreground mt-1">选择后可配置字段映射</p>
                     </div>
                   ) : (

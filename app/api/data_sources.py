@@ -188,7 +188,7 @@ async def suggest_field_mappings(
     """
     智能字段映射建议
 
-    根据目标字段和原始数据的列信息，推荐最佳的字段映射关系。
+    根据目标字段和数据对象的列信息，推荐最佳的字段映射关系。
     基于字段名相似度、同义词匹配和数据类型兼容性进行匹配。
     """
     from app.repositories.raw_data import RawDataRepository
@@ -202,11 +202,11 @@ async def suggest_field_mappings(
         return BaseResponse(
             success=True,
             code=200,
-            msg="未找到匹配的原始数据",
+            msg="未找到匹配的数据对象",
             data=SuggestMappingsResponse(suggestions=[]),
         )
 
-    # 构建原始数据源信息
+    # 构建数据对象源信息
     raw_data_sources = [
         {
             "id": rd.id,
@@ -250,7 +250,7 @@ async def suggest_target_fields(
     db: DBSession,
 ):
     """
-    从原始数据推断目标字段
+    从数据对象推断目标字段
 
     分析多个 RawData 的列结构，合并推断出最佳的目标字段定义。
     """
@@ -265,11 +265,11 @@ async def suggest_target_fields(
         return BaseResponse(
             success=True,
             code=200,
-            msg="未找到匹配的原始数据",
+            msg="未找到匹配的数据对象",
             data=SuggestTargetFieldsResponse(fields=[]),
         )
 
-    # 构建原始数据源信息
+    # 构建数据对象源信息
     raw_data_sources = [
         {
             "id": rd.id,

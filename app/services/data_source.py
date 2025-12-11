@@ -83,7 +83,7 @@ class DataSourceService:
         if not data_source.target_fields:
             raise BadRequestException(msg="数据源未定义目标字段")
         if not data_source.raw_mappings:
-            raise BadRequestException(msg="数据源未配置原始数据映射")
+            raise BadRequestException(msg="数据源未配置数据对象映射")
 
         # 目标字段顺序
         target_fields = [TargetField.model_validate(f) for f in data_source.target_fields]
@@ -192,7 +192,7 @@ class DataSourceService:
             found_ids = {rd.id for rd in raw_data_list}
             missing_ids = set(raw_ids) - found_ids
             if missing_ids:
-                raise BadRequestException(msg=f"原始数据不存在: {missing_ids}")
+                raise BadRequestException(msg=f"数据对象不存在: {missing_ids}")
 
         # 构建创建数据
         create_data: dict[str, Any] = {
@@ -245,7 +245,7 @@ class DataSourceService:
             found_ids = {rd.id for rd in raw_data_list}
             missing_ids = set(raw_ids) - found_ids
             if missing_ids:
-                raise BadRequestException(msg=f"原始数据不存在: {missing_ids}")
+                raise BadRequestException(msg=f"数据对象不存在: {missing_ids}")
 
         # 构建更新数据
         update_data: dict[str, Any] = {}

@@ -1,7 +1,7 @@
 """
-原始数据 Repository
+数据对象 Repository
 
-封装原始数据相关的数据库操作
+封装数据对象相关的数据库操作
 """
 
 import uuid
@@ -15,7 +15,7 @@ from app.repositories.base import BaseRepository
 
 
 class RawDataRepository(BaseRepository[RawData]):
-    """原始数据数据访问层"""
+    """数据对象数据访问层"""
 
     def __init__(self, db: AsyncSession):
         super().__init__(RawData, db)
@@ -27,7 +27,7 @@ class RawDataRepository(BaseRepository[RawData]):
         skip: int = 0,
         limit: int = 100,
     ) -> list[RawData]:
-        """获取用户的原始数据列表"""
+        """获取用户的数据对象列表"""
         return await self.get_all(skip=skip, limit=limit, filters={"user_id": user_id})
 
     async def search(
@@ -41,18 +41,18 @@ class RawDataRepository(BaseRepository[RawData]):
         limit: int = 100,
     ) -> tuple[list[RawData], int]:
         """
-        搜索原始数据
+        搜索数据对象
 
         Args:
             user_id: 用户 ID
             keyword: 搜索关键词
-            raw_type: 原始数据类型
+            raw_type: 数据对象类型
             status: 状态
             skip: 跳过的记录数
             limit: 返回的最大记录数
 
         Returns:
-            (原始数据列表, 总数) 元组
+            (数据对象列表, 总数) 元组
         """
         # 基础查询
         base_filter = [RawData.user_id == user_id, RawData.deleted == 0]
@@ -88,14 +88,14 @@ class RawDataRepository(BaseRepository[RawData]):
 
     async def get_by_ids(self, ids: list[uuid.UUID], user_id: uuid.UUID) -> list[RawData]:
         """
-        根据 ID 列表获取原始数据
+        根据 ID 列表获取数据对象
 
         Args:
             ids: ID 列表
             user_id: 用户 ID
 
         Returns:
-            原始数据列表
+            数据对象列表
         """
         query = select(RawData).where(
             RawData.id.in_(ids),
@@ -121,13 +121,13 @@ class RawDataRepository(BaseRepository[RawData]):
 
     async def get_with_relations(self, id: uuid.UUID) -> RawData | None:
         """
-        获取原始数据（包含关联的 connection 和 uploaded_file）
+        获取数据对象（包含关联的 connection 和 uploaded_file）
 
         Args:
-            id: 原始数据 ID
+            id: 数据对象 ID
 
         Returns:
-            原始数据实例或 None
+            数据对象实例或 None
         """
         query = (
             select(RawData)
@@ -141,7 +141,7 @@ class RawDataRepository(BaseRepository[RawData]):
         return result.scalar_one_or_none()
 
     async def name_exists(self, name: str, user_id: uuid.UUID, exclude_id: uuid.UUID | None = None) -> bool:
-        """检查原始数据名称是否已存在"""
+        """检查数据对象名称是否已存在"""
         query = select(RawData).where(
             RawData.name == name,
             RawData.user_id == user_id,

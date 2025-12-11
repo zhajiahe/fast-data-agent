@@ -1,5 +1,5 @@
 """
-原始数据相关的 Pydantic Schema
+数据对象相关的 Pydantic Schema
 """
 
 import uuid
@@ -22,11 +22,11 @@ class ColumnSchema(BaseModel):
 
 
 class RawDataBase(BaseModel):
-    """原始数据基础字段"""
+    """数据对象基础字段"""
 
-    name: str = Field(..., min_length=1, max_length=100, description="原始数据名称")
-    description: str | None = Field(default=None, description="原始数据描述")
-    raw_type: RawDataType = Field(..., description="原始数据类型: database_table/file")
+    name: str = Field(..., min_length=1, max_length=100, description="数据对象名称")
+    description: str | None = Field(default=None, description="数据对象描述")
+    raw_type: RawDataType = Field(..., description="数据对象类型: database_table/file")
 
 
 class RawDataDatabaseTableConfig(BaseModel):
@@ -52,7 +52,7 @@ class RawDataFileConfig(BaseModel):
 
 
 class RawDataCreate(RawDataBase):
-    """创建原始数据请求"""
+    """创建数据对象请求"""
 
     # 数据库表类型配置
     database_table_config: RawDataDatabaseTableConfig | None = Field(
@@ -74,10 +74,10 @@ class RawDataCreate(RawDataBase):
 
 
 class RawDataUpdate(BaseModel):
-    """更新原始数据请求"""
+    """更新数据对象请求"""
 
-    name: str | None = Field(default=None, min_length=1, max_length=100, description="原始数据名称")
-    description: str | None = Field(default=None, description="原始数据描述")
+    name: str | None = Field(default=None, min_length=1, max_length=100, description="数据对象名称")
+    description: str | None = Field(default=None, description="数据对象描述")
     # 数据库表类型配置
     database_table_config: RawDataDatabaseTableConfig | None = Field(default=None, description="数据库表配置")
     # 文件类型配置
@@ -91,9 +91,9 @@ class RawDataColumnUpdate(BaseModel):
 
 
 class RawDataResponse(RawDataBase):
-    """原始数据响应"""
+    """数据对象响应"""
 
-    id: uuid.UUID = Field(..., description="原始数据ID")
+    id: uuid.UUID = Field(..., description="数据对象ID")
     user_id: uuid.UUID = Field(..., description="所属用户ID")
 
     # 数据库表配置
@@ -121,21 +121,21 @@ class RawDataResponse(RawDataBase):
 
 
 class RawDataListQuery(BaseModel):
-    """原始数据列表查询参数"""
+    """数据对象列表查询参数"""
 
     keyword: str | None = Field(default=None, description="搜索关键词")
-    raw_type: RawDataType | None = Field(default=None, description="原始数据类型")
+    raw_type: RawDataType | None = Field(default=None, description="数据对象类型")
     status: str | None = Field(default=None, description="状态过滤")
 
 
 class RawDataPreviewRequest(BaseModel):
-    """原始数据预览请求"""
+    """数据对象预览请求"""
 
     limit: int = Field(default=100, ge=1, le=1000, description="预览行数")
 
 
 class RawDataPreviewResponse(BaseModel):
-    """原始数据预览响应"""
+    """数据对象预览响应"""
 
     columns: list[ColumnSchema] = Field(default_factory=list, description="列结构")
     rows: list[dict[str, Any]] = Field(default_factory=list, description="数据行")
@@ -155,7 +155,7 @@ class TableSelection(BaseModel):
 
 
 class BatchCreateFromConnectionRequest(BaseModel):
-    """从数据库连接批量创建原始数据请求"""
+    """从数据库连接批量创建数据对象请求"""
 
     connection_id: uuid.UUID = Field(..., description="数据库连接ID")
     tables: list[TableSelection] = Field(..., min_length=1, description="要创建的表列表")
@@ -166,15 +166,15 @@ class BatchCreateFromConnectionRequest(BaseModel):
 class BatchCreateResult(BaseModel):
     """批量创建结果"""
 
-    raw_data_id: uuid.UUID = Field(..., description="创建的原始数据ID")
-    name: str = Field(..., description="原始数据名称")
+    raw_data_id: uuid.UUID = Field(..., description="创建的数据对象ID")
+    name: str = Field(..., description="数据对象名称")
     table_name: str = Field(..., description="表名")
     status: str = Field(..., description="状态: created/syncing/ready/error")
     error_message: str | None = Field(default=None, description="错误信息（如果有）")
 
 
 class BatchCreateFromConnectionResponse(BaseModel):
-    """从数据库连接批量创建原始数据响应"""
+    """从数据库连接批量创建数据对象响应"""
 
     success_count: int = Field(..., description="成功创建的数量")
     failed_count: int = Field(..., description="失败的数量")

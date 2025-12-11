@@ -1,7 +1,7 @@
 """
-原始数据服务
+数据对象服务
 
-处理原始数据管理相关的业务逻辑
+处理数据对象管理相关的业务逻辑
 """
 
 from datetime import datetime
@@ -24,7 +24,7 @@ from app.schemas.raw_data import (
 
 
 class RawDataService:
-    """原始数据服务类"""
+    """数据对象服务类"""
 
     def __init__(self, db: AsyncSession):
         self.db = db
@@ -35,40 +35,40 @@ class RawDataService:
 
     async def get_raw_data(self, raw_data_id: int, user_id: int) -> RawData:
         """
-        获取单个原始数据
+        获取单个数据对象
 
         Args:
-            raw_data_id: 原始数据 ID
+            raw_data_id: 数据对象 ID
             user_id: 用户 ID
 
         Returns:
-            原始数据实例
+            数据对象实例
 
         Raises:
-            NotFoundException: 原始数据不存在
+            NotFoundException: 数据对象不存在
         """
         raw_data = await self.repo.get_by_id(raw_data_id)
         if not raw_data or raw_data.user_id != user_id:
-            raise NotFoundException(msg="原始数据不存在")
+            raise NotFoundException(msg="数据对象不存在")
         return raw_data
 
     async def get_raw_data_with_relations(self, raw_data_id: int, user_id: int) -> RawData:
         """
-        获取原始数据（包含关联的 connection 和 uploaded_file）
+        获取数据对象（包含关联的 connection 和 uploaded_file）
 
         Args:
-            raw_data_id: 原始数据 ID
+            raw_data_id: 数据对象 ID
             user_id: 用户 ID
 
         Returns:
-            原始数据实例
+            数据对象实例
 
         Raises:
-            NotFoundException: 原始数据不存在
+            NotFoundException: 数据对象不存在
         """
         raw_data = await self.repo.get_with_relations(raw_data_id)
         if not raw_data or raw_data.user_id != user_id:
-            raise NotFoundException(msg="原始数据不存在")
+            raise NotFoundException(msg="数据对象不存在")
         return raw_data
 
     async def get_raw_data_list(
@@ -79,7 +79,7 @@ class RawDataService:
         page_size: int = 10,
     ) -> tuple[list[RawData], int]:
         """
-        获取原始数据列表
+        获取数据对象列表
 
         Args:
             user_id: 用户 ID
@@ -88,7 +88,7 @@ class RawDataService:
             page_size: 每页数量
 
         Returns:
-            (原始数据列表, 总数) 元组
+            (数据对象列表, 总数) 元组
         """
         skip = (page_num - 1) * page_size
         return await self.repo.search(
@@ -102,21 +102,21 @@ class RawDataService:
 
     async def create_raw_data(self, user_id: int, data: RawDataCreate) -> RawData:
         """
-        创建原始数据
+        创建数据对象
 
         Args:
             user_id: 用户 ID
             data: 创建数据
 
         Returns:
-            创建的原始数据实例
+            创建的数据对象实例
 
         Raises:
             BadRequestException: 数据验证失败
         """
         # 检查名称是否已存在
         if await self.repo.name_exists(data.name, user_id):
-            raise BadRequestException(msg="原始数据名称已存在")
+            raise BadRequestException(msg="数据对象名称已存在")
 
         # 构建创建数据
         create_data: dict[str, Any] = {
@@ -185,25 +185,25 @@ class RawDataService:
         data: RawDataUpdate,
     ) -> RawData:
         """
-        更新原始数据
+        更新数据对象
 
         Args:
-            raw_data_id: 原始数据 ID
+            raw_data_id: 数据对象 ID
             user_id: 用户 ID
             data: 更新数据
 
         Returns:
-            更新后的原始数据实例
+            更新后的数据对象实例
 
         Raises:
-            NotFoundException: 原始数据不存在
+            NotFoundException: 数据对象不存在
             BadRequestException: 数据验证失败
         """
         raw_data = await self.get_raw_data(raw_data_id, user_id)
 
         # 检查名称是否已存在
         if data.name and await self.repo.name_exists(data.name, user_id, exclude_id=raw_data_id):
-            raise BadRequestException(msg="原始数据名称已存在")
+            raise BadRequestException(msg="数据对象名称已存在")
 
         # 构建更新数据
         update_data: dict[str, Any] = {}
@@ -255,12 +255,12 @@ class RawDataService:
         更新列结构（用户修正类型）
 
         Args:
-            raw_data_id: 原始数据 ID
+            raw_data_id: 数据对象 ID
             user_id: 用户 ID
             data: 列结构数据
 
         Returns:
-            更新后的原始数据实例
+            更新后的数据对象实例
         """
         raw_data = await self.get_raw_data(raw_data_id, user_id)
 
@@ -283,7 +283,7 @@ class RawDataService:
         更新同步状态
 
         Args:
-            raw_data_id: 原始数据 ID
+            raw_data_id: 数据对象 ID
             user_id: 用户 ID
             status: 状态
             columns_schema: 列结构
@@ -292,7 +292,7 @@ class RawDataService:
             error_message: 错误信息
 
         Returns:
-            更新后的原始数据实例
+            更新后的数据对象实例
         """
         raw_data = await self.get_raw_data(raw_data_id, user_id)
 
@@ -314,36 +314,36 @@ class RawDataService:
 
     async def delete_raw_data(self, raw_data_id: int, user_id: int) -> None:
         """
-        删除原始数据
+        删除数据对象
 
         Args:
-            raw_data_id: 原始数据 ID
+            raw_data_id: 数据对象 ID
             user_id: 用户 ID
 
         Raises:
-            NotFoundException: 原始数据不存在
+            NotFoundException: 数据对象不存在
         """
         # 验证权限
         await self.get_raw_data(raw_data_id, user_id)
 
         # 检查是否有 DataSource 引用此 RawData
         if await self.mapping_repo.exists_by_raw_data(raw_data_id):
-            raise BadRequestException(msg="有数据源正在使用该原始数据，请先解除映射后再删除")
+            raise BadRequestException(msg="有数据源正在使用该数据对象，请先解除映射后再删除")
 
         success = await self.repo.delete(raw_data_id, soft_delete=True)
         if not success:
-            raise NotFoundException(msg="原始数据不存在")
+            raise NotFoundException(msg="数据对象不存在")
 
     async def get_raw_data_by_ids(self, ids: list[int], user_id: int) -> list[RawData]:
         """
-        根据 ID 列表获取原始数据
+        根据 ID 列表获取数据对象
 
         Args:
             ids: ID 列表
             user_id: 用户 ID
 
         Returns:
-            原始数据列表
+            数据对象列表
         """
         return await self.repo.get_by_ids(ids, user_id)
 
@@ -356,7 +356,7 @@ class RawDataService:
         auto_sync: bool = True,
     ) -> list[dict[str, Any]]:
         """
-        从数据库连接批量创建原始数据
+        从数据库连接批量创建数据对象
 
         Args:
             user_id: 用户 ID
@@ -398,7 +398,7 @@ class RawDataService:
                     # 名称冲突，添加时间戳后缀
                     name = f"{name}_{datetime.now().strftime('%Y%m%d%H%M%S')}"
 
-                # 创建原始数据
+                # 创建数据对象
                 create_data: dict[str, Any] = {
                     "name": name,
                     "description": f"从 {connection.name} 导入的 {table_name} 表",
@@ -428,7 +428,7 @@ class RawDataService:
                     except Exception as sync_err:
                         result["status"] = "error"
                         result["error_message"] = f"同步失败: {sync_err}"
-                        # 更新原始数据状态
+                        # 更新数据对象状态
                         await self.repo.update(
                             raw_data,
                             {"status": "error", "error_message": str(sync_err)},
@@ -454,7 +454,7 @@ class RawDataService:
         同步数据库表的列信息
 
         Args:
-            raw_data: 原始数据实例
+            raw_data: 数据对象实例
             connection: 数据库连接实例
         """
         from app.services.db_connector import DBConnectorService
@@ -470,7 +470,7 @@ class RawDataService:
         columns_schema = schema_info.get("columns", [])
         row_count = schema_info.get("row_count")
 
-        # 更新原始数据
+        # 更新数据对象
         await self.repo.update(
             raw_data,
             {

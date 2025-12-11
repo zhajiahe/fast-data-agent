@@ -22,7 +22,7 @@ class TargetField(BaseModel):
 class FieldMapping(BaseModel):
     """单个 Raw 的字段映射"""
 
-    raw_data_id: uuid.UUID = Field(..., description="原始数据ID")
+    raw_data_id: uuid.UUID = Field(..., description="数据对象ID")
     mappings: dict[str, str | None] = Field(..., description="字段映射: {target_field: source_field_or_null}")
     priority: int = Field(default=0, description="优先级（数值越大优先级越高）")
     is_enabled: bool = Field(default=True, description="是否启用")
@@ -42,7 +42,7 @@ class DataSourceCreate(DataSourceBase):
     # 目标字段定义
     target_fields: list[TargetField] = Field(default_factory=list, description="目标字段定义")
     # Raw 数据映射
-    raw_mappings: list[FieldMapping] = Field(default_factory=list, description="原始数据字段映射")
+    raw_mappings: list[FieldMapping] = Field(default_factory=list, description="数据对象字段映射")
 
 
 class DataSourceUpdate(BaseModel):
@@ -55,15 +55,15 @@ class DataSourceUpdate(BaseModel):
     # 更新目标字段
     target_fields: list[TargetField] | None = Field(default=None, description="目标字段定义")
     # 更新 Raw 映射
-    raw_mappings: list[FieldMapping] | None = Field(default=None, description="原始数据字段映射")
+    raw_mappings: list[FieldMapping] | None = Field(default=None, description="数据对象字段映射")
 
 
 class RawMappingResponse(BaseModel):
     """Raw 映射响应"""
 
     id: uuid.UUID = Field(..., description="映射ID")
-    raw_data_id: uuid.UUID = Field(..., description="原始数据ID")
-    raw_data_name: str | None = Field(default=None, description="原始数据名称")
+    raw_data_id: uuid.UUID = Field(..., description="数据对象ID")
+    raw_data_name: str | None = Field(default=None, description="数据对象名称")
     field_mappings: dict[str, str | None] = Field(default_factory=dict, description="字段映射")
     priority: int = Field(default=0, description="优先级")
     is_enabled: bool = Field(default=True, description="是否启用")
@@ -84,7 +84,7 @@ class DataSourceResponse(DataSourceBase):
     schema_cache: dict[str, Any] | None = Field(default=None, description="表结构缓存")
 
     # Raw 映射
-    raw_mappings: list[RawMappingResponse] | None = Field(default=None, description="原始数据映射")
+    raw_mappings: list[RawMappingResponse] | None = Field(default=None, description="数据对象映射")
 
     create_time: datetime | None = Field(default=None, description="创建时间")
     update_time: datetime | None = Field(default=None, description="更新时间")
@@ -121,7 +121,7 @@ class SuggestMappingsRequest(BaseModel):
     """字段映射建议请求"""
 
     target_fields: list[TargetField] = Field(..., min_length=1, description="目标字段列表")
-    raw_data_ids: list[uuid.UUID] = Field(..., min_length=1, description="原始数据ID列表")
+    raw_data_ids: list[uuid.UUID] = Field(..., min_length=1, description="数据对象ID列表")
 
 
 class FieldMappingSuggestionResponse(BaseModel):
@@ -142,9 +142,9 @@ class SuggestMappingsResponse(BaseModel):
 
 
 class SuggestTargetFieldsRequest(BaseModel):
-    """从原始数据推断目标字段请求"""
+    """从数据对象推断目标字段请求"""
 
-    raw_data_ids: list[uuid.UUID] = Field(..., min_length=1, description="原始数据ID列表")
+    raw_data_ids: list[uuid.UUID] = Field(..., min_length=1, description="数据对象ID列表")
 
 
 class SuggestedTargetField(BaseModel):

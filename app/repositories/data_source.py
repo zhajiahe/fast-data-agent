@@ -148,7 +148,7 @@ class DataSourceRepository(BaseRepository[DataSource]):
 
 
 class DataSourceRawMappingRepository(BaseRepository[DataSourceRawMapping]):
-    """数据源-原始数据映射数据访问层"""
+    """数据源-数据对象映射数据访问层"""
 
     def __init__(self, db: AsyncSession):
         super().__init__(DataSourceRawMapping, db)

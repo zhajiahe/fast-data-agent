@@ -39,7 +39,7 @@ class User(Base, BaseTableMixin):
     database_connections: Mapped[list["DatabaseConnection"]] = relationship(
         "DatabaseConnection", back_populates="user", cascade="all, delete-orphan"
     )
-    # 新增：原始数据
+    # 新增：数据对象
     raw_data_list: Mapped[list["RawData"]] = relationship(
         "RawData", back_populates="user", cascade="all, delete-orphan"
     )

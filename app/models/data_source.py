@@ -1,7 +1,7 @@
 """
 数据源模型
 
-数据源层：基于多个原始数据(RawData)构建的统一数据入口，
+数据源层：基于多个数据对象(RawData)构建的统一数据入口，
 支持字段映射和聚合，为 AI 分析提供清晰的逻辑视图。
 """
 
@@ -80,7 +80,7 @@ class DataSource(Base, BaseTableMixin):
 
 class DataSourceRawMapping(Base, BaseTableMixin):
     """
-    数据源与原始数据的映射表
+    数据源与数据对象的映射表
 
     存储每个 RawData 到 DataSource 目标字段的映射关系
     """
@@ -92,7 +92,7 @@ class DataSourceRawMapping(Base, BaseTableMixin):
         UUID(as_uuid=True), ForeignKey("data_sources.id"), nullable=False, index=True, comment="数据源ID"
     )
     raw_data_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("raw_data.id"), nullable=False, index=True, comment="原始数据ID"
+        UUID(as_uuid=True), ForeignKey("raw_data.id"), nullable=False, index=True, comment="数据对象ID"
     )
 
     # 字段映射配置

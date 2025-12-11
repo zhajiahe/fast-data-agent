@@ -238,7 +238,7 @@ class DatabaseConnectionService:
 
         # 检查是否有 RawData 引用此连接
         if await self.raw_data_repo.exists_by_connection(connection_id, user_id):
-            raise BadRequestException(msg="存在使用该连接的原始数据，请先解绑后再删除")
+            raise BadRequestException(msg="存在使用该连接的数据对象，请先解绑后再删除")
 
         success = await self.repo.delete(connection_id, soft_delete=True)
         if not success:

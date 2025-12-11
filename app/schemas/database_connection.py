@@ -71,8 +71,8 @@ class DatabaseConnectionResponse(DatabaseConnectionBase):
 class AutoCreatedRawData(BaseModel):
     """自动创建的 RawData 简要信息"""
 
-    raw_data_id: uuid.UUID = Field(..., description="原始数据ID")
-    name: str = Field(..., description="原始数据名称")
+    raw_data_id: uuid.UUID = Field(..., description="数据对象ID")
+    name: str = Field(..., description="数据对象名称")
     table_name: str = Field(..., description="来源表名")
     status: str = Field(..., description="状态: created/ready/error")
     error_message: str | None = Field(default=None, description="错误信息（如果有）")

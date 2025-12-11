@@ -219,7 +219,7 @@ class RecommendService:
         优先级：
         1. schema_cache（如果已缓存）
         2. target_fields（统一字段定义）
-        3. raw_mappings -> raw_data -> column_types（原始数据列信息）
+        3. raw_mappings -> raw_data -> column_types（数据对象列信息）
         """
         if not data_source:
             return {}

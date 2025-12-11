@@ -196,7 +196,7 @@ class CodeExecutionResult(BaseModel):
 
 
 class RawDataConfig(BaseModel):
-    """原始数据配置"""
+    """数据对象配置"""
 
     id: str  # UUID 字符串
     name: str  # 用于创建 VIEW 的名称

@@ -1,5 +1,5 @@
 """
-原始数据 API 测试
+数据对象 API 测试
 
 测试 /api/v1/raw-data 端点：
 - CRUD 操作
@@ -14,18 +14,18 @@ from starlette.testclient import TestClient
 
 
 class TestRawDataCRUD:
-    """原始数据 CRUD 测试"""
+    """数据对象 CRUD 测试"""
 
     def test_create_raw_data_file(
         self, client: TestClient, auth_headers: dict, test_file: dict[str, Any]
     ):
-        """测试创建原始数据（文件类型）"""
+        """测试创建数据对象（文件类型）"""
         response = client.post(
             "/api/v1/raw-data",
             headers=auth_headers,
             json={
                 "name": "test_file_raw",
-                "description": "测试文件原始数据",
+                "description": "测试文件数据对象",
                 "raw_type": "file",
                 "file_config": {"file_id": test_file["id"]},
             },
@@ -40,13 +40,13 @@ class TestRawDataCRUD:
     def test_create_raw_data_database_table(
         self, client: TestClient, auth_headers: dict, test_connection: dict[str, Any]
     ):
-        """测试创建原始数据（数据库表类型）"""
+        """测试创建数据对象（数据库表类型）"""
         response = client.post(
             "/api/v1/raw-data",
             headers=auth_headers,
             json={
                 "name": "test_table_raw",
-                "description": "测试数据库表原始数据",
+                "description": "测试数据库表数据对象",
                 "raw_type": "database_table",
                 "database_table_config": {
                     "connection_id": test_connection["id"],
@@ -62,7 +62,7 @@ class TestRawDataCRUD:
         assert data["data"]["raw_type"] == "database_table"
 
     def test_create_raw_data_invalid_file(self, client: TestClient, auth_headers: dict):
-        """测试创建原始数据（无效文件 ID）"""
+        """测试创建数据对象（无效文件 ID）"""
         response = client.post(
             "/api/v1/raw-data",
             headers=auth_headers,
@@ -78,7 +78,7 @@ class TestRawDataCRUD:
     def test_list_raw_data(
         self, client: TestClient, auth_headers: dict, test_raw_data: dict[str, Any]
     ):
-        """测试获取原始数据列表"""
+        """测试获取数据对象列表"""
         response = client.get("/api/v1/raw-data", headers=auth_headers)
 
         assert response.status_code == 200
@@ -89,7 +89,7 @@ class TestRawDataCRUD:
     def test_list_raw_data_filter(
         self, client: TestClient, auth_headers: dict, test_raw_data: dict[str, Any]
     ):
-        """测试原始数据列表过滤"""
+        """测试数据对象列表过滤"""
         response = client.get(
             "/api/v1/raw-data",
             headers=auth_headers,
@@ -103,7 +103,7 @@ class TestRawDataCRUD:
     def test_get_raw_data(
         self, client: TestClient, auth_headers: dict, test_raw_data: dict[str, Any]
     ):
-        """测试获取单个原始数据"""
+        """测试获取单个数据对象"""
         raw_data_id = test_raw_data["id"]
         response = client.get(f"/api/v1/raw-data/{raw_data_id}", headers=auth_headers)
 
@@ -113,7 +113,7 @@ class TestRawDataCRUD:
         assert data["data"]["id"] == raw_data_id
 
     def test_get_raw_data_not_found(self, client: TestClient, auth_headers: dict):
-        """测试获取不存在的原始数据"""
+        """测试获取不存在的数据对象"""
         response = client.get("/api/v1/raw-data/00000000-0000-0000-0000-000000099999", headers=auth_headers)
 
         assert response.status_code == 404
@@ -121,7 +121,7 @@ class TestRawDataCRUD:
     def test_update_raw_data(
         self, client: TestClient, auth_headers: dict, test_raw_data: dict[str, Any]
     ):
-        """测试更新原始数据"""
+        """测试更新数据对象"""
         raw_data_id = test_raw_data["id"]
         response = client.put(
             f"/api/v1/raw-data/{raw_data_id}",
@@ -137,8 +137,8 @@ class TestRawDataCRUD:
     def test_delete_raw_data(
         self, client: TestClient, auth_headers: dict, test_file: dict[str, Any]
     ):
-        """测试删除原始数据"""
-        # 先创建一个原始数据
+        """测试删除数据对象"""
+        # 先创建一个数据对象
         create_response = client.post(
             "/api/v1/raw-data",
             headers=auth_headers,
@@ -201,12 +201,12 @@ class TestRawDataCRUD:
 
 
 class TestRawDataPreview:
-    """原始数据预览测试"""
+    """数据对象预览测试"""
 
     def test_preview_raw_data(
         self, client: TestClient, auth_headers: dict, test_raw_data: dict[str, Any]
     ):
-        """测试预览原始数据"""
+        """测试预览数据对象"""
         raw_data_id = test_raw_data["id"]
         response = client.post(
             f"/api/v1/raw-data/{raw_data_id}/preview",
@@ -225,7 +225,7 @@ class TestRawDataPreview:
     def test_preview_raw_data_default_limit(
         self, client: TestClient, auth_headers: dict, test_raw_data: dict[str, Any]
     ):
-        """测试预览原始数据（默认限制）"""
+        """测试预览数据对象（默认限制）"""
         raw_data_id = test_raw_data["id"]
         response = client.post(
             f"/api/v1/raw-data/{raw_data_id}/preview",
@@ -236,7 +236,7 @@ class TestRawDataPreview:
         assert response.status_code in (200, 500)
 
     def test_preview_raw_data_not_found(self, client: TestClient, auth_headers: dict):
-        """测试预览不存在的原始数据"""
+        """测试预览不存在的数据对象"""
         response = client.post(
             "/api/v1/raw-data/00000000-0000-0000-0000-000000099999/preview",
             headers=auth_headers,
@@ -246,12 +246,12 @@ class TestRawDataPreview:
 
 
 class TestRawDataSync:
-    """原始数据同步测试"""
+    """数据对象同步测试"""
 
     def test_sync_raw_data(
         self, client: TestClient, auth_headers: dict, test_raw_data: dict[str, Any]
     ):
-        """测试同步原始数据"""
+        """测试同步数据对象"""
         raw_data_id = test_raw_data["id"]
         response = client.post(
             f"/api/v1/raw-data/{raw_data_id}/sync",
@@ -267,7 +267,7 @@ class TestRawDataSync:
             assert data["data"]["status"] in ("ready", "error", "syncing")
 
     def test_sync_raw_data_not_found(self, client: TestClient, auth_headers: dict):
-        """测试同步不存在的原始数据"""
+        """测试同步不存在的数据对象"""
         response = client.post(
             "/api/v1/raw-data/00000000-0000-0000-0000-000000099999/sync",
             headers=auth_headers,
@@ -277,7 +277,7 @@ class TestRawDataSync:
 
 
 class TestRawDataColumns:
-    """原始数据列类型更新测试"""
+    """数据对象列类型更新测试"""
 
     def test_update_columns(
         self, client: TestClient, auth_headers: dict, test_raw_data: dict[str, Any]
@@ -301,7 +301,7 @@ class TestRawDataColumns:
         assert data["success"] is True
 
     def test_update_columns_not_found(self, client: TestClient, auth_headers: dict):
-        """测试更新不存在原始数据的列类型"""
+        """测试更新不存在数据对象的列类型"""
         response = client.put(
             "/api/v1/raw-data/00000000-0000-0000-0000-000000099999/columns",
             headers=auth_headers,
@@ -316,7 +316,7 @@ class TestRawDataColumns:
 
 
 class TestRawDataAuth:
-    """原始数据认证测试"""
+    """数据对象认证测试"""
 
     def test_create_without_auth(self, client: TestClient):
         """测试未认证创建"""
@@ -339,12 +339,12 @@ class TestRawDataAuth:
 
 
 class TestRawDataBatchCreate:
-    """从数据库连接批量创建原始数据测试"""
+    """从数据库连接批量创建数据对象测试"""
 
     def test_batch_create_from_connection(
         self, client: TestClient, auth_headers: dict, test_connection: dict[str, Any]
     ):
-        """测试从数据库连接批量创建原始数据"""
+        """测试从数据库连接批量创建数据对象"""
         response = client.post(
             "/api/v1/raw-data/batch-from-connection",
             headers=auth_headers,

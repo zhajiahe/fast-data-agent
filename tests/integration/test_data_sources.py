@@ -218,7 +218,7 @@ class TestDataSourceMappings:
 
         data_source_id = test_data_source["id"]
 
-        # 先创建另一个原始数据
+        # 先创建另一个数据对象
         raw_data_response = client.post(
             "/api/v1/raw-data",
             headers=auth_headers,
@@ -278,7 +278,7 @@ class TestDataSourceMappings:
         """测试删除映射"""
         data_source_id = test_data_source["id"]
 
-        # 先创建另一个原始数据并添加映射
+        # 先创建另一个数据对象并添加映射
         raw_data_response = client.post(
             "/api/v1/raw-data",
             headers=auth_headers,
@@ -412,7 +412,7 @@ class TestDataSourceSuggestMappings:
         assert "suggestions" in data["data"]
 
     def test_suggest_mappings_empty_raw_data(self, client: TestClient, auth_headers: dict):
-        """测试空原始数据列表的映射建议"""
+        """测试空数据对象列表的映射建议"""
         response = client.post(
             "/api/v1/data-sources/suggest-mappings",
             headers=auth_headers,
@@ -432,7 +432,7 @@ class TestDataSourceSuggestMappings:
     def test_suggest_target_fields(
         self, client: TestClient, auth_headers: dict, test_raw_data: dict[str, Any]
     ):
-        """测试从原始数据推断目标字段"""
+        """测试从数据对象推断目标字段"""
         raw_data_id = test_raw_data["id"]
 
         response = client.post(

@@ -82,7 +82,7 @@ app.include_router(users_router, prefix="/api/v1")
 # 注册数据库连接路由
 app.include_router(database_connections_router, prefix="/api/v1")
 
-# 注册原始数据路由
+# 注册数据对象路由
 app.include_router(raw_data_router, prefix="/api/v1")
 
 # 注册数据源路由

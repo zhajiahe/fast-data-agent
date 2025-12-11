@@ -1,5 +1,5 @@
 """
-原始数据管理 API 路由
+数据对象管理 API 路由
 """
 
 import uuid
@@ -32,7 +32,7 @@ async def get_raw_data_list(
     page_query: BasePageQuery = Depends(),
     query_params: RawDataListQuery = Depends(),
 ):
-    """获取原始数据列表（分页）"""
+    """获取数据对象列表（分页）"""
     service = RawDataService(db)
     items, total = await service.get_raw_data_list(
         user_id=current_user.id,
@@ -44,7 +44,7 @@ async def get_raw_data_list(
     return BaseResponse(
         success=True,
         code=200,
-        msg="获取原始数据列表成功",
+        msg="获取数据对象列表成功",
         data=PageResponse(
             page_num=page_query.page_num,
             page_size=page_query.page_size,
@@ -56,26 +56,26 @@ async def get_raw_data_list(
 
 @router.get("/{raw_data_id}", response_model=BaseResponse[RawDataResponse])
 async def get_raw_data(raw_data_id: uuid.UUID, current_user: CurrentUser, db: DBSession):
-    """获取单个原始数据详情"""
+    """获取单个数据对象详情"""
     service = RawDataService(db)
     item = await service.get_raw_data_with_relations(raw_data_id, current_user.id)
     return BaseResponse(
         success=True,
         code=200,
-        msg="获取原始数据成功",
+        msg="获取数据对象成功",
         data=RawDataResponse.model_validate(item),
     )
 
 
 @router.post("", response_model=BaseResponse[RawDataResponse], status_code=status.HTTP_201_CREATED)
 async def create_raw_data(data: RawDataCreate, current_user: CurrentUser, db: DBSession):
-    """创建原始数据"""
+    """创建数据对象"""
     service = RawDataService(db)
     item = await service.create_raw_data(current_user.id, data)
     return BaseResponse(
         success=True,
         code=201,
-        msg="创建原始数据成功",
+        msg="创建数据对象成功",
         data=RawDataResponse.model_validate(item),
     )
 
@@ -87,9 +87,9 @@ async def create_raw_data(data: RawDataCreate, current_user: CurrentUser, db: DB
 )
 async def batch_create_raw_data(data: BatchCreateFromConnectionRequest, current_user: CurrentUser, db: DBSession):
     """
-    从数据库连接批量创建原始数据
+    从数据库连接批量创建数据对象
 
-    用户可以一次性从一个数据库连接中选择多个表创建原始数据
+    用户可以一次性从一个数据库连接中选择多个表创建数据对象
     """
     service = RawDataService(db)
     results = await service.batch_create_from_connection(
@@ -106,7 +106,7 @@ async def batch_create_raw_data(data: BatchCreateFromConnectionRequest, current_
     return BaseResponse(
         success=True,
         code=201,
-        msg=f"批量创建原始数据完成，成功 {success_count} 条，失败 {failed_count} 条",
+        msg=f"批量创建数据对象完成，成功 {success_count} 条，失败 {failed_count} 条",
         data=BatchCreateFromConnectionResponse(
             success_count=success_count,
             failed_count=failed_count,
@@ -122,23 +122,23 @@ async def update_raw_data(
     current_user: CurrentUser,
     db: DBSession,
 ):
-    """更新原始数据"""
+    """更新数据对象"""
     service = RawDataService(db)
     item = await service.update_raw_data(raw_data_id, current_user.id, data)
     return BaseResponse(
         success=True,
         code=200,
-        msg="更新原始数据成功",
+        msg="更新数据对象成功",
         data=RawDataResponse.model_validate(item),
     )
 
 
 @router.delete("/{raw_data_id}", response_model=BaseResponse[None])
 async def delete_raw_data(raw_data_id: uuid.UUID, current_user: CurrentUser, db: DBSession):
-    """删除原始数据"""
+    """删除数据对象"""
     service = RawDataService(db)
     await service.delete_raw_data(raw_data_id, current_user.id)
-    return BaseResponse(success=True, code=200, msg="删除原始数据成功", data=None)
+    return BaseResponse(success=True, code=200, msg="删除数据对象成功", data=None)
 
 
 @router.put("/{raw_data_id}/columns", response_model=BaseResponse[RawDataResponse])
@@ -148,7 +148,7 @@ async def update_raw_data_columns(
     current_user: CurrentUser,
     db: DBSession,
 ):
-    """更新原始数据列类型（用户修正）"""
+    """更新数据对象列类型（用户修正）"""
     service = RawDataService(db)
     item = await service.update_columns_schema(raw_data_id, current_user.id, data)
     return BaseResponse(
@@ -167,7 +167,7 @@ async def preview_raw_data(
     request: RawDataPreviewRequest | None = None,
 ):
     """
-    预览原始数据（抽样）
+    预览数据对象（抽样）
 
     从数据库表或文件中抽样数据，并推断列类型
     """
@@ -180,7 +180,7 @@ async def preview_raw_data(
     if request is None:
         request = RawDataPreviewRequest()
 
-    # 获取原始数据
+    # 获取数据对象
     service = RawDataService(db)
     raw_data = await service.get_raw_data_with_relations(raw_data_id, current_user.id)
 
@@ -239,7 +239,7 @@ async def preview_raw_data(
         total_rows = uploaded_file.row_count
 
     else:
-        raise BadRequestException(msg=f"不支持的原始数据类型: {raw_data.raw_type}")
+        raise BadRequestException(msg=f"不支持的数据对象类型: {raw_data.raw_type}")
 
     # 更新同步状态
     await service.update_sync_status(
@@ -267,14 +267,14 @@ async def preview_raw_data(
 @router.post("/{raw_data_id}/sync", response_model=BaseResponse[RawDataResponse])
 async def sync_raw_data(raw_data_id: uuid.UUID, current_user: CurrentUser, db: DBSession):
     """
-    同步原始数据 Schema
+    同步数据对象 Schema
 
     从数据源获取最新的列结构信息
     """
     from app.core.exceptions import BadRequestException
     from app.models.raw_data import RawDataType
 
-    # 获取原始数据
+    # 获取数据对象
     service = RawDataService(db)
     raw_data = await service.get_raw_data_with_relations(raw_data_id, current_user.id)
 
@@ -308,7 +308,7 @@ async def sync_raw_data(raw_data_id: uuid.UUID, current_user: CurrentUser, db: D
             row_count = uploaded_file.row_count
 
         else:
-            raise BadRequestException(msg=f"不支持的原始数据类型: {raw_data.raw_type}")
+            raise BadRequestException(msg=f"不支持的数据对象类型: {raw_data.raw_type}")
 
         # 更新成功状态
         item = await service.update_sync_status(

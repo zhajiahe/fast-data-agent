@@ -71,7 +71,7 @@ const formatDate = (dateStr: string | null | undefined): string => {
 /**
  * 数据源管理页面
  *
- * 整合数据库连接、文件上传、原始数据、数据源管理
+ * 整合数据库连接、文件上传、数据对象、数据源管理
  */
 export const DataSources = () => {
   const { t } = useTranslation();
@@ -131,7 +131,7 @@ export const DataSources = () => {
       bgColor: 'bg-emerald-500/10',
     },
     {
-      label: '原始数据',
+      label: '数据对象',
       value: rawDataList.length,
       icon: HardDrive,
       color: 'text-cyan-600 dark:text-cyan-400',
@@ -251,7 +251,7 @@ export const DataSources = () => {
           </TabsTrigger>
           <TabsTrigger value="raw-data" className="gap-2">
             <HardDrive className="h-4 w-4" />
-            原始数据
+            数据对象
           </TabsTrigger>
         </TabsList>
 
@@ -274,7 +274,7 @@ export const DataSources = () => {
                 <EmptyState
                   icon={Layers}
                   title={t('dataSources.empty')}
-                  description="先添加原始数据（连接数据库或上传文件），然后创建数据源"
+                  description="先添加数据对象（连接数据库或上传文件），然后创建数据源"
                   action={
                     <div className="flex flex-col gap-2">
                       {rawDataList.length > 0 ? (
@@ -359,7 +359,7 @@ export const DataSources = () => {
                   <Database className="h-5 w-5" />
                   数据库连接
                 </CardTitle>
-                <CardDescription>管理外部数据库连接，连接后自动发现表并创建原始数据</CardDescription>
+                <CardDescription>管理外部数据库连接，连接后自动发现表并创建数据对象</CardDescription>
               </div>
               <Button onClick={() => setShowAddDbDialog(true)}>
                 <Plus className="h-4 w-4 mr-2" />
@@ -505,15 +505,15 @@ export const DataSources = () => {
           </Card>
         </TabsContent>
 
-        {/* 原始数据 Tab */}
+        {/* 数据对象 Tab */}
         <TabsContent value="raw-data">
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <HardDrive className="h-5 w-5" />
-                原始数据
+                数据对象
               </CardTitle>
-              <CardDescription>系统自动从数据库连接和上传文件创建的原始数据，可用于构建数据源</CardDescription>
+              <CardDescription>系统自动从数据库连接和上传文件创建的数据对象，可用于构建数据源</CardDescription>
             </CardHeader>
             <CardContent>
               {rawLoading ? (
@@ -523,8 +523,8 @@ export const DataSources = () => {
               ) : rawDataList.length === 0 ? (
                 <EmptyState
                   icon={HardDrive}
-                  title="暂无原始数据"
-                  description="添加数据库连接或上传文件后，系统会自动创建原始数据"
+                  title="暂无数据对象"
+                  description="添加数据库连接或上传文件后，系统会自动创建数据对象"
                 />
               ) : (
                 <div className="divide-y">

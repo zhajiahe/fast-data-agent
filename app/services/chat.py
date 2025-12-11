@@ -237,7 +237,7 @@ class ChatService:
             return None
 
         ds = data_source
-        # 构建原始数据上下文列表
+        # 构建数据对象上下文列表
         raw_data_list: list[RawDataContext] = []
         if ds.raw_mappings:
             for mapping in ds.raw_mappings:
