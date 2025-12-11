@@ -42,7 +42,7 @@ export const CreateSessionDialog = ({ open, onOpenChange }: CreateSessionDialogP
   // 表单状态
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
-  const [selectedDataSourceId, setSelectedDataSourceId] = useState<number | null>(null);
+  const [selectedDataSourceId, setSelectedDataSourceId] = useState<string | null>(null);
   const [nameError, setNameError] = useState('');
 
   const validateForm = (): boolean => {
@@ -102,7 +102,7 @@ export const CreateSessionDialog = ({ open, onOpenChange }: CreateSessionDialogP
     onOpenChange(false);
   };
 
-  const toggleDataSource = (id: number) => {
+  const toggleDataSource = (id: string) => {
     if (selectedDataSourceId === id) {
       setSelectedDataSourceId(null);
     } else {

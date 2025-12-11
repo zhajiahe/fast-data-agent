@@ -43,7 +43,7 @@ interface FieldMappingItem {
 
 // 每个 RawData 的映射配置
 interface RawDataMappingConfig {
-  rawDataId: number;
+  rawDataId: string;
   rawDataName: string;
   fields: FieldMappingItem[];
 }
@@ -79,9 +79,9 @@ export const CreateDataSourceDialog = ({ open, onOpenChange }: CreateDataSourceD
   const rawDataList = rawDataRes?.data.data?.items || [];
 
   // 本地状态
-  const [selectedRawDataIds, setSelectedRawDataIds] = useState<number[]>([]);
-  const [mappingConfigs, setMappingConfigs] = useState<Map<number, RawDataMappingConfig>>(new Map());
-  const [expandedRawData, setExpandedRawData] = useState<Set<number>>(new Set());
+  const [selectedRawDataIds, setSelectedRawDataIds] = useState<string[]>([]);
+  const [mappingConfigs, setMappingConfigs] = useState<Map<string, RawDataMappingConfig>>(new Map());
+  const [expandedRawData, setExpandedRawData] = useState<Set<string>>(new Set());
 
   const createDataSourceMutation = useCreateDataSource();
 
@@ -106,7 +106,7 @@ export const CreateDataSourceDialog = ({ open, onOpenChange }: CreateDataSourceD
 
   // 当选择 RawData 变化时，初始化映射配置（默认不映射）
   useEffect(() => {
-    const newConfigs = new Map<number, RawDataMappingConfig>();
+    const newConfigs = new Map<string, RawDataMappingConfig>();
 
     for (const rd of selectedRawData) {
       // 如果已有配置则保留，否则新建
@@ -133,7 +133,7 @@ export const CreateDataSourceDialog = ({ open, onOpenChange }: CreateDataSourceD
   }, [selectedRawDataIds, selectedRawData]);
 
   // 切换选择 RawData
-  const toggleRawData = (id: number) => {
+  const toggleRawData = (id: string) => {
     setSelectedRawDataIds((prev) => {
       if (prev.includes(id)) {
         return prev.filter((i) => i !== id);
@@ -143,7 +143,7 @@ export const CreateDataSourceDialog = ({ open, onOpenChange }: CreateDataSourceD
   };
 
   // 切换 RawData 展开状态
-  const toggleExpanded = (id: number) => {
+  const toggleExpanded = (id: string) => {
     setExpandedRawData((prev) => {
       const next = new Set(prev);
       if (next.has(id)) {
@@ -156,7 +156,7 @@ export const CreateDataSourceDialog = ({ open, onOpenChange }: CreateDataSourceD
   };
 
   // 更新字段映射
-  const updateFieldMapping = (rawDataId: number, sourceField: string, targetField: string) => {
+  const updateFieldMapping = (rawDataId: string, sourceField: string, targetField: string) => {
     setMappingConfigs((prev) => {
       const next = new Map(prev);
       const config = next.get(rawDataId);
@@ -169,7 +169,7 @@ export const CreateDataSourceDialog = ({ open, onOpenChange }: CreateDataSourceD
   };
 
   // 快速映射：将原始字段名设为目标字段名
-  const quickMapAll = (rawDataId: number) => {
+  const quickMapAll = (rawDataId: string) => {
     setMappingConfigs((prev) => {
       const next = new Map(prev);
       const config = next.get(rawDataId);
@@ -185,7 +185,7 @@ export const CreateDataSourceDialog = ({ open, onOpenChange }: CreateDataSourceD
   };
 
   // 排除所有字段
-  const excludeAllFields = (rawDataId: number) => {
+  const excludeAllFields = (rawDataId: string) => {
     setMappingConfigs((prev) => {
       const next = new Map(prev);
       const config = next.get(rawDataId);
@@ -198,7 +198,7 @@ export const CreateDataSourceDialog = ({ open, onOpenChange }: CreateDataSourceD
   };
 
   // 重置为默认（留空使用原名）
-  const resetMappings = (rawDataId: number) => {
+  const resetMappings = (rawDataId: string) => {
     setMappingConfigs((prev) => {
       const next = new Map(prev);
       const config = next.get(rawDataId);
@@ -211,7 +211,7 @@ export const CreateDataSourceDialog = ({ open, onOpenChange }: CreateDataSourceD
   };
 
   // 计算已映射的字段数（排除 '-' 的字段）
-  const getMappedCount = (rawDataId: number): number => {
+  const getMappedCount = (rawDataId: string): number => {
     const config = mappingConfigs.get(rawDataId);
     if (!config) return 0;
     // 留空也算映射（使用原名），只有 '-' 才算排除

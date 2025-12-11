@@ -81,12 +81,12 @@ export const DataSources = () => {
   const [showCreateDataSourceDialog, setShowCreateDataSourceDialog] = useState(false);
   const [showAddDbDialog, setShowAddDbDialog] = useState(false);
   const [showUploadDialog, setShowUploadDialog] = useState(false);
-  const [previewDataSourceId, setPreviewDataSourceId] = useState<number | null>(null);
+  const [previewDataSourceId, setPreviewDataSourceId] = useState<string | null>(null);
 
   // 删除确认状态
   const [deleteTarget, setDeleteTarget] = useState<{
     type: 'dataSource' | 'connection' | 'file';
-    id: number;
+    id: string;
     name: string;
   } | null>(null);
 
@@ -170,7 +170,7 @@ export const DataSources = () => {
   };
 
   // 刷新数据源 Schema
-  const handleSyncSchema = async (id: number) => {
+  const handleSyncSchema = async (id: string) => {
     try {
       await syncSchemaMutation.mutateAsync(id);
       toast({ title: t('common.success'), description: 'Schema 已刷新' });

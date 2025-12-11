@@ -8,7 +8,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 interface DataSourcePreviewDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  dataSourceId: number | null;
+  dataSourceId: string | null;
 }
 
 /**

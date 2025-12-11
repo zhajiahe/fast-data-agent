@@ -8,7 +8,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 interface DataPreviewDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  fileId: number | null;
+  fileId: string | null;
   dataSourceName: string;
 }
 
@@ -18,7 +18,7 @@ interface DataPreviewDialogProps {
 export const DataPreviewDialog = ({ open, onOpenChange, fileId, dataSourceName }: DataPreviewDialogProps) => {
   const { t } = useTranslation();
 
-  const { data: response, isLoading, error } = useFilePreview(fileId || 0, { rows: 100 });
+  const { data: response, isLoading, error } = useFilePreview(fileId || '', { rows: 100 });
 
   const preview = response?.data.data;
 

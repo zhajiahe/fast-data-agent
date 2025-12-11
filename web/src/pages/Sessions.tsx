@@ -48,12 +48,12 @@ const formatRelativeTime = (dateStr: string | null | undefined): string => {
 interface SessionGroup {
   label: string;
   sessions: Array<{
-    id: number;
+    id: string;
     name: string;
     description?: string | null;
     status?: string | null;
     message_count?: number | null;
-    data_source_id?: number | null;
+    data_source_id?: string | null;
     create_time?: string | null;
     update_time?: string | null;
   }>;
@@ -61,12 +61,12 @@ interface SessionGroup {
 
 const groupSessionsByDate = (
   sessions: Array<{
-    id: number;
+    id: string;
     name: string;
     description?: string | null;
     status?: string | null;
     message_count?: number | null;
-    data_source_id?: number | null;
+    data_source_id?: string | null;
     create_time?: string | null;
     update_time?: string | null;
   }>,
@@ -110,7 +110,7 @@ export const Sessions = () => {
 
   const [searchQuery, setSearchQuery] = useState('');
   const [showCreateDialog, setShowCreateDialog] = useState(false);
-  const [deleteTarget, setDeleteTarget] = useState<{ id: number; name: string } | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);
 
   // API Hooks
   const { data: sessionsRes, isLoading } = useSessions({ page_size: 100 });
@@ -147,7 +147,7 @@ export const Sessions = () => {
   };
 
   // 归档会话
-  const handleArchive = async (id: number) => {
+  const handleArchive = async (id: string) => {
     try {
       await archiveSessionMutation.mutateAsync(id);
       toast({ title: t('common.success'), description: '会话已归档' });

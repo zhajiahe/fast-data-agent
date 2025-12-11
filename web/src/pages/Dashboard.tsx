@@ -157,7 +157,7 @@ export const Dashboard = () => {
                   </div>
                   <div className="flex items-center gap-2">
                     <span className="text-xs text-muted-foreground">
-                      {session.data_source_ids?.length || 0} {t('dashboard.dataSources')}
+                      {(session.data_source_id ? 1 : 0)} {t('dashboard.dataSources')}
                     </span>
                     <ArrowRight className="h-4 w-4 text-muted-foreground" />
                   </div>
