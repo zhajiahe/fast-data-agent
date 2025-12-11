@@ -51,7 +51,7 @@ def get_sandbox_client() -> httpx.AsyncClient:
 class RawDataContext(BaseModel):
     """原始数据上下文信息"""
 
-    id: int
+    id: str  # UUID 字符串
     name: str
     raw_type: str  # "database_table" 或 "file"
 
@@ -61,7 +61,7 @@ class RawDataContext(BaseModel):
     bucket_name: str | None = None
 
     # 数据库表类型
-    connection_id: int | None = None
+    connection_id: str | None = None  # UUID 字符串
     db_type: str | None = None
     host: str | None = None
     port: int | None = None
@@ -75,7 +75,7 @@ class RawDataContext(BaseModel):
 class DataSourceContext(BaseModel):
     """数据源上下文信息"""
 
-    id: int
+    id: str  # UUID 字符串
     name: str
     description: str | None = None
     category: str | None = None
@@ -90,8 +90,8 @@ class DataSourceContext(BaseModel):
 class ChatContext(BaseModel):
     """聊天上下文 - 包含运行时配置和数据源信息"""
 
-    user_id: int
-    thread_id: int
+    user_id: str  # UUID 字符串
+    thread_id: str  # UUID 字符串
     data_source: DataSourceContext | None = None
 
 

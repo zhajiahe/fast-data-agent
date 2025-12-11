@@ -198,7 +198,7 @@ class CodeExecutionResult(BaseModel):
 class RawDataConfig(BaseModel):
     """原始数据配置"""
 
-    id: int
+    id: str  # UUID 字符串
     name: str  # 用于创建 VIEW 的名称
     raw_type: str  # "database_table" 或 "file"
 
@@ -222,7 +222,7 @@ class RawDataConfig(BaseModel):
 class FieldMapping(BaseModel):
     """单个 RawData 的字段映射配置"""
 
-    raw_data_id: int
+    raw_data_id: str  # UUID 字符串
     raw_data_name: str
     # 字段映射：{target_field: source_field}
     mappings: dict[str, str]
@@ -231,7 +231,7 @@ class FieldMapping(BaseModel):
 class DataSourceConfig(BaseModel):
     """数据源配置"""
 
-    id: int
+    id: str  # UUID 字符串
     name: str
     raw_data_list: list[RawDataConfig]
     # 目标字段列表（统一后的逻辑字段）
@@ -249,7 +249,7 @@ class InitSessionRequest(BaseModel):
 # ==================== 辅助函数 ====================
 
 
-def get_session_dir(user_id: int, thread_id: int) -> Path:
+def get_session_dir(user_id: str, thread_id: str) -> Path:
     """
     获取会话工作目录。
 
@@ -259,7 +259,7 @@ def get_session_dir(user_id: int, thread_id: int) -> Path:
     return session_dir
 
 
-def ensure_session_dir(user_id: int, thread_id: int) -> Path:
+def ensure_session_dir(user_id: str, thread_id: str) -> Path:
     """
     确保会话目录存在，如果不存在则创建。
 
@@ -385,8 +385,8 @@ async def health_check():
 
 @app.get("/list_views", summary="List available VIEWs in session DuckDB")
 async def list_views(
-    user_id: int = Query(..., description="User ID"),
-    thread_id: int = Query(..., description="Thread/Session ID"),
+    user_id: str = Query(..., description="User ID"),
+    thread_id: str = Query(..., description="Thread/Session ID"),
 ):
     """
     列出会话 DuckDB 中所有可用的 VIEW。
@@ -463,8 +463,8 @@ async def list_views(
 @app.post("/init_session", summary="Initialize session DuckDB with data source")
 async def init_session(
     request: InitSessionRequest,
-    user_id: int = Query(..., description="User ID"),
-    thread_id: int = Query(..., description="Thread/Session ID"),
+    user_id: str = Query(..., description="User ID (UUID string)"),
+    thread_id: str = Query(..., description="Thread/Session ID (UUID string)"),
 ):
     """
     初始化会话的 DuckDB 文件。
@@ -505,7 +505,7 @@ async def init_session(
         ds = request.data_source
 
         # 构建 RawData ID 到 name 的映射
-        raw_id_to_name: dict[int, str] = {}
+        raw_id_to_name: dict[str, str] = {}
 
         # Step 1: 为每个 RawData 创建原始 VIEW
         for raw_data in ds.raw_data_list:
@@ -647,8 +647,8 @@ async def init_session(
 
 @app.post("/reset/session", summary="Reset session files")
 async def reset_session(
-    user_id: int = Query(..., description="User ID"),
-    thread_id: int = Query(..., description="Thread/Session ID"),
+    user_id: str = Query(..., description="User ID"),
+    thread_id: str = Query(..., description="Thread/Session ID"),
 ):
     """
     重置指定会话的文件。
@@ -688,7 +688,7 @@ async def reset_session(
 
 @app.post("/reset/user", summary="Reset all user sessions")
 async def reset_user(
-    user_id: int = Query(..., description="User ID"),
+    user_id: str = Query(..., description="User ID"),
 ):
     """
     重置指定用户的所有会话文件。
@@ -781,8 +781,8 @@ async def reset_all():
 
 @app.get("/files", summary="List files in session directory")
 async def list_files(
-    user_id: int = Query(..., description="User ID"),
-    thread_id: int = Query(..., description="Thread/Session ID"),
+    user_id: str = Query(..., description="User ID"),
+    thread_id: str = Query(..., description="Thread/Session ID"),
 ):
     """
     列出会话目录中的所有文件。
@@ -801,8 +801,8 @@ async def list_files(
 @app.post("/upload", summary="Upload a file to the session directory")
 async def upload_file(
     file: UploadFile = File(...),
-    user_id: int = Query(..., description="User ID"),
-    thread_id: int = Query(..., description="Thread/Session ID"),
+    user_id: str = Query(..., description="User ID"),
+    thread_id: str = Query(..., description="Thread/Session ID"),
 ):
     """
     上传文件到会话目录。
@@ -839,8 +839,8 @@ async def upload_file(
 @app.get("/download/{file_path:path}", summary="Download a file from the session directory")
 async def download_file(
     file_path: str,
-    user_id: int = Query(..., description="User ID"),
-    thread_id: int = Query(..., description="Thread/Session ID"),
+    user_id: str = Query(..., description="User ID"),
+    thread_id: str = Query(..., description="Thread/Session ID"),
 ):
     """
     从会话目录下载文件。
@@ -869,8 +869,8 @@ async def download_file(
 @app.post("/execute", summary="Execute a shell command", response_model=ExecuteResponse)
 async def execute_command(
     request: ExecuteRequest,
-    user_id: int = Query(..., description="User ID"),
-    thread_id: int = Query(..., description="Thread/Session ID"),
+    user_id: str = Query(..., description="User ID"),
+    thread_id: str = Query(..., description="Thread/Session ID"),
 ):
     """
     在会话目录中执行 Shell 命令。
@@ -901,8 +901,8 @@ async def execute_command(
 @app.post("/execute_python", summary="Execute Python code")
 async def execute_python(
     request: CodeRequest,
-    user_id: int = Query(..., description="User ID"),
-    thread_id: int = Query(..., description="Thread/Session ID"),
+    user_id: str = Query(..., description="User ID"),
+    thread_id: str = Query(..., description="Thread/Session ID"),
 ):
     """
     在沙盒中执行 Python 代码。
@@ -961,8 +961,8 @@ async def execute_python(
 @app.post("/execute_sql", summary="Execute SQL query using DuckDB")
 async def execute_sql(
     request: SqlRequest,
-    user_id: int = Query(..., description="User ID"),
-    thread_id: int = Query(..., description="Thread/Session ID"),
+    user_id: str = Query(..., description="User ID"),
+    thread_id: str = Query(..., description="Thread/Session ID"),
 ):
     """
     使用会话的 DuckDB 文件执行 SQL 查询。
@@ -1139,8 +1139,8 @@ def setup_duckdb_extensions_dir(conn) -> None:
 @app.post("/quick_analysis", summary="Quick data analysis")
 async def quick_analysis(
     request: QuickAnalysisRequest,
-    user_id: int = Query(..., description="User ID"),
-    thread_id: int = Query(..., description="Thread/Session ID"),
+    user_id: str = Query(..., description="User ID"),
+    thread_id: str = Query(..., description="Thread/Session ID"),
 ):
     """
     快速分析数据，支持两种模式：
@@ -1184,14 +1184,13 @@ async def quick_analysis(
                     conn.execute(f"CREATE OR REPLACE TEMP VIEW data_preview AS SELECT * FROM read_csv_auto('{request.file_name}', header=True)")
                 elif file_ext == ".json":
                     conn.execute(f"CREATE OR REPLACE TEMP VIEW data_preview AS SELECT * FROM read_json_auto('{request.file_name}')")
-            else:
+                else:
                     return {"success": False, "error": f"Unsupported file type: {file_ext}"}
 
                 analysis = analyze_data_with_duckdb(conn, "data_preview")
                 analysis["file_name"] = request.file_name
 
-            return {"success": True, "analysis": analysis}
-
+                return {"success": True, "analysis": analysis}
             finally:
                 os.chdir(original_cwd)
 
@@ -1248,12 +1247,12 @@ async def quick_analysis(
                 analysis = analyze_data_with_duckdb(conn, f'"{view_name}"')
                 analysis["view_name"] = view_name
                 views_analysis.append(analysis)
-                except Exception as e:
+            except Exception as e:
                 logger.warning(f"Failed to analyze view {view_name}: {e}")
                 views_analysis.append({
                     "view_name": view_name,
-                        "error": str(e),
-                    })
+                    "error": str(e),
+                })
 
         # 如果只有一个 VIEW，简化返回结构
         if len(views_analysis) == 1:
@@ -1279,8 +1278,8 @@ async def quick_analysis(
 @app.post("/generate_chart", summary="Generate Plotly chart")
 async def generate_chart(
     request: ChartRequest,
-    user_id: int = Query(..., description="User ID"),
-    thread_id: int = Query(..., description="Thread/Session ID"),
+    user_id: str = Query(..., description="User ID"),
+    thread_id: str = Query(..., description="Thread/Session ID"),
 ):
     """
     执行 Python 代码生成 Plotly 图表。

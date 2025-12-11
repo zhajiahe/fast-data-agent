@@ -1,10 +1,9 @@
-// @ts-nocheck
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Database } from 'lucide-react';
 import { useForm } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
 import { z } from 'zod';
-import { DatabaseType, type DataSourceCreate, useCreateDataSource } from '@/api';
+import { DatabaseType, useCreateDbConnection } from '@/api';
 import { LoadingSpinner } from '@/components/common';
 import { Button } from '@/components/ui/button';
 import {
@@ -37,10 +36,7 @@ const formSchema = z.object({
   description: z.string().max(200, '描述最多 200 个字符').optional(),
   db_type: z.enum(['postgresql', 'mysql']),
   host: z.string().min(1, '请输入主机地址'),
-  port: z
-    .string()
-    .transform((val) => Number(val))
-    .pipe(z.number().min(0).max(65535)),
+  port: z.number().min(0).max(65535),
   database: z.string().min(1, '请输入数据库名'),
   username: z.string().min(1, '请输入用户名'),
   password: z.string().min(1, '请输入密码'),
@@ -50,6 +46,8 @@ type FormData = z.infer<typeof formSchema>;
 
 /**
  * 添加数据库连接对话框
+ *
+ * 创建数据库连接后，系统会自动发现表并创建 RawData
  */
 export const AddDatabaseDialog = ({ open, onOpenChange }: AddDatabaseDialogProps) => {
   const { t } = useTranslation();
@@ -62,47 +60,55 @@ export const AddDatabaseDialog = ({ open, onOpenChange }: AddDatabaseDialogProps
     setValue,
     reset,
     formState: { errors, isSubmitting },
-  } = useForm({
+  } = useForm<FormData>({
     resolver: zodResolver(formSchema),
     defaultValues: {
       db_type: 'postgresql' as const,
-      port: '5432',
+      port: 5432,
     },
   });
 
   const dbType = watch('db_type');
 
-  // 使用生成的 API hooks
-  const createDataSourceMutation = useCreateDataSource();
+  // 使用创建数据库连接的 hook
+  const createConnectionMutation = useCreateDbConnection();
 
   const handleDatabaseTypeChange = (value: 'postgresql' | 'mysql') => {
     setValue('db_type', value);
     const dbTypeConfig = databaseTypes.find((t) => t.value === value);
     if (dbTypeConfig) {
-      setValue('port', String(dbTypeConfig.defaultPort));
+      setValue('port', dbTypeConfig.defaultPort);
     }
   };
 
   const onSubmit = async (data: FormData) => {
-    createDataSourceMutation.mutate(
+    createConnectionMutation.mutate(
       {
-        name: data.name,
-        description: data.description,
-        // 兼容后端：通过 db_config 创建数据库型数据源
-        db_config: {
-          db_type: data.db_type as (typeof DatabaseType)[keyof typeof DatabaseType],
-          host: data.host,
-          port: data.port,
-          database: data.database,
-          username: data.username,
-          password: data.password,
-        } as any,
-      } as unknown as DataSourceCreate,
+        data: {
+          name: data.name,
+          description: data.description,
+          config: {
+            db_type: data.db_type as (typeof DatabaseType)[keyof typeof DatabaseType],
+            host: data.host,
+            port: data.port,
+            database: data.database,
+            username: data.username,
+            password: data.password,
+          },
+        },
+        params: {
+          auto_create_raw_data: true,
+          auto_sync_raw_data: true,
+          max_auto_tables: 20,
+        },
+      },
       {
-        onSuccess: () => {
+        onSuccess: (response) => {
+          const result = response.data.data;
+          const autoCount = result?.auto_raw_results?.length || 0;
           toast({
             title: t('common.success'),
-            description: t('dataSources.createSuccess'),
+            description: autoCount > 0 ? `连接创建成功，已自动发现 ${autoCount} 张表` : '数据库连接创建成功',
           });
           reset();
           onOpenChange(false);
@@ -176,7 +182,7 @@ export const AddDatabaseDialog = ({ open, onOpenChange }: AddDatabaseDialogProps
             </div>
             <div className="space-y-2">
               <Label htmlFor="port">{t('dataSources.port')}</Label>
-              <Input id="port" type="number" {...register('port')} />
+              <Input id="port" type="number" {...register('port', { valueAsNumber: true })} />
             </div>
           </div>
 
@@ -200,8 +206,11 @@ export const AddDatabaseDialog = ({ open, onOpenChange }: AddDatabaseDialogProps
           </div>
 
           <DialogFooter className="gap-2 sm:gap-0">
-            <Button type="submit" disabled={isSubmitting || createDataSourceMutation.isPending}>
-              {(isSubmitting || createDataSourceMutation.isPending) && (
+            <Button type="button" variant="outline" onClick={() => handleOpenChange(false)}>
+              {t('common.cancel')}
+            </Button>
+            <Button type="submit" disabled={isSubmitting || createConnectionMutation.isPending}>
+              {(isSubmitting || createConnectionMutation.isPending) && (
                 <LoadingSpinner size="sm" className="mr-2 text-current" />
               )}
               {t('common.save')}

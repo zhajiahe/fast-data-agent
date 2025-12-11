@@ -14,6 +14,7 @@ import type {
   BaseResponseAnalysisSessionDetail,
   BaseResponseAnalysisSessionResponse,
   BaseResponseDatabaseConnectionTablesResponse,
+  BaseResponseDatabaseConnectionWithRawResponse,
   BaseResponseDatabaseTableSchemaResponse,
   BaseResponseDataSourcePreviewResponse,
   BaseResponseDataSourceResponse,
@@ -35,6 +36,8 @@ import type {
   BaseResponseUploadedFileResponse,
   BaseResponseUserResponse,
   BodyUploadFileApiV1FilesUploadPost,
+  CreateConnectionApiV1DatabaseConnectionsPostParams,
+  DatabaseConnectionCreate,
   DataSourceCreate,
   GenerateRecommendationsApiV1SessionsSessionIdRecommendationsPostBody,
   GetConnectionsApiV1DatabaseConnectionsGetParams,
@@ -55,6 +58,7 @@ import type {
 import {
   archiveSessionApiV1SessionsSessionIdArchivePost,
   clearMessagesApiV1SessionsSessionIdMessagesDelete,
+  createConnectionApiV1DatabaseConnectionsPost,
   createDataSourceApiV1DataSourcesPost,
   // RawData
   createRawDataApiV1RawDataPost,
@@ -234,6 +238,22 @@ export const useDbConnections = (params?: GetConnectionsApiV1DatabaseConnections
   return useQuery<AxiosResponse<BaseResponsePageResponseDatabaseConnectionResponse>, Error>({
     queryKey: ['db-connections', params],
     queryFn: () => getConnectionsApiV1DatabaseConnectionsGet(params),
+  });
+};
+
+export const useCreateDbConnection = () => {
+  const queryClient = useQueryClient();
+  return useMutation<
+    AxiosResponse<BaseResponseDatabaseConnectionWithRawResponse>,
+    Error,
+    { data: DatabaseConnectionCreate; params?: CreateConnectionApiV1DatabaseConnectionsPostParams }
+  >({
+    mutationFn: ({ data, params }) => createConnectionApiV1DatabaseConnectionsPost(data, params),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['db-connections'] });
+      queryClient.invalidateQueries({ queryKey: ['rawData'] });
+      queryClient.invalidateQueries({ queryKey: ['dataSources'] });
+    },
   });
 };
 

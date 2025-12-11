@@ -26,7 +26,9 @@ import type { LocalMessage } from '@/types';
  */
 export const Chat = () => {
   const { id } = useParams<{ id: string }>();
-  const sessionId = Number(id);
+  // sessionId 可以是 UUID 字符串，这里直接使用原始值
+  // 注意：API 定义为 number 但实际后端使用 UUID
+  const sessionId = id as unknown as number; // 临时类型转换
   const { t } = useTranslation();
   const { toast } = useToast();
   const navigate = useNavigate();
@@ -209,7 +211,7 @@ export const Chat = () => {
     }
   }, [sessionId, isGenerating, clearMessagesMutation, toast, t]);
 
-  if (!sessionId) {
+  if (!id) {
     return (
       <div className="flex items-center justify-center h-screen">
         <p className="text-muted-foreground">{t('chat.invalidSession')}</p>

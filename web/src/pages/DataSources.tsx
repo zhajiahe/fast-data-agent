@@ -1,535 +1,592 @@
-import { Database, Loader2, Plus, RefreshCw, Trash2, Upload } from 'lucide-react';
-import { useState } from 'react';
-
 import {
-  type DatabaseConnectionResponse,
-  type DataSourceResponse,
-  type UploadedFileResponse,
-  useDataSourcePreview,
+  Database,
+  FileSpreadsheet,
+  HardDrive,
+  Layers,
+  MoreHorizontal,
+  Plus,
+  RefreshCw,
+  Table2,
+  Trash2,
+  Upload,
+} from 'lucide-react';
+import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
+import {
   useDataSources,
   useDbConnections,
   useDeleteDataSource,
   useDeleteDbConnection,
   useDeleteFile,
   useFiles,
+  useRawDataList,
   useSyncDataSourceSchema,
 } from '@/api';
-import { EmptyState, LoadingState } from '@/components/common';
+import { EmptyState } from '@/components/common';
 import { AddDatabaseDialog } from '@/components/data-source/AddDatabaseDialog';
-import { DataSourceWizardDialog } from '@/components/data-source/DataSourceWizardDialog';
+import { CreateDataSourceDialog } from '@/components/data-source/CreateDataSourceDialog';
+import { DataSourcePreviewDialog } from '@/components/data-source/DataSourcePreviewDialog';
 import { UploadFileDialog } from '@/components/data-source/UploadFileDialog';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Input } from '@/components/ui/input';
-import { ScrollArea } from '@/components/ui/scroll-area';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { useConfirmDialog, useToast } from '@/hooks';
-import { cn } from '@/lib/utils';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { useToast } from '@/hooks/use-toast';
 
-const PAGE_SIZE = 10;
-
-const formatDate = (value?: string | null) => {
-  if (!value) return '--';
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return value;
-  return date.toLocaleString();
+// 辅助函数：格式化文件大小
+const formatFileSize = (bytes: number | null | undefined): string => {
+  if (!bytes) return '-';
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 };
 
-const TargetFields = ({ data }: { data?: DataSourceResponse['target_fields'] }) => {
-  if (!data || data.length === 0) {
-    return <p className="text-sm text-muted-foreground">未定义目标字段</p>;
-  }
-
-  return (
-    <div className="flex flex-wrap gap-2">
-      {data.map((field) => (
-        <Badge key={field.name} variant="outline" className="text-xs">
-          {field.name} · {field.data_type}
-        </Badge>
-      ))}
-    </div>
-  );
-};
-
-const RawMappings = ({ data }: { data?: DataSourceResponse['raw_mappings'] }) => {
-  if (!data || data.length === 0) {
-    return <p className="text-sm text-muted-foreground">暂未关联原始数据</p>;
-  }
-
-  return (
-    <div className="space-y-1">
-      {data.map((mapping) => (
-        <div key={mapping.id} className="flex items-center justify-between rounded-md border px-3 py-2 text-sm">
-          <div className="flex flex-col">
-            <span className="font-medium">{mapping.raw_data_name ?? `Raw #${mapping.raw_data_id}`}</span>
-            <span className="text-muted-foreground text-xs">
-              字段映射 {Object.keys(mapping.field_mappings || {}).length} 个
-            </span>
-          </div>
-          {mapping.is_enabled === false ? (
-            <Badge variant="outline">已禁用</Badge>
-          ) : (
-            <Badge variant="secondary">已启用</Badge>
-          )}
-        </div>
-      ))}
-    </div>
-  );
-};
-
-const DataSourcePreviewDialog = ({
-  open,
-  onOpenChange,
-  dataSourceId,
-}: {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  dataSourceId: number | null;
-}) => {
-  const { data, isLoading } = useDataSourcePreview(dataSourceId ?? undefined, { limit: 30 });
-
-  const columns = data?.data.data?.columns ?? [];
-  const rows = data?.data.data?.rows ?? [];
-  const sourceStats = data?.data.data?.source_stats ?? {};
-
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-5xl">
-        <DialogHeader>
-          <DialogTitle>数据源预览</DialogTitle>
-        </DialogHeader>
-        {isLoading ? (
-          <div className="py-12">
-            <LoadingState />
-          </div>
-        ) : rows.length === 0 ? (
-          <EmptyState title="暂无数据" description="该数据源暂时没有可预览的数据" icon={Database} />
-        ) : (
-          <div className="space-y-3">
-            <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
-              {Object.entries(sourceStats).map(([name, count]) => (
-                <Badge key={name} variant="outline">
-                  {name}: {count} 行
-                </Badge>
-              ))}
-            </div>
-            <div className="rounded-md border">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    {columns.map((col) => (
-                      <TableHead key={col.name}>{col.name}</TableHead>
-                    ))}
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {rows.map((row) => {
-                    const compositeKey =
-                      columns.map((col) => String(row?.[col.name] ?? '')).join('|') || JSON.stringify(row);
-                    return (
-                      <TableRow key={compositeKey}>
-                        {columns.map((col) => (
-                          <TableCell key={col.name} className="max-w-[220px] truncate">
-                            {String(row[col.name] ?? '')}
-                          </TableCell>
-                        ))}
-                      </TableRow>
-                    );
-                  })}
-                </TableBody>
-              </Table>
-            </div>
-          </div>
-        )}
-      </DialogContent>
-    </Dialog>
-  );
-};
-
-export const DataSources = () => {
-  const { toast } = useToast();
-  const { confirm, ConfirmDialog } = useConfirmDialog();
-
-  const [keyword, setKeyword] = useState('');
-  const [pageNum, setPageNum] = useState(1);
-  const [previewId, setPreviewId] = useState<number | null>(null);
-  const [showAddDatabase, setShowAddDatabase] = useState(false);
-  const [showUploadFile, setShowUploadFile] = useState(false);
-  const [showWizard, setShowWizard] = useState(false);
-  const [deletingFileId, setDeletingFileId] = useState<number | null>(null);
-  const [deletingConnId, setDeletingConnId] = useState<number | null>(null);
-
-  const { data, isLoading, isFetching, refetch } = useDataSources({
-    page_num: pageNum,
-    page_size: PAGE_SIZE,
-    keyword: keyword.trim() || undefined,
+// 辅助函数：格式化日期
+const formatDate = (dateStr: string | null | undefined): string => {
+  if (!dateStr) return '-';
+  return new Date(dateStr).toLocaleDateString('zh-CN', {
+    month: 'short',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
   });
-  const { data: filesResp, isLoading: loadingFiles } = useFiles();
-  const { data: connsResp, isLoading: loadingConns } = useDbConnections();
+};
 
-  const total = data?.data.data?.total ?? 0;
-  const items = (data?.data.data?.items ?? []) as DataSourceResponse[];
-  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
-  const files = (filesResp?.data.data?.items ?? []) as UploadedFileResponse[];
-  const connections = (connsResp?.data.data?.items ?? []) as DatabaseConnectionResponse[];
+/**
+ * 数据源管理页面
+ *
+ * 整合数据库连接、文件上传、原始数据、数据源管理
+ */
+export const DataSources = () => {
+  const { t } = useTranslation();
+  const { toast } = useToast();
 
-  const deleteMutation = useDeleteDataSource();
+  // 对话框状态
+  const [showCreateDataSourceDialog, setShowCreateDataSourceDialog] = useState(false);
+  const [showAddDbDialog, setShowAddDbDialog] = useState(false);
+  const [showUploadDialog, setShowUploadDialog] = useState(false);
+  const [previewDataSourceId, setPreviewDataSourceId] = useState<number | null>(null);
+
+  // 删除确认状态
+  const [deleteTarget, setDeleteTarget] = useState<{
+    type: 'dataSource' | 'connection' | 'file';
+    id: number;
+    name: string;
+  } | null>(null);
+
+  // API Hooks
+  const { data: dataSourcesRes, isLoading: dsLoading, refetch: refetchDs } = useDataSources({ page_size: 100 });
+  const { data: connectionsRes, isLoading: connLoading, refetch: refetchConn } = useDbConnections({ page_size: 100 });
+  const { data: filesRes, isLoading: filesLoading, refetch: refetchFiles } = useFiles();
+  const { data: rawDataRes, isLoading: rawLoading, refetch: refetchRaw } = useRawDataList({ page_size: 100 });
+
+  const deleteDataSourceMutation = useDeleteDataSource();
+  const deleteConnectionMutation = useDeleteDbConnection();
   const deleteFileMutation = useDeleteFile();
-  const deleteConnMutation = useDeleteDbConnection();
-  const syncMutation = useSyncDataSourceSchema();
+  const syncSchemaMutation = useSyncDataSourceSchema();
 
-  const handleDelete = async (id: number, name: string) => {
-    const ok = await confirm({
-      title: '确认删除数据源',
-      description: `删除后将无法恢复：${name}`,
-      confirmText: '删除',
-      cancelText: '取消',
-      variant: 'destructive',
-    });
+  // 数据提取
+  const dataSources = dataSourcesRes?.data.data?.items || [];
+  const connections = connectionsRes?.data.data?.items || [];
+  const files = filesRes?.data.data?.items || [];
+  const rawDataList = rawDataRes?.data.data?.items || [];
 
-    if (!ok) return;
+  // 统计数据
+  const stats = [
+    {
+      label: '数据源',
+      value: dataSources.length,
+      icon: Layers,
+      color: 'text-teal-600 dark:text-teal-400',
+      bgColor: 'bg-teal-500/10',
+    },
+    {
+      label: '数据库连接',
+      value: connections.length,
+      icon: Database,
+      color: 'text-slate-600 dark:text-slate-400',
+      bgColor: 'bg-slate-500/10',
+    },
+    {
+      label: '已上传文件',
+      value: files.length,
+      icon: FileSpreadsheet,
+      color: 'text-emerald-600 dark:text-emerald-400',
+      bgColor: 'bg-emerald-500/10',
+    },
+    {
+      label: '原始数据',
+      value: rawDataList.length,
+      icon: HardDrive,
+      color: 'text-cyan-600 dark:text-cyan-400',
+      bgColor: 'bg-cyan-500/10',
+    },
+  ];
 
-    deleteMutation.mutate(id, {
-      onSuccess: () => {
-        toast({ title: '删除成功', description: '数据源已删除' });
-      },
-    });
+  // 刷新所有数据
+  const handleRefreshAll = () => {
+    refetchDs();
+    refetchConn();
+    refetchFiles();
+    refetchRaw();
+    toast({ title: t('common.success'), description: '数据已刷新' });
   };
 
-  const handleSync = (id: number) => {
-    syncMutation.mutate(id, {
-      onSuccess: () => {
-        toast({ title: '刷新成功', description: 'Schema 已刷新' });
-      },
-      onError: (error) => {
-        toast({ title: '刷新失败', description: error.message, variant: 'destructive' });
-      },
-      onSettled: () => {
-        refetch();
-      },
-    });
+  // 处理删除
+  const handleDelete = async () => {
+    if (!deleteTarget) return;
+
+    try {
+      if (deleteTarget.type === 'dataSource') {
+        await deleteDataSourceMutation.mutateAsync(deleteTarget.id);
+      } else if (deleteTarget.type === 'connection') {
+        await deleteConnectionMutation.mutateAsync(deleteTarget.id);
+      } else if (deleteTarget.type === 'file') {
+        await deleteFileMutation.mutateAsync(deleteTarget.id);
+      }
+      toast({ title: t('common.success'), description: `${deleteTarget.name} 已删除` });
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : '删除失败';
+      toast({ title: t('common.error'), description: msg, variant: 'destructive' });
+    } finally {
+      setDeleteTarget(null);
+    }
   };
 
-  const formatBytes = (bytes?: number | null) => {
-    if (!bytes) return '--';
-    if (bytes < 1024) return `${bytes} B`;
-    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  // 刷新数据源 Schema
+  const handleSyncSchema = async (id: number) => {
+    try {
+      await syncSchemaMutation.mutateAsync(id);
+      toast({ title: t('common.success'), description: 'Schema 已刷新' });
+    } catch {
+      toast({ title: t('common.error'), description: '刷新失败', variant: 'destructive' });
+    }
   };
-
-  const renderFileItem = (file: UploadedFileResponse) => (
-    <div
-      key={file.id}
-      className="flex items-center justify-between gap-3 rounded-lg border p-3 hover:bg-muted/60 transition-colors"
-    >
-      <div className="flex items-center gap-3 min-w-0">
-        <Upload className="h-4 w-4 text-teal-600 dark:text-teal-300 shrink-0" />
-        <div className="min-w-0">
-          <p className="text-sm font-medium truncate">{file.original_name}</p>
-          <p className="text-xs text-muted-foreground truncate">
-            {file.file_type?.toUpperCase?.() || file.mime_type || '文件'} · {formatBytes(file.file_size)}
-          </p>
-        </div>
-      </div>
-      <div className="flex items-center gap-2 shrink-0">
-        <Badge variant="outline" className="shrink-0">
-          {file.row_count ?? '--'} 行 / {file.column_count ?? '--'} 列
-        </Badge>
-        <Button
-          variant="ghost"
-          size="icon"
-          className="h-8 w-8"
-          disabled={deletingFileId === file.id || deleteFileMutation.isPending}
-          onClick={async () => {
-            const ok = await confirm({
-              title: '删除文件',
-              description: `确认删除文件：${file.original_name}？`,
-              confirmText: '删除',
-              cancelText: '取消',
-              variant: 'destructive',
-            });
-            if (!ok) return;
-            setDeletingFileId(file.id);
-            deleteFileMutation.mutate(file.id, {
-              onSuccess: () => toast({ title: '删除成功', description: '文件已删除' }),
-              onError: (error) => toast({ title: '删除失败', description: error.message, variant: 'destructive' }),
-              onSettled: () => setDeletingFileId(null),
-            });
-          }}
-        >
-          <Trash2 className="h-4 w-4" />
-        </Button>
-      </div>
-    </div>
-  );
-
-  const renderConnectionItem = (conn: DatabaseConnectionResponse) => (
-    <div
-      key={conn.id}
-      className="flex items-center justify-between gap-3 rounded-lg border p-3 hover:bg-muted/60 transition-colors"
-    >
-      <div className="flex items-center gap-3 min-w-0">
-        <Database className="h-4 w-4 text-slate-600 dark:text-slate-300 shrink-0" />
-        <div className="min-w-0">
-          <p className="text-sm font-medium truncate">{conn.name}</p>
-          <p className="text-xs text-muted-foreground truncate">
-            {conn.db_type?.toUpperCase?.()} · {conn.host}:{conn.port}
-          </p>
-        </div>
-      </div>
-      <div className="flex items-center gap-2 shrink-0">
-        <Badge variant={conn.is_active ? 'secondary' : 'outline'} className="shrink-0">
-          {conn.is_active ? '可用' : '不可用'}
-        </Badge>
-        <Button
-          variant="ghost"
-          size="icon"
-          className="h-8 w-8"
-          disabled={deletingConnId === conn.id || deleteConnMutation.isPending}
-          onClick={async () => {
-            const ok = await confirm({
-              title: '删除数据库连接',
-              description: `确认删除连接：${conn.name}？`,
-              confirmText: '删除',
-              cancelText: '取消',
-              variant: 'destructive',
-            });
-            if (!ok) return;
-            setDeletingConnId(conn.id);
-            deleteConnMutation.mutate(conn.id, {
-              onSuccess: () => toast({ title: '删除成功', description: '连接已删除' }),
-              onError: (error) => toast({ title: '删除失败', description: error.message, variant: 'destructive' }),
-              onSettled: () => setDeletingConnId(null),
-            });
-          }}
-        >
-          <Trash2 className="h-4 w-4" />
-        </Button>
-      </div>
-    </div>
-  );
 
   return (
-    <div className="container py-8 max-w-6xl space-y-6">
-      <div className="flex items-center justify-between">
+    <div className="container py-8 max-w-6xl">
+      {/* 页面标题 */}
+      <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">数据源</h1>
-          <p className="text-muted-foreground mt-1">浏览和管理数据源，可查看字段、原始数据映射，并刷新 Schema。</p>
+          <h1 className="text-3xl font-bold tracking-tight">{t('dataSources.title')}</h1>
+          <p className="text-muted-foreground mt-1">{t('dataSources.subtitle')}</p>
         </div>
-        <div className="flex gap-2">
-          <Button size="sm" onClick={() => setShowWizard(true)}>
-            <Plus className="h-4 w-4 mr-2" />
-            创建数据源
+        <div className="flex items-center gap-2">
+          <Button variant="outline" size="sm" onClick={handleRefreshAll}>
+            <RefreshCw className="h-4 w-4 mr-2" />
+            {t('common.refresh')}
           </Button>
-          <Button variant="outline" size="sm" onClick={() => refetch()}>
-            <RefreshCw className={cn('h-4 w-4 mr-2', isFetching && 'animate-spin')} />
-            刷新列表
-          </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button>
+                <Plus className="h-4 w-4 mr-2" />
+                {t('dataSources.add')}
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={() => setShowCreateDataSourceDialog(true)}>
+                <Layers className="h-4 w-4 mr-2" />
+                创建数据源
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setShowAddDbDialog(true)}>
+                <Database className="h-4 w-4 mr-2" />
+                {t('dataSources.addDatabase')}
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setShowUploadDialog(true)}>
+                <Upload className="h-4 w-4 mr-2" />
+                {t('dataSources.uploadFile')}
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </div>
 
-      <Card>
-        <CardContent className="pt-6 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-          <div className="flex items-center gap-3 w-full md:w-auto">
-            <Input
-              placeholder="按名称、描述搜索"
-              value={keyword}
-              onChange={(e) => {
-                setPageNum(1);
-                setKeyword(e.target.value);
-              }}
-              className="w-full md:w-72"
-            />
-          </div>
-          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            共 {total} 个数据源 · 第 {pageNum}/{totalPages} 页
-          </div>
-        </CardContent>
-      </Card>
+      {/* 统计卡片 */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+        {stats.map((stat) => (
+          <Card key={stat.label} className="p-4">
+            <div className="flex items-center gap-3">
+              <div className={`p-2 rounded-lg ${stat.bgColor}`}>
+                <stat.icon className={`h-5 w-5 ${stat.color}`} />
+              </div>
+              <div>
+                <p className="text-2xl font-bold">{stat.value}</p>
+                <p className="text-xs text-muted-foreground">{stat.label}</p>
+              </div>
+            </div>
+          </Card>
+        ))}
+      </div>
 
-      {isLoading ? (
-        <LoadingState />
-      ) : items.length === 0 ? (
-        <EmptyState title="暂无数据源" description="创建数据源后即可在此查看。" icon={Database} />
-      ) : (
-        <div className="space-y-4">
-          {items.map((ds) => {
-            const targetFields = ds.target_fields ?? [];
-            const rawMappings = ds.raw_mappings ?? [];
-            return (
-              <Card key={ds.id} className="border-muted">
-                <CardHeader className="pb-3">
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="space-y-1">
-                      <div className="flex items-center gap-2">
-                        <CardTitle className="text-xl">{ds.name}</CardTitle>
+      {/* 主内容区 - Tab 布局 */}
+      <Tabs defaultValue="data-sources" className="space-y-4">
+        <TabsList>
+          <TabsTrigger value="data-sources" className="gap-2">
+            <Layers className="h-4 w-4" />
+            数据源
+          </TabsTrigger>
+          <TabsTrigger value="connections" className="gap-2">
+            <Database className="h-4 w-4" />
+            数据库连接
+          </TabsTrigger>
+          <TabsTrigger value="files" className="gap-2">
+            <FileSpreadsheet className="h-4 w-4" />
+            已上传文件
+          </TabsTrigger>
+          <TabsTrigger value="raw-data" className="gap-2">
+            <HardDrive className="h-4 w-4" />
+            原始数据
+          </TabsTrigger>
+        </TabsList>
+
+        {/* 数据源 Tab */}
+        <TabsContent value="data-sources">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Layers className="h-5 w-5" />
+                数据源列表
+              </CardTitle>
+              <CardDescription>可用于分析会话的数据源，支持字段映射和数据预览</CardDescription>
+            </CardHeader>
+            <CardContent>
+              {dsLoading ? (
+                <div className="flex items-center justify-center py-12">
+                  <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin" />
+                </div>
+              ) : dataSources.length === 0 ? (
+                <EmptyState
+                  icon={Layers}
+                  title={t('dataSources.empty')}
+                  description="先添加原始数据（连接数据库或上传文件），然后创建数据源"
+                  action={
+                    <div className="flex flex-col gap-2">
+                      {rawDataList.length > 0 ? (
+                        <Button onClick={() => setShowCreateDataSourceDialog(true)}>
+                          <Layers className="h-4 w-4 mr-2" />
+                          创建数据源
+                        </Button>
+                      ) : (
+                        <div className="flex gap-2">
+                          <Button variant="outline" onClick={() => setShowAddDbDialog(true)}>
+                            <Database className="h-4 w-4 mr-2" />
+                            {t('dataSources.addDatabase')}
+                          </Button>
+                          <Button onClick={() => setShowUploadDialog(true)}>
+                            <Upload className="h-4 w-4 mr-2" />
+                            {t('dataSources.uploadFile')}
+                          </Button>
+                        </div>
+                      )}
+                    </div>
+                  }
+                />
+              ) : (
+                <div className="divide-y">
+                  {dataSources.map((ds) => (
+                    <div key={ds.id} className="flex items-center justify-between py-4 first:pt-0 last:pb-0">
+                      <div className="flex items-center gap-4">
+                        <div className="p-2 rounded-lg bg-teal-500/10">
+                          <Table2 className="h-5 w-5 text-teal-600 dark:text-teal-400" />
+                        </div>
+                        <div>
+                          <p className="font-medium">{ds.name}</p>
+                          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                            <span>{ds.category || '数据源'}</span>
+                            {ds.target_fields && ds.target_fields.length > 0 && (
+                              <Badge variant="secondary" className="text-xs">
+                                {ds.target_fields.length} 字段
+                              </Badge>
+                            )}
+                          </div>
+                        </div>
                       </div>
-                      <p className="text-muted-foreground text-sm">{ds.description || '暂无描述'}</p>
-                      <p className="text-xs text-muted-foreground">创建时间：{formatDate(ds.create_time)}</p>
+                      <div className="flex items-center gap-2">
+                        <Button variant="ghost" size="sm" onClick={() => setPreviewDataSourceId(ds.id)}>
+                          {t('dataSources.previewData')}
+                        </Button>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="icon">
+                              <MoreHorizontal className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem onClick={() => handleSyncSchema(ds.id)}>
+                              <RefreshCw className="h-4 w-4 mr-2" />
+                              {t('dataSources.refreshSchema')}
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              className="text-destructive"
+                              onClick={() => setDeleteTarget({ type: 'dataSource', id: ds.id, name: ds.name })}
+                            >
+                              <Trash2 className="h-4 w-4 mr-2" />
+                              {t('common.delete')}
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </div>
                     </div>
-                    <div className="flex gap-2">
-                      <Button variant="outline" size="sm" onClick={() => setPreviewId(ds.id)}>
-                        预览
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleSync(ds.id)}
-                        disabled={syncMutation.isPending}
-                      >
-                        {syncMutation.isPending ? (
-                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                        ) : (
-                          <RefreshCw className="h-4 w-4 mr-2" />
-                        )}
-                        刷新 Schema
-                      </Button>
-                      <Button
-                        variant="destructive"
-                        size="sm"
-                        onClick={() => handleDelete(ds.id, ds.name)}
-                        disabled={deleteMutation.isPending}
-                      >
-                        <Trash2 className="h-4 w-4 mr-2" />
-                        删除
-                      </Button>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* 数据库连接 Tab */}
+        <TabsContent value="connections">
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between">
+              <div>
+                <CardTitle className="flex items-center gap-2">
+                  <Database className="h-5 w-5" />
+                  数据库连接
+                </CardTitle>
+                <CardDescription>管理外部数据库连接，连接后自动发现表并创建原始数据</CardDescription>
+              </div>
+              <Button onClick={() => setShowAddDbDialog(true)}>
+                <Plus className="h-4 w-4 mr-2" />
+                添加连接
+              </Button>
+            </CardHeader>
+            <CardContent>
+              {connLoading ? (
+                <div className="flex items-center justify-center py-12">
+                  <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin" />
+                </div>
+              ) : connections.length === 0 ? (
+                <EmptyState
+                  icon={Database}
+                  title="暂无数据库连接"
+                  description="添加数据库连接以接入外部数据"
+                  action={
+                    <Button onClick={() => setShowAddDbDialog(true)}>
+                      <Plus className="h-4 w-4 mr-2" />
+                      添加连接
+                    </Button>
+                  }
+                />
+              ) : (
+                <div className="divide-y">
+                  {connections.map((conn) => (
+                    <div key={conn.id} className="flex items-center justify-between py-4 first:pt-0 last:pb-0">
+                      <div className="flex items-center gap-4">
+                        <div className="p-2 rounded-lg bg-slate-500/10">
+                          <Database className="h-5 w-5 text-slate-600 dark:text-slate-400" />
+                        </div>
+                        <div>
+                          <p className="font-medium">{conn.name}</p>
+                          <p className="text-sm text-muted-foreground">
+                            {conn.db_type?.toUpperCase()} · {conn.host}:{conn.port}/{conn.database}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Badge variant={conn.is_active ? 'default' : 'secondary'}>
+                          {conn.is_active ? t('dataSources.active') : t('dataSources.inactive')}
+                        </Badge>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="icon">
+                              <MoreHorizontal className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem
+                              className="text-destructive"
+                              onClick={() => setDeleteTarget({ type: 'connection', id: conn.id, name: conn.name })}
+                            >
+                              <Trash2 className="h-4 w-4 mr-2" />
+                              {t('common.delete')}
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </div>
                     </div>
-                  </div>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="flex flex-wrap gap-3 text-sm">
-                    <Badge variant="outline">目标字段 {targetFields.length}</Badge>
-                    <Badge variant="outline">原始数据映射 {rawMappings.length}</Badge>
-                    <Badge variant="outline">Schema 缓存 {ds.schema_cache ? '可用' : '暂无'}</Badge>
-                  </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
 
-                  <div className="space-y-2">
-                    <h3 className="text-sm font-semibold">目标字段</h3>
-                    <TargetFields data={targetFields} />
-                  </div>
-
-                  <div className="space-y-2">
-                    <h3 className="text-sm font-semibold">原始数据映射</h3>
-                    <RawMappings data={rawMappings} />
-                  </div>
-                </CardContent>
-              </Card>
-            );
-          })}
-
-          <div className="flex items-center justify-between rounded-md border bg-muted/50 px-4 py-3">
-            <div className="text-sm text-muted-foreground">
-              共 {total} 条 · 当前第 {pageNum} / {totalPages} 页
-            </div>
-            <div className="flex gap-2">
-              <Button
-                size="sm"
-                variant="outline"
-                disabled={pageNum <= 1}
-                onClick={() => setPageNum((p) => Math.max(1, p - 1))}
-              >
-                上一页
-              </Button>
-              <Button
-                size="sm"
-                variant="outline"
-                disabled={pageNum >= totalPages}
-                onClick={() => setPageNum((p) => Math.min(totalPages, p + 1))}
-              >
-                下一页
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      <Card>
-        <CardHeader className="py-3">
-          <CardTitle className="text-base">快速创建数据对象</CardTitle>
-        </CardHeader>
-        <CardContent className="p-4 grid gap-2 sm:grid-cols-2">
-          <div className="flex items-start gap-3 rounded-lg border p-3">
-            <div className="mt-0.5 rounded-md bg-muted/70 p-2">
-              <Upload className="h-4 w-4 text-muted-foreground" />
-            </div>
-            <div className="space-y-1 flex-1">
-              <p className="font-medium text-sm">上传文件</p>
-              <p className="text-xs text-muted-foreground">CSV / Excel / Parquet / JSON</p>
-              <Button size="sm" variant="outline" onClick={() => setShowUploadFile(true)}>
+        {/* 已上传文件 Tab */}
+        <TabsContent value="files">
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between">
+              <div>
+                <CardTitle className="flex items-center gap-2">
+                  <FileSpreadsheet className="h-5 w-5" />
+                  已上传文件
+                </CardTitle>
+                <CardDescription>管理上传的数据文件，支持 CSV、Excel、JSON、Parquet 格式</CardDescription>
+              </div>
+              <Button onClick={() => setShowUploadDialog(true)}>
                 <Upload className="h-4 w-4 mr-2" />
                 上传文件
               </Button>
-            </div>
-          </div>
-          <div className="flex items-start gap-3 rounded-lg border p-3">
-            <div className="mt-0.5 rounded-md bg-muted/70 p-2">
-              <Database className="h-4 w-4 text-muted-foreground" />
-            </div>
-            <div className="space-y-1 flex-1">
-              <p className="font-medium text-sm">配置数据库</p>
-              <p className="text-xs text-muted-foreground">接入 MySQL / PostgreSQL</p>
-              <Button size="sm" variant="outline" onClick={() => setShowAddDatabase(true)}>
-                <Database className="h-4 w-4 mr-2" />
-                新建连接
-              </Button>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+            </CardHeader>
+            <CardContent>
+              {filesLoading ? (
+                <div className="flex items-center justify-center py-12">
+                  <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin" />
+                </div>
+              ) : files.length === 0 ? (
+                <EmptyState
+                  icon={FileSpreadsheet}
+                  title="暂无上传文件"
+                  description="上传 CSV、Excel 等数据文件开始分析"
+                  action={
+                    <Button onClick={() => setShowUploadDialog(true)}>
+                      <Upload className="h-4 w-4 mr-2" />
+                      上传文件
+                    </Button>
+                  }
+                />
+              ) : (
+                <div className="divide-y">
+                  {files.map((file) => (
+                    <div key={file.id} className="flex items-center justify-between py-4 first:pt-0 last:pb-0">
+                      <div className="flex items-center gap-4">
+                        <div className="p-2 rounded-lg bg-emerald-500/10">
+                          <FileSpreadsheet className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
+                        </div>
+                        <div>
+                          <p className="font-medium">{file.original_name}</p>
+                          <p className="text-sm text-muted-foreground">
+                            {formatFileSize(file.file_size)} · {file.row_count?.toLocaleString() || '-'} 行 ·{' '}
+                            {formatDate(file.create_time)}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Badge variant={file.status === 'ready' ? 'default' : 'secondary'}>
+                          {file.status === 'ready' ? '就绪' : file.status === 'processing' ? '处理中' : '错误'}
+                        </Badge>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="icon">
+                              <MoreHorizontal className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem
+                              className="text-destructive"
+                              onClick={() => setDeleteTarget({ type: 'file', id: file.id, name: file.original_name })}
+                            >
+                              <Trash2 className="h-4 w-4 mr-2" />
+                              {t('common.delete')}
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
 
-      <div className="grid gap-3 lg:grid-cols-2">
-        <Card>
-          <CardHeader className="py-3">
-            <CardTitle className="text-base">已上传文件</CardTitle>
-          </CardHeader>
-          <CardContent className="p-4">
-            {loadingFiles ? (
-              <LoadingState />
-            ) : files.length === 0 ? (
-              <EmptyState icon={Upload} title="暂无文件" description="上传文件后即可在此查看并用于构建数据源。" />
-            ) : (
-              <ScrollArea className="h-[220px] pr-2">
-                <div className="space-y-2">{files.map(renderFileItem)}</div>
-              </ScrollArea>
-            )}
-          </CardContent>
-        </Card>
+        {/* 原始数据 Tab */}
+        <TabsContent value="raw-data">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <HardDrive className="h-5 w-5" />
+                原始数据
+              </CardTitle>
+              <CardDescription>系统自动从数据库连接和上传文件创建的原始数据，可用于构建数据源</CardDescription>
+            </CardHeader>
+            <CardContent>
+              {rawLoading ? (
+                <div className="flex items-center justify-center py-12">
+                  <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin" />
+                </div>
+              ) : rawDataList.length === 0 ? (
+                <EmptyState
+                  icon={HardDrive}
+                  title="暂无原始数据"
+                  description="添加数据库连接或上传文件后，系统会自动创建原始数据"
+                />
+              ) : (
+                <div className="divide-y">
+                  {rawDataList.map((raw) => (
+                    <div key={raw.id} className="flex items-center justify-between py-4 first:pt-0 last:pb-0">
+                      <div className="flex items-center gap-4">
+                        <div className="p-2 rounded-lg bg-cyan-500/10">
+                          <HardDrive className="h-5 w-5 text-cyan-600 dark:text-cyan-400" />
+                        </div>
+                        <div>
+                          <p className="font-medium">{raw.name}</p>
+                          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                            <Badge variant="outline" className="text-xs">
+                              {raw.raw_type === 'database_table' ? '数据库表' : '文件'}
+                            </Badge>
+                            {raw.columns_schema && <span>{raw.columns_schema.length} 列</span>}
+                            {raw.row_count_estimate && <span>约 {raw.row_count_estimate.toLocaleString()} 行</span>}
+                          </div>
+                        </div>
+                      </div>
+                      <Badge variant={raw.status === 'ready' ? 'default' : 'secondary'}>
+                        {raw.status === 'ready' ? '就绪' : raw.status === 'syncing' ? '同步中' : raw.status}
+                      </Badge>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
 
-        <Card>
-          <CardHeader className="py-3">
-            <CardTitle className="text-base">数据库连接</CardTitle>
-          </CardHeader>
-          <CardContent className="p-4">
-            {loadingConns ? (
-              <LoadingState />
-            ) : connections.length === 0 ? (
-              <EmptyState
-                icon={Database}
-                title="暂无数据库连接"
-                description="配置数据库连接后，可在此选择表构建数据源。"
-              />
-            ) : (
-              <ScrollArea className="h-[220px] pr-2">
-                <div className="space-y-2">{connections.map(renderConnectionItem)}</div>
-              </ScrollArea>
-            )}
-          </CardContent>
-        </Card>
-      </div>
+      {/* 对话框 */}
+      <CreateDataSourceDialog open={showCreateDataSourceDialog} onOpenChange={setShowCreateDataSourceDialog} />
+      <AddDatabaseDialog open={showAddDbDialog} onOpenChange={setShowAddDbDialog} />
+      <UploadFileDialog open={showUploadDialog} onOpenChange={setShowUploadDialog} />
 
-      <DataSourcePreviewDialog
-        open={previewId !== null}
-        onOpenChange={(open) => {
-          if (!open) setPreviewId(null);
-        }}
-        dataSourceId={previewId}
-      />
-      <AddDatabaseDialog open={showAddDatabase} onOpenChange={setShowAddDatabase} />
-      <UploadFileDialog open={showUploadFile} onOpenChange={setShowUploadFile} />
-      <DataSourceWizardDialog open={showWizard} onOpenChange={setShowWizard} />
-      <ConfirmDialog />
+      {previewDataSourceId && (
+        <DataSourcePreviewDialog
+          dataSourceId={previewDataSourceId}
+          open={!!previewDataSourceId}
+          onOpenChange={(open) => !open && setPreviewDataSourceId(null)}
+        />
+      )}
+
+      {/* 删除确认对话框 */}
+      <AlertDialog open={!!deleteTarget} onOpenChange={(open) => !open && setDeleteTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t('dataSources.confirmDeleteTitle')}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {t('dataSources.confirmDelete', { name: deleteTarget?.name })}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground">
+              {t('common.delete')}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };

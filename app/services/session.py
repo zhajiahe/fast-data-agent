@@ -163,7 +163,7 @@ class AnalysisSessionService:
 
                 init_request = {
                     "data_source": {
-                        "id": data_source.id,
+                        "id": str(data_source.id),  # UUID 转为字符串
                         "name": data_source.name,
                         "raw_data_list": raw_data_list,
                         "target_fields": target_fields,
@@ -180,7 +180,7 @@ class AnalysisSessionService:
 
             result = response.json()
             if not result.get("success"):
-                logger.warning(f"Failed to init session DuckDB: {result.get('error')}")
+                logger.warning(f"Failed to init session DuckDB: {result}")
             else:
                 logger.info(
                     f"Session DuckDB initialized: session_id={session_id}, views={result.get('views_created', [])}"
@@ -218,7 +218,7 @@ class AnalysisSessionService:
                 continue
 
             config: dict[str, Any] = {
-                "id": raw_data.id,
+                "id": str(raw_data.id),  # UUID 转为字符串
                 "name": raw_data.name,
                 "raw_type": raw_data.raw_type,
             }
@@ -226,6 +226,8 @@ class AnalysisSessionService:
             if raw_data.raw_type == "database_table":
                 # 数据库表类型：需要获取连接信息
                 if raw_data.connection:
+                    from app.core.encryption import decrypt_str
+
                     conn = raw_data.connection
                     config.update(
                         {
@@ -234,7 +236,7 @@ class AnalysisSessionService:
                             "port": conn.port,
                             "database": conn.database,
                             "username": conn.username,
-                            "password": conn.password,  # 注意：这里传递的是加密后的密码，沙盒需要解密
+                            "password": decrypt_str(conn.password),  # 解密密码
                             "schema_name": raw_data.schema_name,
                             "table_name": raw_data.table_name,
                             "custom_sql": raw_data.custom_sql,
@@ -286,7 +288,7 @@ class AnalysisSessionService:
             if mapping.field_mappings:
                 raw_mappings.append(
                     {
-                        "raw_data_id": mapping.raw_data_id,
+                        "raw_data_id": str(mapping.raw_data_id),  # UUID 转为字符串
                         "raw_data_name": raw.name,
                         "mappings": mapping.field_mappings,
                     }
@@ -301,7 +303,7 @@ class AnalysisSessionService:
                 if auto_mappings:
                     raw_mappings.append(
                         {
-                            "raw_data_id": mapping.raw_data_id,
+                            "raw_data_id": str(mapping.raw_data_id),  # UUID 转为字符串
                             "raw_data_name": raw.name,
                             "mappings": auto_mappings,
                         }
