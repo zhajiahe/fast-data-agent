@@ -1326,20 +1326,13 @@ async def generate_chart(
                 "output": stdout_buffer.getvalue(),
             }
 
-        # 保存图表
-        chart_filename = generate_unique_filename(session_dir, "chart_", ".html")
-        chart_path = session_dir / chart_filename
-        fig.write_html(str(chart_path), include_plotlyjs="cdn")
-
         # 同时保存为 JSON 以便前端渲染
         chart_json = fig.to_json()
 
         return {
             "success": True,
-            "chart_file": chart_filename,
             "chart_json": chart_json,
             "output": stdout_buffer.getvalue(),
-            "message": f"Chart saved as {chart_filename}",
         }
 
     except Exception as e:
