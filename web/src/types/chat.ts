@@ -63,6 +63,7 @@ export interface ToolCall {
 export interface LocalMessage {
   id: number | string;
   session_id: number;
+  seq?: number; // 消息序号（会话内递增，用于排序）
   message_type: 'human' | 'ai' | 'tool' | 'system';
   content: string;
   tool_call_id?: string;

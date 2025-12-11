@@ -37,12 +37,12 @@ class ChatMessageRepository(BaseRepository[ChatMessage]):
             limit: 返回的最大记录数
 
         Returns:
-            消息列表（按创建时间升序）
+            消息列表（按序号升序，确保消息顺序正确）
         """
         query = (
             select(ChatMessage)
             .where(ChatMessage.session_id == session_id, ChatMessage.deleted == 0)
-            .order_by(ChatMessage.create_time.asc())
+            .order_by(ChatMessage.seq.asc())
             .offset(skip)
             .limit(limit)
         )
@@ -77,11 +77,32 @@ class ChatMessageRepository(BaseRepository[ChatMessage]):
         await self.db.flush()
         return getattr(result, "rowcount", 0) or 0
 
+    async def get_next_seq(self, session_id: uuid.UUID) -> int:
+        """
+        获取会话的下一个消息序号
+
+        Args:
+            session_id: 会话 ID
+
+        Returns:
+            下一个序号值（当前最大 seq + 1）
+        """
+        from sqlalchemy import func
+
+        query = select(func.coalesce(func.max(ChatMessage.seq), 0)).where(
+            ChatMessage.session_id == session_id
+        )
+        result = await self.db.execute(query)
+        max_seq = result.scalar() or 0
+        return max_seq + 1
+
     async def save_langchain_message(
         self,
         session_id: uuid.UUID,
         message: BaseMessage,
         user_id: uuid.UUID,
+        *,
+        seq: int | None = None,
     ) -> ChatMessage:
         """
         保存 LangChain 消息到数据库
@@ -90,6 +111,7 @@ class ChatMessageRepository(BaseRepository[ChatMessage]):
             session_id: 会话 ID
             message: LangChain 消息对象
             user_id: 用户 ID（用于 create_by）
+            seq: 消息序号（可选，不提供则自动获取下一个）
 
         Returns:
             保存的 ChatMessage 对象
@@ -106,10 +128,15 @@ class ChatMessageRepository(BaseRepository[ChatMessage]):
         else:
             message_type = MessageType.AI.value  # 默认
 
+        # 获取序号（如果未提供）
+        if seq is None:
+            seq = await self.get_next_seq(session_id)
+
         # 构建基础数据
         content = message.content if isinstance(message.content, str) else str(message.content)
         data: dict[str, Any] = {
             "session_id": session_id,
+            "seq": seq,
             "message_type": message_type,
             "content": content,
             "message_id": getattr(message, "id", None),
@@ -152,9 +179,17 @@ class ChatMessageRepository(BaseRepository[ChatMessage]):
         Returns:
             保存的 ChatMessage 列表
         """
+        if not messages:
+            return []
+
+        # 先获取下一个 seq，然后为每条消息分配递增的序号
+        next_seq = await self.get_next_seq(session_id)
+
         saved = []
-        for message in messages:
-            chat_message = await self.save_langchain_message(session_id, message, user_id)
+        for i, message in enumerate(messages):
+            chat_message = await self.save_langchain_message(
+                session_id, message, user_id, seq=next_seq + i
+            )
             saved.append(chat_message)
         return saved
 

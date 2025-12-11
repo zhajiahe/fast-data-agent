@@ -120,6 +120,7 @@ export const Chat = () => {
     const converted = items.map((m) => ({
       id: m.id,
       session_id: m.session_id,
+      seq: m.seq,
       message_type: m.message_type as LocalMessage['message_type'],
       content: m.content,
       tool_call_id: m.tool_call_id || undefined,
@@ -128,7 +129,8 @@ export const Chat = () => {
       artifact: m.artifact as LocalMessage['artifact'],
       create_time: m.create_time || new Date().toISOString(),
     }));
-    converted.sort((a, b) => new Date(a.create_time).getTime() - new Date(b.create_time).getTime());
+    // 按 seq 排序（后端已保证顺序，但前端也做一次排序确保正确）
+    converted.sort((a, b) => (a.seq ?? 0) - (b.seq ?? 0));
     return converted;
   }, []);
 

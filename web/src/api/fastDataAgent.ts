@@ -5,9 +5,11 @@
  * 基于 LangGraph 的 AI 数据分析平台
  * OpenAPI spec version: 1.0.0
  */
-
-import type { AxiosRequestConfig, AxiosResponse } from 'axios';
 import axios from 'axios';
+import type {
+  AxiosRequestConfig,
+  AxiosResponse
+} from 'axios';
 
 /**
  * 会话描述
@@ -15,9 +17,9 @@ import axios from 'axios';
 export type AnalysisSessionCreateDescription = string | null;
 
 /**
- * 关联的数据源ID（可选，仅支持单个数据源）
+ * 关联的数据源ID（可选）
  */
-export type AnalysisSessionCreateDataSourceId = number | null;
+export type AnalysisSessionCreateDataSourceId = string | null;
 
 export type AnalysisSessionCreateConfigAnyOf = { [key: string]: unknown };
 
@@ -38,7 +40,7 @@ export interface AnalysisSessionCreate {
   name: string;
   /** 会话描述 */
   description?: AnalysisSessionCreateDescription;
-  /** 关联的数据源ID（可选，仅支持单个数据源） */
+  /** 关联的数据源ID（可选） */
   data_source_id?: AnalysisSessionCreateDataSourceId;
   /** 会话配置 */
   config?: AnalysisSessionCreateConfig;
@@ -50,9 +52,9 @@ export interface AnalysisSessionCreate {
 export type AnalysisSessionDetailDescription = string | null;
 
 /**
- * 关联的数据源ID列表（内部存储）
+ * 关联的数据源ID
  */
-export type AnalysisSessionDetailDataSourceIds = number[] | null;
+export type AnalysisSessionDetailDataSourceId = string | null;
 
 export type AnalysisSessionDetailConfigAnyOf = { [key: string]: unknown };
 
@@ -72,17 +74,12 @@ export type AnalysisSessionDetailCreateTime = string | null;
 export type AnalysisSessionDetailUpdateTime = string | null;
 
 /**
- * 关联的数据源
+ * 关联的数据源详情
  */
 export type AnalysisSessionDetailDataSource = DataSourceResponse | null;
 
 /**
- * 从 data_source_ids 列表中提取第一个 ID
- */
-export type AnalysisSessionDetailDataSourceId = number | null;
-
-/**
- * 分析会话详情（包含数据源信息）
+ * 分析会话详情（包含完整数据源信息）
  */
 export interface AnalysisSessionDetail {
   /**
@@ -94,11 +91,11 @@ export interface AnalysisSessionDetail {
   /** 会话描述 */
   description?: AnalysisSessionDetailDescription;
   /** 会话ID */
-  id: number;
+  id: string;
   /** 所属用户ID */
-  user_id: number;
-  /** 关联的数据源ID列表（内部存储） */
-  data_source_ids?: AnalysisSessionDetailDataSourceIds;
+  user_id: string;
+  /** 关联的数据源ID */
+  data_source_id?: AnalysisSessionDetailDataSourceId;
   /** 会话配置 */
   config?: AnalysisSessionDetailConfig;
   /** 会话状态 */
@@ -109,10 +106,8 @@ export interface AnalysisSessionDetail {
   create_time?: AnalysisSessionDetailCreateTime;
   /** 更新时间 */
   update_time?: AnalysisSessionDetailUpdateTime;
-  /** 关联的数据源 */
+  /** 关联的数据源详情 */
   data_source?: AnalysisSessionDetailDataSource;
-  /** 从 data_source_ids 列表中提取第一个 ID */
-  readonly data_source_id: AnalysisSessionDetailDataSourceId;
 }
 
 /**
@@ -121,9 +116,9 @@ export interface AnalysisSessionDetail {
 export type AnalysisSessionResponseDescription = string | null;
 
 /**
- * 关联的数据源ID列表（内部存储）
+ * 关联的数据源ID
  */
-export type AnalysisSessionResponseDataSourceIds = number[] | null;
+export type AnalysisSessionResponseDataSourceId = string | null;
 
 export type AnalysisSessionResponseConfigAnyOf = { [key: string]: unknown };
 
@@ -143,11 +138,6 @@ export type AnalysisSessionResponseCreateTime = string | null;
 export type AnalysisSessionResponseUpdateTime = string | null;
 
 /**
- * 从 data_source_ids 列表中提取第一个 ID
- */
-export type AnalysisSessionResponseDataSourceId = number | null;
-
-/**
  * 分析会话响应
  */
 export interface AnalysisSessionResponse {
@@ -160,11 +150,11 @@ export interface AnalysisSessionResponse {
   /** 会话描述 */
   description?: AnalysisSessionResponseDescription;
   /** 会话ID */
-  id: number;
+  id: string;
   /** 所属用户ID */
-  user_id: number;
-  /** 关联的数据源ID列表（内部存储） */
-  data_source_ids?: AnalysisSessionResponseDataSourceIds;
+  user_id: string;
+  /** 关联的数据源ID */
+  data_source_id?: AnalysisSessionResponseDataSourceId;
   /** 会话配置 */
   config?: AnalysisSessionResponseConfig;
   /** 会话状态 */
@@ -175,8 +165,6 @@ export interface AnalysisSessionResponse {
   create_time?: AnalysisSessionResponseCreateTime;
   /** 更新时间 */
   update_time?: AnalysisSessionResponseUpdateTime;
-  /** 从 data_source_ids 列表中提取第一个 ID */
-  readonly data_source_id: AnalysisSessionResponseDataSourceId;
 }
 
 /**
@@ -190,9 +178,9 @@ export type AnalysisSessionUpdateName = string | null;
 export type AnalysisSessionUpdateDescription = string | null;
 
 /**
- * 关联的数据源ID（可选，仅支持单个数据源）
+ * 关联的数据源ID（可选）
  */
-export type AnalysisSessionUpdateDataSourceId = number | null;
+export type AnalysisSessionUpdateDataSourceId = string | null;
 
 export type AnalysisSessionUpdateConfigAnyOf = { [key: string]: unknown };
 
@@ -209,7 +197,7 @@ export interface AnalysisSessionUpdate {
   name?: AnalysisSessionUpdateName;
   /** 会话描述 */
   description?: AnalysisSessionUpdateDescription;
-  /** 关联的数据源ID（可选，仅支持单个数据源） */
+  /** 关联的数据源ID（可选） */
   data_source_id?: AnalysisSessionUpdateDataSourceId;
   /** 会话配置 */
   config?: AnalysisSessionUpdateConfig;
@@ -225,7 +213,7 @@ export type AutoCreatedRawDataErrorMessage = string | null;
  */
 export interface AutoCreatedRawData {
   /** 数据对象ID */
-  raw_data_id: number;
+  raw_data_id: string;
   /** 数据对象名称 */
   name: string;
   /** 来源表名 */
@@ -642,7 +630,7 @@ export type BatchCreateFromConnectionRequestNamePrefix = string | null;
  */
 export interface BatchCreateFromConnectionRequest {
   /** 数据库连接ID */
-  connection_id: number;
+  connection_id: string;
   /**
    * 要创建的表列表
    * @minItems 1
@@ -676,7 +664,7 @@ export type BatchCreateResultErrorMessage = string | null;
  */
 export interface BatchCreateResult {
   /** 创建的数据对象ID */
-  raw_data_id: number;
+  raw_data_id: string;
   /** 数据对象名称 */
   name: string;
   /** 表名 */
@@ -753,9 +741,11 @@ export type ChatMessageResponseCreateTime = string | null;
  */
 export interface ChatMessageResponse {
   /** 消息ID */
-  id: number;
+  id: string;
   /** 所属会话ID */
-  session_id: number;
+  session_id: string;
+  /** 消息序号(会话内递增，用于排序) */
+  seq: number;
   /** 消息类型: human/ai/system/tool */
   message_type: string;
   /** 消息内容 */
@@ -805,7 +795,8 @@ export interface ColumnSchema {
 /**
  * 数据源分类
  */
-export type DataSourceCategory = (typeof DataSourceCategory)[keyof typeof DataSourceCategory];
+export type DataSourceCategory = typeof DataSourceCategory[keyof typeof DataSourceCategory];
+
 
 // eslint-disable-next-line @typescript-eslint/no-redeclare
 export const DataSourceCategory = {
@@ -862,7 +853,7 @@ export type DataSourcePreviewResponseRowsItem = { [key: string]: unknown };
 /**
  * 各 Raw 源的行数统计
  */
-export type DataSourcePreviewResponseSourceStats = { [key: string]: number };
+export type DataSourcePreviewResponseSourceStats = {[key: string]: number};
 
 /**
  * 数据源预览响应
@@ -930,9 +921,9 @@ export interface DataSourceResponse {
   /** 数据源分类 */
   category?: DataSourceResponseCategory;
   /** 数据源ID */
-  id: number;
+  id: string;
   /** 所属用户ID */
-  user_id: number;
+  user_id: string;
   /** 目标字段定义 */
   target_fields?: DataSourceResponseTargetFields;
   /** 表结构缓存 */
@@ -1093,9 +1084,9 @@ export interface DatabaseConnectionResponse {
   /** 连接描述 */
   description?: DatabaseConnectionResponseDescription;
   /** 连接ID */
-  id: number;
+  id: string;
   /** 所属用户ID */
-  user_id: number;
+  user_id: string;
   db_type: DatabaseType;
   /** 数据库主机 */
   host: string;
@@ -1122,7 +1113,7 @@ export interface DatabaseConnectionResponse {
  */
 export interface DatabaseConnectionTablesResponse {
   /** 连接ID */
-  connection_id: number;
+  connection_id: string;
   /** 表列表 */
   tables?: DatabaseTableInfo[];
 }
@@ -1221,9 +1212,9 @@ export interface DatabaseConnectionWithRawResponse {
   /** 连接描述 */
   description?: DatabaseConnectionWithRawResponseDescription;
   /** 连接ID */
-  id: number;
+  id: string;
   /** 所属用户ID */
-  user_id: number;
+  user_id: string;
   db_type: DatabaseType;
   /** 数据库主机 */
   host: string;
@@ -1283,7 +1274,7 @@ export type DatabaseTableSchemaResponseRowCount = number | null;
  */
 export interface DatabaseTableSchemaResponse {
   /** 连接ID */
-  connection_id: number;
+  connection_id: string;
   /** Schema 名称 */
   schema_name?: DatabaseTableSchemaResponseSchemaName;
   /** 表名 */
@@ -1297,7 +1288,8 @@ export interface DatabaseTableSchemaResponse {
 /**
  * 数据库类型
  */
-export type DatabaseType = (typeof DatabaseType)[keyof typeof DatabaseType];
+export type DatabaseType = typeof DatabaseType[keyof typeof DatabaseType];
+
 
 // eslint-disable-next-line @typescript-eslint/no-redeclare
 export const DatabaseType = {
@@ -1308,14 +1300,14 @@ export const DatabaseType = {
 /**
  * 字段映射: {target_field: source_field_or_null}
  */
-export type FieldMappingMappings = { [key: string]: string | null };
+export type FieldMappingMappings = {[key: string]: string | null};
 
 /**
  * 单个 Raw 的字段映射
  */
 export interface FieldMapping {
   /** 数据对象ID */
-  raw_data_id: number;
+  raw_data_id: string;
   /** 字段映射: {target_field: source_field_or_null} */
   mappings: FieldMappingMappings;
   /** 优先级（数值越大优先级越高） */
@@ -1333,7 +1325,7 @@ export interface FieldMappingSuggestionResponse {
   /** 推荐的源字段名 */
   source_field: string;
   /** 来源 RawData ID */
-  raw_data_id: number;
+  raw_data_id: string;
   /** 来源 RawData 名称 */
   raw_data_name: string;
   /**
@@ -1365,7 +1357,8 @@ export interface FilePreviewResponse {
 /**
  * 文件类型
  */
-export type FileType = (typeof FileType)[keyof typeof FileType];
+export type FileType = typeof FileType[keyof typeof FileType];
+
 
 // eslint-disable-next-line @typescript-eslint/no-redeclare
 export const FileType = {
@@ -1385,7 +1378,7 @@ export type GenerateFollowupRequestLastResult = GenerateFollowupRequestLastResul
 /**
  * 触发消息ID
  */
-export type GenerateFollowupRequestTriggerMessageId = number | null;
+export type GenerateFollowupRequestTriggerMessageId = string | null;
 
 /**
  * 生成追问推荐请求
@@ -1610,7 +1603,7 @@ export type RawDataDatabaseTableConfigCustomSql = string | null;
  */
 export interface RawDataDatabaseTableConfig {
   /** 数据库连接ID */
-  connection_id: number;
+  connection_id: string;
   /** Schema名称 */
   schema_name?: RawDataDatabaseTableConfigSchemaName;
   /** 表名 */
@@ -1624,7 +1617,7 @@ export interface RawDataDatabaseTableConfig {
  */
 export interface RawDataFileConfig {
   /** 上传文件ID */
-  file_id: number;
+  file_id: string;
 }
 
 /**
@@ -1632,7 +1625,7 @@ export interface RawDataFileConfig {
  */
 export interface RawDataInfo {
   /** RawData ID */
-  id: number;
+  id: string;
   /** RawData 名称 */
   name: string;
   /** 状态 */
@@ -1680,7 +1673,7 @@ export type RawDataResponseDescription = string | null;
 /**
  * 数据库连接ID
  */
-export type RawDataResponseConnectionId = number | null;
+export type RawDataResponseConnectionId = string | null;
 
 /**
  * Schema名称
@@ -1700,7 +1693,7 @@ export type RawDataResponseCustomSql = string | null;
 /**
  * 上传文件ID
  */
-export type RawDataResponseFileId = number | null;
+export type RawDataResponseFileId = string | null;
 
 /**
  * 列结构信息
@@ -1747,9 +1740,9 @@ export interface RawDataResponse {
   /** 数据对象类型: database_table/file */
   raw_type: RawDataType;
   /** 数据对象ID */
-  id: number;
+  id: string;
   /** 所属用户ID */
-  user_id: number;
+  user_id: string;
   /** 数据库连接ID */
   connection_id?: RawDataResponseConnectionId;
   /** Schema名称 */
@@ -1779,7 +1772,8 @@ export interface RawDataResponse {
 /**
  * 数据对象类型
  */
-export type RawDataType = (typeof RawDataType)[keyof typeof RawDataType];
+export type RawDataType = typeof RawDataType[keyof typeof RawDataType];
+
 
 // eslint-disable-next-line @typescript-eslint/no-redeclare
 export const RawDataType = {
@@ -1829,16 +1823,16 @@ export type RawMappingResponseRawDataName = string | null;
 /**
  * 字段映射
  */
-export type RawMappingResponseFieldMappings = { [key: string]: string | null };
+export type RawMappingResponseFieldMappings = {[key: string]: string | null};
 
 /**
  * Raw 映射响应
  */
 export interface RawMappingResponse {
   /** 映射ID */
-  id: number;
+  id: string;
   /** 数据对象ID */
-  raw_data_id: number;
+  raw_data_id: string;
   /** 数据对象名称 */
   raw_data_name?: RawMappingResponseRawDataName;
   /** 字段映射 */
@@ -1870,7 +1864,7 @@ export interface SuggestMappingsRequest {
    * 数据对象ID列表
    * @minItems 1
    */
-  raw_data_ids: number[];
+  raw_data_ids: string[];
 }
 
 /**
@@ -1889,7 +1883,7 @@ export interface SuggestTargetFieldsRequest {
    * 数据对象ID列表
    * @minItems 1
    */
-  raw_data_ids: number[];
+  raw_data_ids: string[];
 }
 
 /**
@@ -1989,14 +1983,14 @@ export interface TargetField {
 
 export type TaskRecommendationResponseDescription = string | null;
 
-export type TaskRecommendationResponseTriggerMessageId = number | null;
+export type TaskRecommendationResponseTriggerMessageId = string | null;
 
 /**
  * 推荐响应
  */
 export interface TaskRecommendationResponse {
-  id: number;
-  session_id: number;
+  id: string;
+  session_id: string;
   title: string;
   description: TaskRecommendationResponseDescription;
   category: string;
@@ -2020,7 +2014,7 @@ export interface TaskRecommendationUpdate {
  * Token基础数据
  */
 export interface Token {
-  id: number;
+  id: string;
   nickname: string;
   access_token: string;
   refresh_token: string;
@@ -2069,9 +2063,9 @@ export type UploadedFileResponseUpdateTime = string | null;
  */
 export interface UploadedFileResponse {
   /** 文件ID */
-  id: number;
+  id: string;
   /** 上传用户ID */
-  user_id: number;
+  user_id: string;
   /** 原始文件名 */
   original_name: string;
   /** MinIO对象存储Key */
@@ -2144,9 +2138,9 @@ export type UploadedFileWithRawDataResponseAutoRawData = RawDataInfo | null;
  */
 export interface UploadedFileWithRawDataResponse {
   /** 文件ID */
-  id: number;
+  id: string;
   /** 上传用户ID */
-  user_id: number;
+  user_id: string;
   /** 原始文件名 */
   original_name: string;
   /** MinIO对象存储Key */
@@ -2233,7 +2227,7 @@ export interface UserResponse {
    */
   nickname: string;
   /** 用户ID */
-  id: number;
+  id: string;
   /** 是否激活 */
   is_active: boolean;
   /** 是否超级管理员 */
@@ -2287,456 +2281,480 @@ export interface ValidationError {
 }
 
 export type GetUsersApiV1UsersGetParams = {
-  /**
-   * @minimum 1
-   */
-  page_num?: number;
-  /**
-   * @minimum 1
-   */
-  page_size?: number;
-  keyword?: string | null;
-  is_active?: boolean | null;
-  is_superuser?: boolean | null;
+/**
+ * @minimum 1
+ */
+page_num?: number;
+/**
+ * @minimum 1
+ */
+page_size?: number;
+keyword?: string | null;
+is_active?: boolean | null;
+is_superuser?: boolean | null;
 };
 
 export type GetConnectionsApiV1DatabaseConnectionsGetParams = {
-  keyword?: string | null;
-  db_type?: string | null;
-  /**
-   * @minimum 1
-   */
-  page_num?: number;
-  /**
-   * @minimum 1
-   */
-  page_size?: number;
+keyword?: string | null;
+db_type?: string | null;
+/**
+ * @minimum 1
+ */
+page_num?: number;
+/**
+ * @minimum 1
+ */
+page_size?: number;
 };
 
 export type CreateConnectionApiV1DatabaseConnectionsPostParams = {
-  auto_create_raw_data?: boolean;
-  auto_sync_raw_data?: boolean;
-  max_auto_tables?: number;
+auto_create_raw_data?: boolean;
+auto_sync_raw_data?: boolean;
+max_auto_tables?: number;
 };
 
 export type GetConnectionTableSchemaApiV1DatabaseConnectionsConnectionIdSchemaGetParams = {
-  schema_name?: string | null;
-  table_name?: string | null;
+schema_name?: string | null;
+table_name?: string | null;
 };
 
 export type GetRawDataListApiV1RawDataGetParams = {
-  /**
-   * @minimum 1
-   */
-  page_num?: number;
-  /**
-   * @minimum 1
-   */
-  page_size?: number;
-  keyword?: string | null;
-  raw_type?: RawDataType | null;
-  status?: string | null;
+/**
+ * @minimum 1
+ */
+page_num?: number;
+/**
+ * @minimum 1
+ */
+page_size?: number;
+keyword?: string | null;
+raw_type?: RawDataType | null;
+status?: string | null;
 };
 
 export type PreviewRawDataApiV1RawDataRawDataIdPreviewPostBody = RawDataPreviewRequest | null;
 
 export type GetDataSourcesApiV1DataSourcesGetParams = {
-  /**
-   * @minimum 1
-   */
-  page_num?: number;
-  /**
-   * @minimum 1
-   */
-  page_size?: number;
-  keyword?: string | null;
-  category?: DataSourceCategory | null;
+/**
+ * @minimum 1
+ */
+page_num?: number;
+/**
+ * @minimum 1
+ */
+page_size?: number;
+keyword?: string | null;
+category?: DataSourceCategory | null;
 };
 
 export type PreviewDataSourceApiV1DataSourcesDataSourceIdPreviewPostBody = DataSourcePreviewRequest | null;
 
 export type GetFilesApiV1FilesGetParams = {
-  /**
-   * @minimum 1
-   */
-  page_num?: number;
-  /**
-   * @minimum 1
-   */
-  page_size?: number;
-  keyword?: string | null;
-  file_type?: FileType | null;
-  status?: string | null;
+/**
+ * @minimum 1
+ */
+page_num?: number;
+/**
+ * @minimum 1
+ */
+page_size?: number;
+keyword?: string | null;
+file_type?: FileType | null;
+status?: string | null;
 };
 
 export type UploadFileApiV1FilesUploadPostParams = {
-  auto_create_raw_data?: boolean;
+auto_create_raw_data?: boolean;
 };
 
 export type GetFilePreviewApiV1FilesFileIdPreviewGetParams = {
-  rows?: number;
+rows?: number;
 };
 
 export type GetDownloadUrlApiV1FilesFileIdDownloadUrlGetParams = {
-  expires?: number;
+expires?: number;
 };
 
 export type GetSessionsApiV1SessionsGetParams = {
-  /**
-   * @minimum 1
-   */
-  page_num?: number;
-  /**
-   * @minimum 1
-   */
-  page_size?: number;
-  keyword?: string | null;
-  status?: string | null;
+/**
+ * @minimum 1
+ */
+page_num?: number;
+/**
+ * @minimum 1
+ */
+page_size?: number;
+keyword?: string | null;
+status?: string | null;
 };
 
 export type GetMessagesApiV1SessionsSessionIdMessagesGetParams = {
-  /**
-   * @minimum 1
-   */
-  page_num?: number;
-  /**
-   * @minimum 1
-   */
-  page_size?: number;
+/**
+ * @minimum 1
+ */
+page_num?: number;
+/**
+ * @minimum 1
+ */
+page_size?: number;
 };
 
 export type GetRecommendationsApiV1SessionsSessionIdRecommendationsGetParams = {
-  status_filter?: string | null;
-  source_type?: string | null;
-  /**
-   * @minimum 1
-   */
-  page_num?: number;
-  /**
-   * @minimum 1
-   */
-  page_size?: number;
+status_filter?: string | null;
+source_type?: string | null;
+/**
+ * @minimum 1
+ */
+page_num?: number;
+/**
+ * @minimum 1
+ */
+page_size?: number;
 };
 
-export type GenerateRecommendationsApiV1SessionsSessionIdRecommendationsPostBody =
-  GenerateRecommendationsRequest | null;
+export type GenerateRecommendationsApiV1SessionsSessionIdRecommendationsPostBody = GenerateRecommendationsRequest | null;
 
 export type DismissAllRecommendationsApiV1SessionsSessionIdRecommendationsDeleteParams = {
-  source_type?: string | null;
+source_type?: string | null;
 };
 
 /**
  * 根路径，健康检查
  * @summary Root
  */
-export const rootGet = <TData = AxiosResponse<unknown>>(options?: AxiosRequestConfig): Promise<TData> => {
-  return axios.get('/', options);
-};
+export const rootGet = <TData = AxiosResponse<unknown>>(
+     options?: AxiosRequestConfig
+ ): Promise<TData> => {
+    return axios.get(
+      `/`,options
+    );
+  }
 
 /**
  * 健康检查接口
  * @summary Health Check
  */
-export const healthCheckHealthGet = <TData = AxiosResponse<unknown>>(options?: AxiosRequestConfig): Promise<TData> => {
-  return axios.get('/health', options);
-};
+export const healthCheckHealthGet = <TData = AxiosResponse<unknown>>(
+     options?: AxiosRequestConfig
+ ): Promise<TData> => {
+    return axios.get(
+      `/health`,options
+    );
+  }
 
 /**
  * 用户登录
  * @summary Login
  */
 export const loginApiV1AuthLoginPost = <TData = AxiosResponse<BaseResponseToken>>(
-  loginRequest: LoginRequest,
-  options?: AxiosRequestConfig
-): Promise<TData> => {
-  return axios.post('/api/v1/auth/login', loginRequest, options);
-};
+    loginRequest: LoginRequest, options?: AxiosRequestConfig
+ ): Promise<TData> => {
+    return axios.post(
+      `/api/v1/auth/login`,
+      loginRequest,options
+    );
+  }
 
 /**
  * 刷新访问令牌
  * @summary Refresh Token
  */
 export const refreshTokenApiV1AuthRefreshPost = <TData = AxiosResponse<BaseResponseToken>>(
-  refreshTokenRequest: RefreshTokenRequest,
-  options?: AxiosRequestConfig
-): Promise<TData> => {
-  return axios.post('/api/v1/auth/refresh', refreshTokenRequest, options);
-};
+    refreshTokenRequest: RefreshTokenRequest, options?: AxiosRequestConfig
+ ): Promise<TData> => {
+    return axios.post(
+      `/api/v1/auth/refresh`,
+      refreshTokenRequest,options
+    );
+  }
 
 /**
  * 用户注册
  * @summary Register
  */
 export const registerApiV1AuthRegisterPost = <TData = AxiosResponse<BaseResponseUserResponse>>(
-  userCreate: UserCreate,
-  options?: AxiosRequestConfig
-): Promise<TData> => {
-  return axios.post('/api/v1/auth/register', userCreate, options);
-};
+    userCreate: UserCreate, options?: AxiosRequestConfig
+ ): Promise<TData> => {
+    return axios.post(
+      `/api/v1/auth/register`,
+      userCreate,options
+    );
+  }
 
 /**
  * 获取当前登录用户信息
  * @summary Get Current User Info
  */
 export const getCurrentUserInfoApiV1AuthMeGet = <TData = AxiosResponse<BaseResponseUserResponse>>(
-  options?: AxiosRequestConfig
-): Promise<TData> => {
-  return axios.get('/api/v1/auth/me', options);
-};
+     options?: AxiosRequestConfig
+ ): Promise<TData> => {
+    return axios.get(
+      `/api/v1/auth/me`,options
+    );
+  }
 
 /**
  * 更新当前登录用户信息
  * @summary Update Current User
  */
 export const updateCurrentUserApiV1AuthMePut = <TData = AxiosResponse<BaseResponseUserResponse>>(
-  userUpdate: UserUpdate,
-  options?: AxiosRequestConfig
-): Promise<TData> => {
-  return axios.put('/api/v1/auth/me', userUpdate, options);
-};
+    userUpdate: UserUpdate, options?: AxiosRequestConfig
+ ): Promise<TData> => {
+    return axios.put(
+      `/api/v1/auth/me`,
+      userUpdate,options
+    );
+  }
 
 /**
  * 修改密码
  * @summary Change Password
  */
 export const changePasswordApiV1AuthChangePasswordPost = <TData = AxiosResponse<BaseResponseNoneType>>(
-  passwordChange: PasswordChange,
-  options?: AxiosRequestConfig
-): Promise<TData> => {
-  return axios.post('/api/v1/auth/change-password', passwordChange, options);
-};
+    passwordChange: PasswordChange, options?: AxiosRequestConfig
+ ): Promise<TData> => {
+    return axios.post(
+      `/api/v1/auth/change-password`,
+      passwordChange,options
+    );
+  }
 
 /**
  * 获取用户列表（分页）- 需要超级管理员权限
  * @summary Get Users
  */
 export const getUsersApiV1UsersGet = <TData = AxiosResponse<BaseResponsePageResponseUserResponse>>(
-  params?: GetUsersApiV1UsersGetParams,
-  options?: AxiosRequestConfig
-): Promise<TData> => {
-  return axios.get('/api/v1/users', {
+    params?: GetUsersApiV1UsersGetParams, options?: AxiosRequestConfig
+ ): Promise<TData> => {
+    return axios.get(
+      `/api/v1/users`,{
     ...options,
-    params: { ...params, ...options?.params },
-  });
-};
+        params: {...params, ...options?.params},}
+    );
+  }
 
 /**
  * 创建新用户 - 需要超级管理员权限
  * @summary Create User
  */
 export const createUserApiV1UsersPost = <TData = AxiosResponse<BaseResponseUserResponse>>(
-  userCreate: UserCreate,
-  options?: AxiosRequestConfig
-): Promise<TData> => {
-  return axios.post('/api/v1/users', userCreate, options);
-};
+    userCreate: UserCreate, options?: AxiosRequestConfig
+ ): Promise<TData> => {
+    return axios.post(
+      `/api/v1/users`,
+      userCreate,options
+    );
+  }
 
 /**
  * 获取单个用户详情 - 需要超级管理员权限
  * @summary Get User
  */
 export const getUserApiV1UsersUserIdGet = <TData = AxiosResponse<BaseResponseUserResponse>>(
-  userId: number,
-  options?: AxiosRequestConfig
-): Promise<TData> => {
-  return axios.get(`/api/v1/users/${userId}`, options);
-};
+    userId: string, options?: AxiosRequestConfig
+ ): Promise<TData> => {
+    return axios.get(
+      `/api/v1/users/${userId}`,options
+    );
+  }
 
 /**
  * 更新用户信息 - 需要超级管理员权限
  * @summary Update User
  */
 export const updateUserApiV1UsersUserIdPut = <TData = AxiosResponse<BaseResponseUserResponse>>(
-  userId: number,
-  userUpdate: UserUpdate,
-  options?: AxiosRequestConfig
-): Promise<TData> => {
-  return axios.put(`/api/v1/users/${userId}`, userUpdate, options);
-};
+    userId: string,
+    userUpdate: UserUpdate, options?: AxiosRequestConfig
+ ): Promise<TData> => {
+    return axios.put(
+      `/api/v1/users/${userId}`,
+      userUpdate,options
+    );
+  }
 
 /**
  * 删除用户（逻辑删除）- 需要超级管理员权限
  * @summary Delete User
  */
 export const deleteUserApiV1UsersUserIdDelete = <TData = AxiosResponse<BaseResponseNoneType>>(
-  userId: number,
-  options?: AxiosRequestConfig
-): Promise<TData> => {
-  return axios.delete(`/api/v1/users/${userId}`, options);
-};
+    userId: string, options?: AxiosRequestConfig
+ ): Promise<TData> => {
+    return axios.delete(
+      `/api/v1/users/${userId}`,options
+    );
+  }
 
 /**
  * 获取数据库连接列表（分页）
  * @summary Get Connections
  */
-export const getConnectionsApiV1DatabaseConnectionsGet = <
-  TData = AxiosResponse<BaseResponsePageResponseDatabaseConnectionResponse>,
->(
-  params?: GetConnectionsApiV1DatabaseConnectionsGetParams,
-  options?: AxiosRequestConfig
-): Promise<TData> => {
-  return axios.get('/api/v1/database-connections', {
+export const getConnectionsApiV1DatabaseConnectionsGet = <TData = AxiosResponse<BaseResponsePageResponseDatabaseConnectionResponse>>(
+    params?: GetConnectionsApiV1DatabaseConnectionsGetParams, options?: AxiosRequestConfig
+ ): Promise<TData> => {
+    return axios.get(
+      `/api/v1/database-connections`,{
     ...options,
-    params: { ...params, ...options?.params },
-  });
-};
+        params: {...params, ...options?.params},}
+    );
+  }
 
 /**
  * 创建数据库连接
  * @summary Create Connection
  */
-export const createConnectionApiV1DatabaseConnectionsPost = <
-  TData = AxiosResponse<BaseResponseDatabaseConnectionWithRawResponse>,
->(
-  databaseConnectionCreate: DatabaseConnectionCreate,
-  params?: CreateConnectionApiV1DatabaseConnectionsPostParams,
-  options?: AxiosRequestConfig
-): Promise<TData> => {
-  return axios.post('/api/v1/database-connections', databaseConnectionCreate, {
+export const createConnectionApiV1DatabaseConnectionsPost = <TData = AxiosResponse<BaseResponseDatabaseConnectionWithRawResponse>>(
+    databaseConnectionCreate: DatabaseConnectionCreate,
+    params?: CreateConnectionApiV1DatabaseConnectionsPostParams, options?: AxiosRequestConfig
+ ): Promise<TData> => {
+    return axios.post(
+      `/api/v1/database-connections`,
+      databaseConnectionCreate,{
     ...options,
-    params: { ...params, ...options?.params },
-  });
-};
+        params: {...params, ...options?.params},}
+    );
+  }
 
 /**
  * 获取单个数据库连接详情
  * @summary Get Connection
  */
-export const getConnectionApiV1DatabaseConnectionsConnectionIdGet = <
-  TData = AxiosResponse<BaseResponseDatabaseConnectionResponse>,
->(
-  connectionId: number,
-  options?: AxiosRequestConfig
-): Promise<TData> => {
-  return axios.get(`/api/v1/database-connections/${connectionId}`, options);
-};
+export const getConnectionApiV1DatabaseConnectionsConnectionIdGet = <TData = AxiosResponse<BaseResponseDatabaseConnectionResponse>>(
+    connectionId: string, options?: AxiosRequestConfig
+ ): Promise<TData> => {
+    return axios.get(
+      `/api/v1/database-connections/${connectionId}`,options
+    );
+  }
 
 /**
  * 更新数据库连接
  * @summary Update Connection
  */
-export const updateConnectionApiV1DatabaseConnectionsConnectionIdPut = <
-  TData = AxiosResponse<BaseResponseDatabaseConnectionResponse>,
->(
-  connectionId: number,
-  databaseConnectionUpdate: DatabaseConnectionUpdate,
-  options?: AxiosRequestConfig
-): Promise<TData> => {
-  return axios.put(`/api/v1/database-connections/${connectionId}`, databaseConnectionUpdate, options);
-};
+export const updateConnectionApiV1DatabaseConnectionsConnectionIdPut = <TData = AxiosResponse<BaseResponseDatabaseConnectionResponse>>(
+    connectionId: string,
+    databaseConnectionUpdate: DatabaseConnectionUpdate, options?: AxiosRequestConfig
+ ): Promise<TData> => {
+    return axios.put(
+      `/api/v1/database-connections/${connectionId}`,
+      databaseConnectionUpdate,options
+    );
+  }
 
 /**
  * 删除数据库连接
  * @summary Delete Connection
  */
 export const deleteConnectionApiV1DatabaseConnectionsConnectionIdDelete = <TData = AxiosResponse<BaseResponseNoneType>>(
-  connectionId: number,
-  options?: AxiosRequestConfig
-): Promise<TData> => {
-  return axios.delete(`/api/v1/database-connections/${connectionId}`, options);
-};
+    connectionId: string, options?: AxiosRequestConfig
+ ): Promise<TData> => {
+    return axios.delete(
+      `/api/v1/database-connections/${connectionId}`,options
+    );
+  }
 
 /**
  * 测试数据库连接
  * @summary Test Connection
  */
-export const testConnectionApiV1DatabaseConnectionsConnectionIdTestPost = <
-  TData = AxiosResponse<BaseResponseDatabaseConnectionTestResult>,
->(
-  connectionId: number,
-  options?: AxiosRequestConfig
-): Promise<TData> => {
-  return axios.post(`/api/v1/database-connections/${connectionId}/test`, undefined, options);
-};
+export const testConnectionApiV1DatabaseConnectionsConnectionIdTestPost = <TData = AxiosResponse<BaseResponseDatabaseConnectionTestResult>>(
+    connectionId: string, options?: AxiosRequestConfig
+ ): Promise<TData> => {
+    return axios.post(
+      `/api/v1/database-connections/${connectionId}/test`,undefined,options
+    );
+  }
 
 /**
  * 获取数据库连接的表列表
  * @summary Get Connection Tables
  */
-export const getConnectionTablesApiV1DatabaseConnectionsConnectionIdTablesGet = <
-  TData = AxiosResponse<BaseResponseDatabaseConnectionTablesResponse>,
->(
-  connectionId: number,
-  options?: AxiosRequestConfig
-): Promise<TData> => {
-  return axios.get(`/api/v1/database-connections/${connectionId}/tables`, options);
-};
+export const getConnectionTablesApiV1DatabaseConnectionsConnectionIdTablesGet = <TData = AxiosResponse<BaseResponseDatabaseConnectionTablesResponse>>(
+    connectionId: string, options?: AxiosRequestConfig
+ ): Promise<TData> => {
+    return axios.get(
+      `/api/v1/database-connections/${connectionId}/tables`,options
+    );
+  }
 
 /**
  * 获取指定表的列结构
  * @summary Get Connection Table Schema
  */
-export const getConnectionTableSchemaApiV1DatabaseConnectionsConnectionIdSchemaGet = <
-  TData = AxiosResponse<BaseResponseDatabaseTableSchemaResponse>,
->(
-  connectionId: number,
-  params?: GetConnectionTableSchemaApiV1DatabaseConnectionsConnectionIdSchemaGetParams,
-  options?: AxiosRequestConfig
-): Promise<TData> => {
-  return axios.get(`/api/v1/database-connections/${connectionId}/schema`, {
+export const getConnectionTableSchemaApiV1DatabaseConnectionsConnectionIdSchemaGet = <TData = AxiosResponse<BaseResponseDatabaseTableSchemaResponse>>(
+    connectionId: string,
+    params?: GetConnectionTableSchemaApiV1DatabaseConnectionsConnectionIdSchemaGetParams, options?: AxiosRequestConfig
+ ): Promise<TData> => {
+    return axios.get(
+      `/api/v1/database-connections/${connectionId}/schema`,{
     ...options,
-    params: { ...params, ...options?.params },
-  });
-};
+        params: {...params, ...options?.params},}
+    );
+  }
 
 /**
  * 获取数据对象列表（分页）
  * @summary Get Raw Data List
  */
 export const getRawDataListApiV1RawDataGet = <TData = AxiosResponse<BaseResponsePageResponseRawDataResponse>>(
-  params?: GetRawDataListApiV1RawDataGetParams,
-  options?: AxiosRequestConfig
-): Promise<TData> => {
-  return axios.get('/api/v1/raw-data', {
+    params?: GetRawDataListApiV1RawDataGetParams, options?: AxiosRequestConfig
+ ): Promise<TData> => {
+    return axios.get(
+      `/api/v1/raw-data`,{
     ...options,
-    params: { ...params, ...options?.params },
-  });
-};
+        params: {...params, ...options?.params},}
+    );
+  }
 
 /**
  * 创建数据对象
  * @summary Create Raw Data
  */
 export const createRawDataApiV1RawDataPost = <TData = AxiosResponse<BaseResponseRawDataResponse>>(
-  rawDataCreate: RawDataCreate,
-  options?: AxiosRequestConfig
-): Promise<TData> => {
-  return axios.post('/api/v1/raw-data', rawDataCreate, options);
-};
+    rawDataCreate: RawDataCreate, options?: AxiosRequestConfig
+ ): Promise<TData> => {
+    return axios.post(
+      `/api/v1/raw-data`,
+      rawDataCreate,options
+    );
+  }
 
 /**
  * 获取单个数据对象详情
  * @summary Get Raw Data
  */
 export const getRawDataApiV1RawDataRawDataIdGet = <TData = AxiosResponse<BaseResponseRawDataResponse>>(
-  rawDataId: number,
-  options?: AxiosRequestConfig
-): Promise<TData> => {
-  return axios.get(`/api/v1/raw-data/${rawDataId}`, options);
-};
+    rawDataId: string, options?: AxiosRequestConfig
+ ): Promise<TData> => {
+    return axios.get(
+      `/api/v1/raw-data/${rawDataId}`,options
+    );
+  }
 
 /**
  * 更新数据对象
  * @summary Update Raw Data
  */
 export const updateRawDataApiV1RawDataRawDataIdPut = <TData = AxiosResponse<BaseResponseRawDataResponse>>(
-  rawDataId: number,
-  rawDataUpdate: RawDataUpdate,
-  options?: AxiosRequestConfig
-): Promise<TData> => {
-  return axios.put(`/api/v1/raw-data/${rawDataId}`, rawDataUpdate, options);
-};
+    rawDataId: string,
+    rawDataUpdate: RawDataUpdate, options?: AxiosRequestConfig
+ ): Promise<TData> => {
+    return axios.put(
+      `/api/v1/raw-data/${rawDataId}`,
+      rawDataUpdate,options
+    );
+  }
 
 /**
  * 删除数据对象
  * @summary Delete Raw Data
  */
 export const deleteRawDataApiV1RawDataRawDataIdDelete = <TData = AxiosResponse<BaseResponseNoneType>>(
-  rawDataId: number,
-  options?: AxiosRequestConfig
-): Promise<TData> => {
-  return axios.delete(`/api/v1/raw-data/${rawDataId}`, options);
-};
+    rawDataId: string, options?: AxiosRequestConfig
+ ): Promise<TData> => {
+    return axios.delete(
+      `/api/v1/raw-data/${rawDataId}`,options
+    );
+  }
 
 /**
  * 从数据库连接批量创建数据对象
@@ -2744,26 +2762,28 @@ export const deleteRawDataApiV1RawDataRawDataIdDelete = <TData = AxiosResponse<B
 用户可以一次性从一个数据库连接中选择多个表创建数据对象
  * @summary Batch Create Raw Data
  */
-export const batchCreateRawDataApiV1RawDataBatchFromConnectionPost = <
-  TData = AxiosResponse<BaseResponseBatchCreateFromConnectionResponse>,
->(
-  batchCreateFromConnectionRequest: BatchCreateFromConnectionRequest,
-  options?: AxiosRequestConfig
-): Promise<TData> => {
-  return axios.post('/api/v1/raw-data/batch-from-connection', batchCreateFromConnectionRequest, options);
-};
+export const batchCreateRawDataApiV1RawDataBatchFromConnectionPost = <TData = AxiosResponse<BaseResponseBatchCreateFromConnectionResponse>>(
+    batchCreateFromConnectionRequest: BatchCreateFromConnectionRequest, options?: AxiosRequestConfig
+ ): Promise<TData> => {
+    return axios.post(
+      `/api/v1/raw-data/batch-from-connection`,
+      batchCreateFromConnectionRequest,options
+    );
+  }
 
 /**
  * 更新数据对象列类型（用户修正）
  * @summary Update Raw Data Columns
  */
 export const updateRawDataColumnsApiV1RawDataRawDataIdColumnsPut = <TData = AxiosResponse<BaseResponseRawDataResponse>>(
-  rawDataId: number,
-  rawDataColumnUpdate: RawDataColumnUpdate,
-  options?: AxiosRequestConfig
-): Promise<TData> => {
-  return axios.put(`/api/v1/raw-data/${rawDataId}/columns`, rawDataColumnUpdate, options);
-};
+    rawDataId: string,
+    rawDataColumnUpdate: RawDataColumnUpdate, options?: AxiosRequestConfig
+ ): Promise<TData> => {
+    return axios.put(
+      `/api/v1/raw-data/${rawDataId}/columns`,
+      rawDataColumnUpdate,options
+    );
+  }
 
 /**
  * 预览数据对象（抽样）
@@ -2771,19 +2791,15 @@ export const updateRawDataColumnsApiV1RawDataRawDataIdColumnsPut = <TData = Axio
 从数据库表或文件中抽样数据，并推断列类型
  * @summary Preview Raw Data
  */
-export const previewRawDataApiV1RawDataRawDataIdPreviewPost = <
-  TData = AxiosResponse<BaseResponseRawDataPreviewResponse>,
->(
-  rawDataId: number,
-  previewRawDataApiV1RawDataRawDataIdPreviewPostBody: PreviewRawDataApiV1RawDataRawDataIdPreviewPostBody,
-  options?: AxiosRequestConfig
-): Promise<TData> => {
-  return axios.post(
-    `/api/v1/raw-data/${rawDataId}/preview`,
-    previewRawDataApiV1RawDataRawDataIdPreviewPostBody,
-    options
-  );
-};
+export const previewRawDataApiV1RawDataRawDataIdPreviewPost = <TData = AxiosResponse<BaseResponseRawDataPreviewResponse>>(
+    rawDataId: string,
+    previewRawDataApiV1RawDataRawDataIdPreviewPostBody: PreviewRawDataApiV1RawDataRawDataIdPreviewPostBody, options?: AxiosRequestConfig
+ ): Promise<TData> => {
+    return axios.post(
+      `/api/v1/raw-data/${rawDataId}/preview`,
+      previewRawDataApiV1RawDataRawDataIdPreviewPostBody,options
+    );
+  }
 
 /**
  * 同步数据对象 Schema
@@ -2792,70 +2808,77 @@ export const previewRawDataApiV1RawDataRawDataIdPreviewPost = <
  * @summary Sync Raw Data
  */
 export const syncRawDataApiV1RawDataRawDataIdSyncPost = <TData = AxiosResponse<BaseResponseRawDataResponse>>(
-  rawDataId: number,
-  options?: AxiosRequestConfig
-): Promise<TData> => {
-  return axios.post(`/api/v1/raw-data/${rawDataId}/sync`, undefined, options);
-};
+    rawDataId: string, options?: AxiosRequestConfig
+ ): Promise<TData> => {
+    return axios.post(
+      `/api/v1/raw-data/${rawDataId}/sync`,undefined,options
+    );
+  }
 
 /**
  * 获取数据源列表（分页）
  * @summary Get Data Sources
  */
 export const getDataSourcesApiV1DataSourcesGet = <TData = AxiosResponse<BaseResponsePageResponseDataSourceResponse>>(
-  params?: GetDataSourcesApiV1DataSourcesGetParams,
-  options?: AxiosRequestConfig
-): Promise<TData> => {
-  return axios.get('/api/v1/data-sources', {
+    params?: GetDataSourcesApiV1DataSourcesGetParams, options?: AxiosRequestConfig
+ ): Promise<TData> => {
+    return axios.get(
+      `/api/v1/data-sources`,{
     ...options,
-    params: { ...params, ...options?.params },
-  });
-};
+        params: {...params, ...options?.params},}
+    );
+  }
 
 /**
  * 创建数据源
  * @summary Create Data Source
  */
 export const createDataSourceApiV1DataSourcesPost = <TData = AxiosResponse<BaseResponseDataSourceResponse>>(
-  dataSourceCreate: DataSourceCreate,
-  options?: AxiosRequestConfig
-): Promise<TData> => {
-  return axios.post('/api/v1/data-sources', dataSourceCreate, options);
-};
+    dataSourceCreate: DataSourceCreate, options?: AxiosRequestConfig
+ ): Promise<TData> => {
+    return axios.post(
+      `/api/v1/data-sources`,
+      dataSourceCreate,options
+    );
+  }
 
 /**
  * 获取单个数据源详情（包含映射信息）
  * @summary Get Data Source
  */
 export const getDataSourceApiV1DataSourcesDataSourceIdGet = <TData = AxiosResponse<BaseResponseDataSourceResponse>>(
-  dataSourceId: number,
-  options?: AxiosRequestConfig
-): Promise<TData> => {
-  return axios.get(`/api/v1/data-sources/${dataSourceId}`, options);
-};
+    dataSourceId: string, options?: AxiosRequestConfig
+ ): Promise<TData> => {
+    return axios.get(
+      `/api/v1/data-sources/${dataSourceId}`,options
+    );
+  }
 
 /**
  * 更新数据源
  * @summary Update Data Source
  */
 export const updateDataSourceApiV1DataSourcesDataSourceIdPut = <TData = AxiosResponse<BaseResponseDataSourceResponse>>(
-  dataSourceId: number,
-  dataSourceUpdate: DataSourceUpdate,
-  options?: AxiosRequestConfig
-): Promise<TData> => {
-  return axios.put(`/api/v1/data-sources/${dataSourceId}`, dataSourceUpdate, options);
-};
+    dataSourceId: string,
+    dataSourceUpdate: DataSourceUpdate, options?: AxiosRequestConfig
+ ): Promise<TData> => {
+    return axios.put(
+      `/api/v1/data-sources/${dataSourceId}`,
+      dataSourceUpdate,options
+    );
+  }
 
 /**
  * 删除数据源
  * @summary Delete Data Source
  */
 export const deleteDataSourceApiV1DataSourcesDataSourceIdDelete = <TData = AxiosResponse<BaseResponseNoneType>>(
-  dataSourceId: number,
-  options?: AxiosRequestConfig
-): Promise<TData> => {
-  return axios.delete(`/api/v1/data-sources/${dataSourceId}`, options);
-};
+    dataSourceId: string, options?: AxiosRequestConfig
+ ): Promise<TData> => {
+    return axios.delete(
+      `/api/v1/data-sources/${dataSourceId}`,options
+    );
+  }
 
 /**
  * 预览数据源（合并后的数据）
@@ -2863,19 +2886,15 @@ export const deleteDataSourceApiV1DataSourcesDataSourceIdDelete = <TData = Axios
 根据字段映射，从各 RawData 获取数据并合并展示
  * @summary Preview Data Source
  */
-export const previewDataSourceApiV1DataSourcesDataSourceIdPreviewPost = <
-  TData = AxiosResponse<BaseResponseDataSourcePreviewResponse>,
->(
-  dataSourceId: number,
-  previewDataSourceApiV1DataSourcesDataSourceIdPreviewPostBody: PreviewDataSourceApiV1DataSourcesDataSourceIdPreviewPostBody,
-  options?: AxiosRequestConfig
-): Promise<TData> => {
-  return axios.post(
-    `/api/v1/data-sources/${dataSourceId}/preview`,
-    previewDataSourceApiV1DataSourcesDataSourceIdPreviewPostBody,
-    options
-  );
-};
+export const previewDataSourceApiV1DataSourcesDataSourceIdPreviewPost = <TData = AxiosResponse<BaseResponseDataSourcePreviewResponse>>(
+    dataSourceId: string,
+    previewDataSourceApiV1DataSourcesDataSourceIdPreviewPostBody: PreviewDataSourceApiV1DataSourcesDataSourceIdPreviewPostBody, options?: AxiosRequestConfig
+ ): Promise<TData> => {
+    return axios.post(
+      `/api/v1/data-sources/${dataSourceId}/preview`,
+      previewDataSourceApiV1DataSourcesDataSourceIdPreviewPostBody,options
+    );
+  }
 
 /**
  * 智能字段映射建议
@@ -2884,14 +2903,14 @@ export const previewDataSourceApiV1DataSourcesDataSourceIdPreviewPost = <
 基于字段名相似度、同义词匹配和数据类型兼容性进行匹配。
  * @summary Suggest Field Mappings
  */
-export const suggestFieldMappingsApiV1DataSourcesSuggestMappingsPost = <
-  TData = AxiosResponse<BaseResponseSuggestMappingsResponse>,
->(
-  suggestMappingsRequest: SuggestMappingsRequest,
-  options?: AxiosRequestConfig
-): Promise<TData> => {
-  return axios.post('/api/v1/data-sources/suggest-mappings', suggestMappingsRequest, options);
-};
+export const suggestFieldMappingsApiV1DataSourcesSuggestMappingsPost = <TData = AxiosResponse<BaseResponseSuggestMappingsResponse>>(
+    suggestMappingsRequest: SuggestMappingsRequest, options?: AxiosRequestConfig
+ ): Promise<TData> => {
+    return axios.post(
+      `/api/v1/data-sources/suggest-mappings`,
+      suggestMappingsRequest,options
+    );
+  }
 
 /**
  * 从数据对象推断目标字段
@@ -2899,14 +2918,14 @@ export const suggestFieldMappingsApiV1DataSourcesSuggestMappingsPost = <
 分析多个 RawData 的列结构，合并推断出最佳的目标字段定义。
  * @summary Suggest Target Fields
  */
-export const suggestTargetFieldsApiV1DataSourcesSuggestTargetFieldsPost = <
-  TData = AxiosResponse<BaseResponseSuggestTargetFieldsResponse>,
->(
-  suggestTargetFieldsRequest: SuggestTargetFieldsRequest,
-  options?: AxiosRequestConfig
-): Promise<TData> => {
-  return axios.post('/api/v1/data-sources/suggest-target-fields', suggestTargetFieldsRequest, options);
-};
+export const suggestTargetFieldsApiV1DataSourcesSuggestTargetFieldsPost = <TData = AxiosResponse<BaseResponseSuggestTargetFieldsResponse>>(
+    suggestTargetFieldsRequest: SuggestTargetFieldsRequest, options?: AxiosRequestConfig
+ ): Promise<TData> => {
+    return axios.post(
+      `/api/v1/data-sources/suggest-target-fields`,
+      suggestTargetFieldsRequest,options
+    );
+  }
 
 /**
  * 刷新数据源 Schema
@@ -2914,50 +2933,51 @@ export const suggestTargetFieldsApiV1DataSourcesSuggestTargetFieldsPost = <
 重新从各 RawData 获取列信息并更新 schema_cache
  * @summary Refresh Data Source Schema
  */
-export const refreshDataSourceSchemaApiV1DataSourcesDataSourceIdRefreshSchemaPost = <
-  TData = AxiosResponse<BaseResponseDataSourceResponse>,
->(
-  dataSourceId: number,
-  options?: AxiosRequestConfig
-): Promise<TData> => {
-  return axios.post(`/api/v1/data-sources/${dataSourceId}/refresh-schema`, undefined, options);
-};
+export const refreshDataSourceSchemaApiV1DataSourcesDataSourceIdRefreshSchemaPost = <TData = AxiosResponse<BaseResponseDataSourceResponse>>(
+    dataSourceId: string, options?: AxiosRequestConfig
+ ): Promise<TData> => {
+    return axios.post(
+      `/api/v1/data-sources/${dataSourceId}/refresh-schema`,undefined,options
+    );
+  }
 
 /**
  * 获取文件列表（分页）
  * @summary Get Files
  */
 export const getFilesApiV1FilesGet = <TData = AxiosResponse<BaseResponsePageResponseUploadedFileResponse>>(
-  params?: GetFilesApiV1FilesGetParams,
-  options?: AxiosRequestConfig
-): Promise<TData> => {
-  return axios.get('/api/v1/files', {
+    params?: GetFilesApiV1FilesGetParams, options?: AxiosRequestConfig
+ ): Promise<TData> => {
+    return axios.get(
+      `/api/v1/files`,{
     ...options,
-    params: { ...params, ...options?.params },
-  });
-};
+        params: {...params, ...options?.params},}
+    );
+  }
 
 /**
  * 获取单个文件详情
  * @summary Get File
  */
 export const getFileApiV1FilesFileIdGet = <TData = AxiosResponse<BaseResponseUploadedFileResponse>>(
-  fileId: number,
-  options?: AxiosRequestConfig
-): Promise<TData> => {
-  return axios.get(`/api/v1/files/${fileId}`, options);
-};
+    fileId: string, options?: AxiosRequestConfig
+ ): Promise<TData> => {
+    return axios.get(
+      `/api/v1/files/${fileId}`,options
+    );
+  }
 
 /**
  * 删除文件
  * @summary Delete File
  */
 export const deleteFileApiV1FilesFileIdDelete = <TData = AxiosResponse<BaseResponseNoneType>>(
-  fileId: number,
-  options?: AxiosRequestConfig
-): Promise<TData> => {
-  return axios.delete(`/api/v1/files/${fileId}`, options);
-};
+    fileId: string, options?: AxiosRequestConfig
+ ): Promise<TData> => {
+    return axios.delete(
+      `/api/v1/files/${fileId}`,options
+    );
+  }
 
 /**
  * 上传文件
@@ -2966,120 +2986,125 @@ export const deleteFileApiV1FilesFileIdDelete = <TData = AxiosResponse<BaseRespo
  * @summary Upload File
  */
 export const uploadFileApiV1FilesUploadPost = <TData = AxiosResponse<BaseResponseUploadedFileWithRawDataResponse>>(
-  bodyUploadFileApiV1FilesUploadPost: BodyUploadFileApiV1FilesUploadPost,
-  params?: UploadFileApiV1FilesUploadPostParams,
-  options?: AxiosRequestConfig
-): Promise<TData> => {
-  const formData = new FormData();
-  formData.append('file', bodyUploadFileApiV1FilesUploadPost.file);
+    bodyUploadFileApiV1FilesUploadPost: BodyUploadFileApiV1FilesUploadPost,
+    params?: UploadFileApiV1FilesUploadPostParams, options?: AxiosRequestConfig
+ ): Promise<TData> => {const formData = new FormData();
+formData.append(`file`, bodyUploadFileApiV1FilesUploadPost.file)
 
-  return axios.post('/api/v1/files/upload', formData, {
+    return axios.post(
+      `/api/v1/files/upload`,
+      formData,{
     ...options,
-    params: { ...params, ...options?.params },
-  });
-};
+        params: {...params, ...options?.params},}
+    );
+  }
 
 /**
  * 获取文件预览
  * @summary Get File Preview
  */
 export const getFilePreviewApiV1FilesFileIdPreviewGet = <TData = AxiosResponse<BaseResponseFilePreviewResponse>>(
-  fileId: number,
-  params?: GetFilePreviewApiV1FilesFileIdPreviewGetParams,
-  options?: AxiosRequestConfig
-): Promise<TData> => {
-  return axios.get(`/api/v1/files/${fileId}/preview`, {
+    fileId: string,
+    params?: GetFilePreviewApiV1FilesFileIdPreviewGetParams, options?: AxiosRequestConfig
+ ): Promise<TData> => {
+    return axios.get(
+      `/api/v1/files/${fileId}/preview`,{
     ...options,
-    params: { ...params, ...options?.params },
-  });
-};
+        params: {...params, ...options?.params},}
+    );
+  }
 
 /**
  * 获取文件下载 URL
  * @summary Get Download Url
  */
 export const getDownloadUrlApiV1FilesFileIdDownloadUrlGet = <TData = AxiosResponse<BaseResponseStr>>(
-  fileId: number,
-  params?: GetDownloadUrlApiV1FilesFileIdDownloadUrlGetParams,
-  options?: AxiosRequestConfig
-): Promise<TData> => {
-  return axios.get(`/api/v1/files/${fileId}/download-url`, {
+    fileId: string,
+    params?: GetDownloadUrlApiV1FilesFileIdDownloadUrlGetParams, options?: AxiosRequestConfig
+ ): Promise<TData> => {
+    return axios.get(
+      `/api/v1/files/${fileId}/download-url`,{
     ...options,
-    params: { ...params, ...options?.params },
-  });
-};
+        params: {...params, ...options?.params},}
+    );
+  }
 
 /**
  * 获取会话列表（分页）
  * @summary Get Sessions
  */
 export const getSessionsApiV1SessionsGet = <TData = AxiosResponse<BaseResponsePageResponseAnalysisSessionResponse>>(
-  params?: GetSessionsApiV1SessionsGetParams,
-  options?: AxiosRequestConfig
-): Promise<TData> => {
-  return axios.get('/api/v1/sessions', {
+    params?: GetSessionsApiV1SessionsGetParams, options?: AxiosRequestConfig
+ ): Promise<TData> => {
+    return axios.get(
+      `/api/v1/sessions`,{
     ...options,
-    params: { ...params, ...options?.params },
-  });
-};
+        params: {...params, ...options?.params},}
+    );
+  }
 
 /**
  * 创建会话
  * @summary Create Session
  */
 export const createSessionApiV1SessionsPost = <TData = AxiosResponse<BaseResponseAnalysisSessionResponse>>(
-  analysisSessionCreate: AnalysisSessionCreate,
-  options?: AxiosRequestConfig
-): Promise<TData> => {
-  return axios.post('/api/v1/sessions', analysisSessionCreate, options);
-};
+    analysisSessionCreate: AnalysisSessionCreate, options?: AxiosRequestConfig
+ ): Promise<TData> => {
+    return axios.post(
+      `/api/v1/sessions`,
+      analysisSessionCreate,options
+    );
+  }
 
 /**
  * 获取单个会话详情（包含数据源信息）
  * @summary Get Session
  */
 export const getSessionApiV1SessionsSessionIdGet = <TData = AxiosResponse<BaseResponseAnalysisSessionDetail>>(
-  sessionId: number,
-  options?: AxiosRequestConfig
-): Promise<TData> => {
-  return axios.get(`/api/v1/sessions/${sessionId}`, options);
-};
+    sessionId: string, options?: AxiosRequestConfig
+ ): Promise<TData> => {
+    return axios.get(
+      `/api/v1/sessions/${sessionId}`,options
+    );
+  }
 
 /**
  * 更新会话
  * @summary Update Session
  */
 export const updateSessionApiV1SessionsSessionIdPut = <TData = AxiosResponse<BaseResponseAnalysisSessionResponse>>(
-  sessionId: number,
-  analysisSessionUpdate: AnalysisSessionUpdate,
-  options?: AxiosRequestConfig
-): Promise<TData> => {
-  return axios.put(`/api/v1/sessions/${sessionId}`, analysisSessionUpdate, options);
-};
+    sessionId: string,
+    analysisSessionUpdate: AnalysisSessionUpdate, options?: AxiosRequestConfig
+ ): Promise<TData> => {
+    return axios.put(
+      `/api/v1/sessions/${sessionId}`,
+      analysisSessionUpdate,options
+    );
+  }
 
 /**
  * 删除会话
  * @summary Delete Session
  */
 export const deleteSessionApiV1SessionsSessionIdDelete = <TData = AxiosResponse<BaseResponseNoneType>>(
-  sessionId: number,
-  options?: AxiosRequestConfig
-): Promise<TData> => {
-  return axios.delete(`/api/v1/sessions/${sessionId}`, options);
-};
+    sessionId: string, options?: AxiosRequestConfig
+ ): Promise<TData> => {
+    return axios.delete(
+      `/api/v1/sessions/${sessionId}`,options
+    );
+  }
 
 /**
  * 归档会话
  * @summary Archive Session
  */
-export const archiveSessionApiV1SessionsSessionIdArchivePost = <
-  TData = AxiosResponse<BaseResponseAnalysisSessionResponse>,
->(
-  sessionId: number,
-  options?: AxiosRequestConfig
-): Promise<TData> => {
-  return axios.post(`/api/v1/sessions/${sessionId}/archive`, undefined, options);
-};
+export const archiveSessionApiV1SessionsSessionIdArchivePost = <TData = AxiosResponse<BaseResponseAnalysisSessionResponse>>(
+    sessionId: string, options?: AxiosRequestConfig
+ ): Promise<TData> => {
+    return axios.post(
+      `/api/v1/sessions/${sessionId}/archive`,undefined,options
+    );
+  }
 
 /**
  * 上传文件到会话目录
@@ -3089,15 +3114,16 @@ export const archiveSessionApiV1SessionsSessionIdArchivePost = <
  * @summary Upload Session File
  */
 export const uploadSessionFileApiV1SessionsSessionIdFilesUploadPost = <TData = AxiosResponse<BaseResponseDictStrAny>>(
-  sessionId: number,
-  bodyUploadSessionFileApiV1SessionsSessionIdFilesUploadPost: BodyUploadSessionFileApiV1SessionsSessionIdFilesUploadPost,
-  options?: AxiosRequestConfig
-): Promise<TData> => {
-  const formData = new FormData();
-  formData.append('file', bodyUploadSessionFileApiV1SessionsSessionIdFilesUploadPost.file);
+    sessionId: string,
+    bodyUploadSessionFileApiV1SessionsSessionIdFilesUploadPost: BodyUploadSessionFileApiV1SessionsSessionIdFilesUploadPost, options?: AxiosRequestConfig
+ ): Promise<TData> => {const formData = new FormData();
+formData.append(`file`, bodyUploadSessionFileApiV1SessionsSessionIdFilesUploadPost.file)
 
-  return axios.post(`/api/v1/sessions/${sessionId}/files/upload`, formData, options);
-};
+    return axios.post(
+      `/api/v1/sessions/${sessionId}/files/upload`,
+      formData,options
+    );
+  }
 
 /**
  * 列出会话文件
@@ -3110,11 +3136,12 @@ export const uploadSessionFileApiV1SessionsSessionIdFilesUploadPost = <TData = A
  * @summary List Session Files
  */
 export const listSessionFilesApiV1SessionsSessionIdFilesGet = <TData = AxiosResponse<BaseResponseDictStrAny>>(
-  sessionId: number,
-  options?: AxiosRequestConfig
-): Promise<TData> => {
-  return axios.get(`/api/v1/sessions/${sessionId}/files`, options);
-};
+    sessionId: string, options?: AxiosRequestConfig
+ ): Promise<TData> => {
+    return axios.get(
+      `/api/v1/sessions/${sessionId}/files`,options
+    );
+  }
 
 /**
  * 下载会话文件
@@ -3125,12 +3152,13 @@ Args:
  * @summary Download Session File
  */
 export const downloadSessionFileApiV1SessionsSessionIdFilesFilenameGet = <TData = AxiosResponse<unknown>>(
-  sessionId: number,
-  filename: string,
-  options?: AxiosRequestConfig
-): Promise<TData> => {
-  return axios.get(`/api/v1/sessions/${sessionId}/files/${filename}`, options);
-};
+    sessionId: string,
+    filename: string, options?: AxiosRequestConfig
+ ): Promise<TData> => {
+    return axios.get(
+      `/api/v1/sessions/${sessionId}/files/${filename}`,options
+    );
+  }
 
 /**
  * 发送消息并获取 AI 响应（SSE 流式）
@@ -3185,12 +3213,14 @@ data: [DONE]
  * @summary Chat
  */
 export const chatApiV1SessionsSessionIdChatPost = <TData = AxiosResponse<void>>(
-  sessionId: number,
-  chatMessageCreate: ChatMessageCreate,
-  options?: AxiosRequestConfig
-): Promise<TData> => {
-  return axios.post(`/api/v1/sessions/${sessionId}/chat`, chatMessageCreate, options);
-};
+    sessionId: string,
+    chatMessageCreate: ChatMessageCreate, options?: AxiosRequestConfig
+ ): Promise<TData> => {
+    return axios.post(
+      `/api/v1/sessions/${sessionId}/chat`,
+      chatMessageCreate,options
+    );
+  }
 
 /**
  * 获取会话的历史消息（分页）
@@ -3198,46 +3228,43 @@ export const chatApiV1SessionsSessionIdChatPost = <TData = AxiosResponse<void>>(
 返回消息列表，按创建时间升序排列
  * @summary Get Messages
  */
-export const getMessagesApiV1SessionsSessionIdMessagesGet = <
-  TData = AxiosResponse<BaseResponsePageResponseChatMessageResponse>,
->(
-  sessionId: number,
-  params?: GetMessagesApiV1SessionsSessionIdMessagesGetParams,
-  options?: AxiosRequestConfig
-): Promise<TData> => {
-  return axios.get(`/api/v1/sessions/${sessionId}/messages`, {
+export const getMessagesApiV1SessionsSessionIdMessagesGet = <TData = AxiosResponse<BaseResponsePageResponseChatMessageResponse>>(
+    sessionId: string,
+    params?: GetMessagesApiV1SessionsSessionIdMessagesGetParams, options?: AxiosRequestConfig
+ ): Promise<TData> => {
+    return axios.get(
+      `/api/v1/sessions/${sessionId}/messages`,{
     ...options,
-    params: { ...params, ...options?.params },
-  });
-};
+        params: {...params, ...options?.params},}
+    );
+  }
 
 /**
  * 清空会话的所有消息
  * @summary Clear Messages
  */
 export const clearMessagesApiV1SessionsSessionIdMessagesDelete = <TData = AxiosResponse<BaseResponseInt>>(
-  sessionId: number,
-  options?: AxiosRequestConfig
-): Promise<TData> => {
-  return axios.delete(`/api/v1/sessions/${sessionId}/messages`, options);
-};
+    sessionId: string, options?: AxiosRequestConfig
+ ): Promise<TData> => {
+    return axios.delete(
+      `/api/v1/sessions/${sessionId}/messages`,options
+    );
+  }
 
 /**
  * 获取会话的推荐列表（分页）
  * @summary Get Recommendations
  */
-export const getRecommendationsApiV1SessionsSessionIdRecommendationsGet = <
-  TData = AxiosResponse<BaseResponsePageResponseTaskRecommendationResponse>,
->(
-  sessionId: number,
-  params?: GetRecommendationsApiV1SessionsSessionIdRecommendationsGetParams,
-  options?: AxiosRequestConfig
-): Promise<TData> => {
-  return axios.get(`/api/v1/sessions/${sessionId}/recommendations`, {
+export const getRecommendationsApiV1SessionsSessionIdRecommendationsGet = <TData = AxiosResponse<BaseResponsePageResponseTaskRecommendationResponse>>(
+    sessionId: string,
+    params?: GetRecommendationsApiV1SessionsSessionIdRecommendationsGetParams, options?: AxiosRequestConfig
+ ): Promise<TData> => {
+    return axios.get(
+      `/api/v1/sessions/${sessionId}/recommendations`,{
     ...options,
-    params: { ...params, ...options?.params },
-  });
-};
+        params: {...params, ...options?.params},}
+    );
+  }
 
 /**
  * 生成初始任务推荐
@@ -3245,36 +3272,30 @@ export const getRecommendationsApiV1SessionsSessionIdRecommendationsGet = <
 基于会话关联的数据源 Schema 生成分析任务推荐
  * @summary Generate Recommendations
  */
-export const generateRecommendationsApiV1SessionsSessionIdRecommendationsPost = <
-  TData = AxiosResponse<BaseResponseListTaskRecommendationResponse>,
->(
-  sessionId: number,
-  generateRecommendationsApiV1SessionsSessionIdRecommendationsPostBody: GenerateRecommendationsApiV1SessionsSessionIdRecommendationsPostBody,
-  options?: AxiosRequestConfig
-): Promise<TData> => {
-  return axios.post(
-    `/api/v1/sessions/${sessionId}/recommendations`,
-    generateRecommendationsApiV1SessionsSessionIdRecommendationsPostBody,
-    options
-  );
-};
+export const generateRecommendationsApiV1SessionsSessionIdRecommendationsPost = <TData = AxiosResponse<BaseResponseListTaskRecommendationResponse>>(
+    sessionId: string,
+    generateRecommendationsApiV1SessionsSessionIdRecommendationsPostBody: GenerateRecommendationsApiV1SessionsSessionIdRecommendationsPostBody, options?: AxiosRequestConfig
+ ): Promise<TData> => {
+    return axios.post(
+      `/api/v1/sessions/${sessionId}/recommendations`,
+      generateRecommendationsApiV1SessionsSessionIdRecommendationsPostBody,options
+    );
+  }
 
 /**
  * 批量忽略会话中的待选择推荐
  * @summary Dismiss All Recommendations
  */
-export const dismissAllRecommendationsApiV1SessionsSessionIdRecommendationsDelete = <
-  TData = AxiosResponse<BaseResponseNoneType>,
->(
-  sessionId: number,
-  params?: DismissAllRecommendationsApiV1SessionsSessionIdRecommendationsDeleteParams,
-  options?: AxiosRequestConfig
-): Promise<TData> => {
-  return axios.delete(`/api/v1/sessions/${sessionId}/recommendations`, {
+export const dismissAllRecommendationsApiV1SessionsSessionIdRecommendationsDelete = <TData = AxiosResponse<BaseResponseNoneType>>(
+    sessionId: string,
+    params?: DismissAllRecommendationsApiV1SessionsSessionIdRecommendationsDeleteParams, options?: AxiosRequestConfig
+ ): Promise<TData> => {
+    return axios.delete(
+      `/api/v1/sessions/${sessionId}/recommendations`,{
     ...options,
-    params: { ...params, ...options?.params },
-  });
-};
+        params: {...params, ...options?.params},}
+    );
+  }
 
 /**
  * 生成追问推荐
@@ -3282,133 +3303,116 @@ export const dismissAllRecommendationsApiV1SessionsSessionIdRecommendationsDelet
 基于对话上下文生成追问建议
  * @summary Generate Followup Recommendations
  */
-export const generateFollowupRecommendationsApiV1SessionsSessionIdRecommendationsFollowupPost = <
-  TData = AxiosResponse<BaseResponseListTaskRecommendationResponse>,
->(
-  sessionId: number,
-  generateFollowupRequest: GenerateFollowupRequest,
-  options?: AxiosRequestConfig
-): Promise<TData> => {
-  return axios.post(`/api/v1/sessions/${sessionId}/recommendations/followup`, generateFollowupRequest, options);
-};
+export const generateFollowupRecommendationsApiV1SessionsSessionIdRecommendationsFollowupPost = <TData = AxiosResponse<BaseResponseListTaskRecommendationResponse>>(
+    sessionId: string,
+    generateFollowupRequest: GenerateFollowupRequest, options?: AxiosRequestConfig
+ ): Promise<TData> => {
+    return axios.post(
+      `/api/v1/sessions/${sessionId}/recommendations/followup`,
+      generateFollowupRequest,options
+    );
+  }
 
 /**
  * 更新推荐状态
  * @summary Update Recommendation
  */
-export const updateRecommendationApiV1SessionsSessionIdRecommendationsRecommendationIdPut = <
-  TData = AxiosResponse<BaseResponseTaskRecommendationResponse>,
->(
-  sessionId: number,
-  recommendationId: number,
-  taskRecommendationUpdate: TaskRecommendationUpdate,
-  options?: AxiosRequestConfig
-): Promise<TData> => {
-  return axios.put(
-    `/api/v1/sessions/${sessionId}/recommendations/${recommendationId}`,
-    taskRecommendationUpdate,
-    options
-  );
-};
+export const updateRecommendationApiV1SessionsSessionIdRecommendationsRecommendationIdPut = <TData = AxiosResponse<BaseResponseTaskRecommendationResponse>>(
+    sessionId: string,
+    recommendationId: string,
+    taskRecommendationUpdate: TaskRecommendationUpdate, options?: AxiosRequestConfig
+ ): Promise<TData> => {
+    return axios.put(
+      `/api/v1/sessions/${sessionId}/recommendations/${recommendationId}`,
+      taskRecommendationUpdate,options
+    );
+  }
 
 /**
  * SPA 路由回退，所有非静态资源请求都返回 index.html
  * @summary Serve Spa
  */
 export const serveSpaWebFullPathGet = <TData = AxiosResponse<unknown>>(
-  fullPath: string,
-  options?: AxiosRequestConfig
-): Promise<TData> => {
-  return axios.get(`/web/${fullPath}`, options);
-};
+    fullPath: string, options?: AxiosRequestConfig
+ ): Promise<TData> => {
+    return axios.get(
+      `/web/${fullPath}`,options
+    );
+  }
 
 /**
  * SPA 根路径
  * @summary Serve Spa Root
  */
-export const serveSpaRootWebGet = <TData = AxiosResponse<unknown>>(options?: AxiosRequestConfig): Promise<TData> => {
-  return axios.get('/web', options);
-};
+export const serveSpaRootWebGet = <TData = AxiosResponse<unknown>>(
+     options?: AxiosRequestConfig
+ ): Promise<TData> => {
+    return axios.get(
+      `/web`,options
+    );
+  }
 
-export type RootGetResult = AxiosResponse<unknown>;
-export type HealthCheckHealthGetResult = AxiosResponse<unknown>;
-export type LoginApiV1AuthLoginPostResult = AxiosResponse<BaseResponseToken>;
-export type RefreshTokenApiV1AuthRefreshPostResult = AxiosResponse<BaseResponseToken>;
-export type RegisterApiV1AuthRegisterPostResult = AxiosResponse<BaseResponseUserResponse>;
-export type GetCurrentUserInfoApiV1AuthMeGetResult = AxiosResponse<BaseResponseUserResponse>;
-export type UpdateCurrentUserApiV1AuthMePutResult = AxiosResponse<BaseResponseUserResponse>;
-export type ChangePasswordApiV1AuthChangePasswordPostResult = AxiosResponse<BaseResponseNoneType>;
-export type GetUsersApiV1UsersGetResult = AxiosResponse<BaseResponsePageResponseUserResponse>;
-export type CreateUserApiV1UsersPostResult = AxiosResponse<BaseResponseUserResponse>;
-export type GetUserApiV1UsersUserIdGetResult = AxiosResponse<BaseResponseUserResponse>;
-export type UpdateUserApiV1UsersUserIdPutResult = AxiosResponse<BaseResponseUserResponse>;
-export type DeleteUserApiV1UsersUserIdDeleteResult = AxiosResponse<BaseResponseNoneType>;
-export type GetConnectionsApiV1DatabaseConnectionsGetResult =
-  AxiosResponse<BaseResponsePageResponseDatabaseConnectionResponse>;
-export type CreateConnectionApiV1DatabaseConnectionsPostResult =
-  AxiosResponse<BaseResponseDatabaseConnectionWithRawResponse>;
-export type GetConnectionApiV1DatabaseConnectionsConnectionIdGetResult =
-  AxiosResponse<BaseResponseDatabaseConnectionResponse>;
-export type UpdateConnectionApiV1DatabaseConnectionsConnectionIdPutResult =
-  AxiosResponse<BaseResponseDatabaseConnectionResponse>;
-export type DeleteConnectionApiV1DatabaseConnectionsConnectionIdDeleteResult = AxiosResponse<BaseResponseNoneType>;
-export type TestConnectionApiV1DatabaseConnectionsConnectionIdTestPostResult =
-  AxiosResponse<BaseResponseDatabaseConnectionTestResult>;
-export type GetConnectionTablesApiV1DatabaseConnectionsConnectionIdTablesGetResult =
-  AxiosResponse<BaseResponseDatabaseConnectionTablesResponse>;
-export type GetConnectionTableSchemaApiV1DatabaseConnectionsConnectionIdSchemaGetResult =
-  AxiosResponse<BaseResponseDatabaseTableSchemaResponse>;
-export type GetRawDataListApiV1RawDataGetResult = AxiosResponse<BaseResponsePageResponseRawDataResponse>;
-export type CreateRawDataApiV1RawDataPostResult = AxiosResponse<BaseResponseRawDataResponse>;
-export type GetRawDataApiV1RawDataRawDataIdGetResult = AxiosResponse<BaseResponseRawDataResponse>;
-export type UpdateRawDataApiV1RawDataRawDataIdPutResult = AxiosResponse<BaseResponseRawDataResponse>;
-export type DeleteRawDataApiV1RawDataRawDataIdDeleteResult = AxiosResponse<BaseResponseNoneType>;
-export type BatchCreateRawDataApiV1RawDataBatchFromConnectionPostResult =
-  AxiosResponse<BaseResponseBatchCreateFromConnectionResponse>;
-export type UpdateRawDataColumnsApiV1RawDataRawDataIdColumnsPutResult = AxiosResponse<BaseResponseRawDataResponse>;
-export type PreviewRawDataApiV1RawDataRawDataIdPreviewPostResult = AxiosResponse<BaseResponseRawDataPreviewResponse>;
-export type SyncRawDataApiV1RawDataRawDataIdSyncPostResult = AxiosResponse<BaseResponseRawDataResponse>;
-export type GetDataSourcesApiV1DataSourcesGetResult = AxiosResponse<BaseResponsePageResponseDataSourceResponse>;
-export type CreateDataSourceApiV1DataSourcesPostResult = AxiosResponse<BaseResponseDataSourceResponse>;
-export type GetDataSourceApiV1DataSourcesDataSourceIdGetResult = AxiosResponse<BaseResponseDataSourceResponse>;
-export type UpdateDataSourceApiV1DataSourcesDataSourceIdPutResult = AxiosResponse<BaseResponseDataSourceResponse>;
-export type DeleteDataSourceApiV1DataSourcesDataSourceIdDeleteResult = AxiosResponse<BaseResponseNoneType>;
-export type PreviewDataSourceApiV1DataSourcesDataSourceIdPreviewPostResult =
-  AxiosResponse<BaseResponseDataSourcePreviewResponse>;
-export type SuggestFieldMappingsApiV1DataSourcesSuggestMappingsPostResult =
-  AxiosResponse<BaseResponseSuggestMappingsResponse>;
-export type SuggestTargetFieldsApiV1DataSourcesSuggestTargetFieldsPostResult =
-  AxiosResponse<BaseResponseSuggestTargetFieldsResponse>;
-export type RefreshDataSourceSchemaApiV1DataSourcesDataSourceIdRefreshSchemaPostResult =
-  AxiosResponse<BaseResponseDataSourceResponse>;
-export type GetFilesApiV1FilesGetResult = AxiosResponse<BaseResponsePageResponseUploadedFileResponse>;
-export type GetFileApiV1FilesFileIdGetResult = AxiosResponse<BaseResponseUploadedFileResponse>;
-export type DeleteFileApiV1FilesFileIdDeleteResult = AxiosResponse<BaseResponseNoneType>;
-export type UploadFileApiV1FilesUploadPostResult = AxiosResponse<BaseResponseUploadedFileWithRawDataResponse>;
-export type GetFilePreviewApiV1FilesFileIdPreviewGetResult = AxiosResponse<BaseResponseFilePreviewResponse>;
-export type GetDownloadUrlApiV1FilesFileIdDownloadUrlGetResult = AxiosResponse<BaseResponseStr>;
-export type GetSessionsApiV1SessionsGetResult = AxiosResponse<BaseResponsePageResponseAnalysisSessionResponse>;
-export type CreateSessionApiV1SessionsPostResult = AxiosResponse<BaseResponseAnalysisSessionResponse>;
-export type GetSessionApiV1SessionsSessionIdGetResult = AxiosResponse<BaseResponseAnalysisSessionDetail>;
-export type UpdateSessionApiV1SessionsSessionIdPutResult = AxiosResponse<BaseResponseAnalysisSessionResponse>;
-export type DeleteSessionApiV1SessionsSessionIdDeleteResult = AxiosResponse<BaseResponseNoneType>;
-export type ArchiveSessionApiV1SessionsSessionIdArchivePostResult = AxiosResponse<BaseResponseAnalysisSessionResponse>;
-export type UploadSessionFileApiV1SessionsSessionIdFilesUploadPostResult = AxiosResponse<BaseResponseDictStrAny>;
-export type ListSessionFilesApiV1SessionsSessionIdFilesGetResult = AxiosResponse<BaseResponseDictStrAny>;
-export type DownloadSessionFileApiV1SessionsSessionIdFilesFilenameGetResult = AxiosResponse<unknown>;
-export type ChatApiV1SessionsSessionIdChatPostResult = AxiosResponse<void>;
-export type GetMessagesApiV1SessionsSessionIdMessagesGetResult =
-  AxiosResponse<BaseResponsePageResponseChatMessageResponse>;
-export type ClearMessagesApiV1SessionsSessionIdMessagesDeleteResult = AxiosResponse<BaseResponseInt>;
-export type GetRecommendationsApiV1SessionsSessionIdRecommendationsGetResult =
-  AxiosResponse<BaseResponsePageResponseTaskRecommendationResponse>;
-export type GenerateRecommendationsApiV1SessionsSessionIdRecommendationsPostResult =
-  AxiosResponse<BaseResponseListTaskRecommendationResponse>;
-export type DismissAllRecommendationsApiV1SessionsSessionIdRecommendationsDeleteResult =
-  AxiosResponse<BaseResponseNoneType>;
-export type GenerateFollowupRecommendationsApiV1SessionsSessionIdRecommendationsFollowupPostResult =
-  AxiosResponse<BaseResponseListTaskRecommendationResponse>;
-export type UpdateRecommendationApiV1SessionsSessionIdRecommendationsRecommendationIdPutResult =
-  AxiosResponse<BaseResponseTaskRecommendationResponse>;
-export type ServeSpaWebFullPathGetResult = AxiosResponse<unknown>;
-export type ServeSpaRootWebGetResult = AxiosResponse<unknown>;
+export type RootGetResult = AxiosResponse<unknown>
+export type HealthCheckHealthGetResult = AxiosResponse<unknown>
+export type LoginApiV1AuthLoginPostResult = AxiosResponse<BaseResponseToken>
+export type RefreshTokenApiV1AuthRefreshPostResult = AxiosResponse<BaseResponseToken>
+export type RegisterApiV1AuthRegisterPostResult = AxiosResponse<BaseResponseUserResponse>
+export type GetCurrentUserInfoApiV1AuthMeGetResult = AxiosResponse<BaseResponseUserResponse>
+export type UpdateCurrentUserApiV1AuthMePutResult = AxiosResponse<BaseResponseUserResponse>
+export type ChangePasswordApiV1AuthChangePasswordPostResult = AxiosResponse<BaseResponseNoneType>
+export type GetUsersApiV1UsersGetResult = AxiosResponse<BaseResponsePageResponseUserResponse>
+export type CreateUserApiV1UsersPostResult = AxiosResponse<BaseResponseUserResponse>
+export type GetUserApiV1UsersUserIdGetResult = AxiosResponse<BaseResponseUserResponse>
+export type UpdateUserApiV1UsersUserIdPutResult = AxiosResponse<BaseResponseUserResponse>
+export type DeleteUserApiV1UsersUserIdDeleteResult = AxiosResponse<BaseResponseNoneType>
+export type GetConnectionsApiV1DatabaseConnectionsGetResult = AxiosResponse<BaseResponsePageResponseDatabaseConnectionResponse>
+export type CreateConnectionApiV1DatabaseConnectionsPostResult = AxiosResponse<BaseResponseDatabaseConnectionWithRawResponse>
+export type GetConnectionApiV1DatabaseConnectionsConnectionIdGetResult = AxiosResponse<BaseResponseDatabaseConnectionResponse>
+export type UpdateConnectionApiV1DatabaseConnectionsConnectionIdPutResult = AxiosResponse<BaseResponseDatabaseConnectionResponse>
+export type DeleteConnectionApiV1DatabaseConnectionsConnectionIdDeleteResult = AxiosResponse<BaseResponseNoneType>
+export type TestConnectionApiV1DatabaseConnectionsConnectionIdTestPostResult = AxiosResponse<BaseResponseDatabaseConnectionTestResult>
+export type GetConnectionTablesApiV1DatabaseConnectionsConnectionIdTablesGetResult = AxiosResponse<BaseResponseDatabaseConnectionTablesResponse>
+export type GetConnectionTableSchemaApiV1DatabaseConnectionsConnectionIdSchemaGetResult = AxiosResponse<BaseResponseDatabaseTableSchemaResponse>
+export type GetRawDataListApiV1RawDataGetResult = AxiosResponse<BaseResponsePageResponseRawDataResponse>
+export type CreateRawDataApiV1RawDataPostResult = AxiosResponse<BaseResponseRawDataResponse>
+export type GetRawDataApiV1RawDataRawDataIdGetResult = AxiosResponse<BaseResponseRawDataResponse>
+export type UpdateRawDataApiV1RawDataRawDataIdPutResult = AxiosResponse<BaseResponseRawDataResponse>
+export type DeleteRawDataApiV1RawDataRawDataIdDeleteResult = AxiosResponse<BaseResponseNoneType>
+export type BatchCreateRawDataApiV1RawDataBatchFromConnectionPostResult = AxiosResponse<BaseResponseBatchCreateFromConnectionResponse>
+export type UpdateRawDataColumnsApiV1RawDataRawDataIdColumnsPutResult = AxiosResponse<BaseResponseRawDataResponse>
+export type PreviewRawDataApiV1RawDataRawDataIdPreviewPostResult = AxiosResponse<BaseResponseRawDataPreviewResponse>
+export type SyncRawDataApiV1RawDataRawDataIdSyncPostResult = AxiosResponse<BaseResponseRawDataResponse>
+export type GetDataSourcesApiV1DataSourcesGetResult = AxiosResponse<BaseResponsePageResponseDataSourceResponse>
+export type CreateDataSourceApiV1DataSourcesPostResult = AxiosResponse<BaseResponseDataSourceResponse>
+export type GetDataSourceApiV1DataSourcesDataSourceIdGetResult = AxiosResponse<BaseResponseDataSourceResponse>
+export type UpdateDataSourceApiV1DataSourcesDataSourceIdPutResult = AxiosResponse<BaseResponseDataSourceResponse>
+export type DeleteDataSourceApiV1DataSourcesDataSourceIdDeleteResult = AxiosResponse<BaseResponseNoneType>
+export type PreviewDataSourceApiV1DataSourcesDataSourceIdPreviewPostResult = AxiosResponse<BaseResponseDataSourcePreviewResponse>
+export type SuggestFieldMappingsApiV1DataSourcesSuggestMappingsPostResult = AxiosResponse<BaseResponseSuggestMappingsResponse>
+export type SuggestTargetFieldsApiV1DataSourcesSuggestTargetFieldsPostResult = AxiosResponse<BaseResponseSuggestTargetFieldsResponse>
+export type RefreshDataSourceSchemaApiV1DataSourcesDataSourceIdRefreshSchemaPostResult = AxiosResponse<BaseResponseDataSourceResponse>
+export type GetFilesApiV1FilesGetResult = AxiosResponse<BaseResponsePageResponseUploadedFileResponse>
+export type GetFileApiV1FilesFileIdGetResult = AxiosResponse<BaseResponseUploadedFileResponse>
+export type DeleteFileApiV1FilesFileIdDeleteResult = AxiosResponse<BaseResponseNoneType>
+export type UploadFileApiV1FilesUploadPostResult = AxiosResponse<BaseResponseUploadedFileWithRawDataResponse>
+export type GetFilePreviewApiV1FilesFileIdPreviewGetResult = AxiosResponse<BaseResponseFilePreviewResponse>
+export type GetDownloadUrlApiV1FilesFileIdDownloadUrlGetResult = AxiosResponse<BaseResponseStr>
+export type GetSessionsApiV1SessionsGetResult = AxiosResponse<BaseResponsePageResponseAnalysisSessionResponse>
+export type CreateSessionApiV1SessionsPostResult = AxiosResponse<BaseResponseAnalysisSessionResponse>
+export type GetSessionApiV1SessionsSessionIdGetResult = AxiosResponse<BaseResponseAnalysisSessionDetail>
+export type UpdateSessionApiV1SessionsSessionIdPutResult = AxiosResponse<BaseResponseAnalysisSessionResponse>
+export type DeleteSessionApiV1SessionsSessionIdDeleteResult = AxiosResponse<BaseResponseNoneType>
+export type ArchiveSessionApiV1SessionsSessionIdArchivePostResult = AxiosResponse<BaseResponseAnalysisSessionResponse>
+export type UploadSessionFileApiV1SessionsSessionIdFilesUploadPostResult = AxiosResponse<BaseResponseDictStrAny>
+export type ListSessionFilesApiV1SessionsSessionIdFilesGetResult = AxiosResponse<BaseResponseDictStrAny>
+export type DownloadSessionFileApiV1SessionsSessionIdFilesFilenameGetResult = AxiosResponse<unknown>
+export type ChatApiV1SessionsSessionIdChatPostResult = AxiosResponse<void>
+export type GetMessagesApiV1SessionsSessionIdMessagesGetResult = AxiosResponse<BaseResponsePageResponseChatMessageResponse>
+export type ClearMessagesApiV1SessionsSessionIdMessagesDeleteResult = AxiosResponse<BaseResponseInt>
+export type GetRecommendationsApiV1SessionsSessionIdRecommendationsGetResult = AxiosResponse<BaseResponsePageResponseTaskRecommendationResponse>
+export type GenerateRecommendationsApiV1SessionsSessionIdRecommendationsPostResult = AxiosResponse<BaseResponseListTaskRecommendationResponse>
+export type DismissAllRecommendationsApiV1SessionsSessionIdRecommendationsDeleteResult = AxiosResponse<BaseResponseNoneType>
+export type GenerateFollowupRecommendationsApiV1SessionsSessionIdRecommendationsFollowupPostResult = AxiosResponse<BaseResponseListTaskRecommendationResponse>
+export type UpdateRecommendationApiV1SessionsSessionIdRecommendationsRecommendationIdPutResult = AxiosResponse<BaseResponseTaskRecommendationResponse>
+export type ServeSpaWebFullPathGetResult = AxiosResponse<unknown>
+export type ServeSpaRootWebGetResult = AxiosResponse<unknown>

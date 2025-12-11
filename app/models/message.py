@@ -7,7 +7,7 @@
 import uuid
 from enum import Enum
 
-from sqlalchemy import ForeignKey, String, Text
+from sqlalchemy import ForeignKey, Index, Integer, String, Text
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -40,6 +40,12 @@ class ChatMessage(Base, BaseTableMixin):
         index=True,
         comment="所属会话ID",
     )
+
+    # 消息序号（会话内顺序，确保消息按正确顺序排列）
+    seq: Mapped[int] = mapped_column(Integer, nullable=False, default=0, comment="消息序号(会话内递增)")
+
+    # 复合索引：高效按会话和序号查询
+    __table_args__ = (Index("ix_chat_messages_session_seq", "session_id", "seq"),)
 
     # 消息基本信息 (对应 LangChain BaseMessage)
     message_type: Mapped[str] = mapped_column(String(20), nullable=False, comment="消息类型: human/ai/system/tool")

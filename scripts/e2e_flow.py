@@ -163,7 +163,7 @@ async def main(base_url: str) -> None:
         _log("查询推荐列表", ok, f"count={len(items)}" if ok else r.text)
 
         # 8. Chat 对话（流式）- 测试 quick_analysis 工具
-        chat_prompt = "洞察当前数据源"
+        chat_prompt = "分析当前数据源的概况"
         print(f"\n{'='*60}")
         print(f"📝 用户输入: {chat_prompt}")
         print(f"{'='*60}\n")
@@ -311,6 +311,75 @@ async def main(base_url: str) -> None:
             print(f"\n❌ 异常: {e}")
             traceback.print_exc()
             _log("Chat 对话", False, str(e))
+
+        # 9. 验证消息顺序 - 获取所有消息并检查 create_time
+        print(f"\n{'='*60}")
+        print("📋 验证消息顺序（按 API 返回顺序）")
+        print(f"{'='*60}\n")
+
+        r = await client.get(
+            f"/sessions/{session_id}/messages",
+            headers=headers,
+            params={"page_size": 100},
+        )
+        if r.status_code == 200 and r.json().get("success"):
+            messages = r.json().get("data", {}).get("items", [])
+            print(f"共 {len(messages)} 条消息:\n")
+
+            # 检查时间戳和序号
+            timestamps = set()
+            for i, msg in enumerate(messages):
+                msg_type = msg.get("message_type", "?")
+                content = msg.get("content", "")[:80]
+                create_time = msg.get("create_time", "")
+                msg_id = msg.get("id", "")
+                seq = msg.get("seq", "?")
+                tool_calls = msg.get("tool_calls", [])
+                tool_call_id = msg.get("tool_call_id", "")
+                name = msg.get("name", "")
+
+                timestamps.add(create_time)
+
+                # 格式化显示
+                type_emoji = {"human": "👤", "ai": "🤖", "tool": "🔧", "system": "⚙️"}.get(msg_type, "❓")
+
+                print(f"{i+1:2}. {type_emoji} [{msg_type:6}] seq={seq}, create_time={create_time}")
+                print(f"    id={msg_id}")
+
+                if tool_calls:
+                    tool_names = [tc.get("name", "?") for tc in tool_calls]
+                    print(f"    tool_calls: {tool_names}")
+                if tool_call_id:
+                    print(f"    tool_call_id={tool_call_id}, name={name}")
+
+                # 显示内容摘要
+                if content:
+                    content_preview = content.replace("\n", " ")[:60]
+                    print(f"    内容: {content_preview}...")
+                print()
+
+            # 分析排序
+            print(f"{'='*60}")
+            print(f"📊 排序分析:")
+            print(f"   总消息数: {len(messages)}")
+            print(f"   唯一时间戳数: {len(timestamps)}")
+
+            # 检查 seq 是否递增
+            seqs = [m.get("seq", 0) for m in messages]
+            is_seq_ordered = all(seqs[i] < seqs[i + 1] for i in range(len(seqs) - 1))
+
+            if is_seq_ordered:
+                print(f"   ✅ seq 序号递增，消息顺序正确！")
+            else:
+                print(f"   ❌ seq 序号未递增，排序可能有问题")
+                print(f"   seq 列表: {seqs}")
+
+            if len(timestamps) < len(messages):
+                print(f"   ℹ️ 发现 {len(messages) - len(timestamps)} 条消息共享相同时间戳")
+                print("   （使用 seq 字段保证排序稳定）")
+
+        else:
+            _log("获取消息列表", False, r.text)
 
 
 if __name__ == "__main__":

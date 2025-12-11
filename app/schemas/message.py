@@ -22,6 +22,7 @@ class ChatMessageResponse(BaseModel):
 
     id: uuid.UUID = Field(..., description="消息ID")
     session_id: uuid.UUID = Field(..., description="所属会话ID")
+    seq: int = Field(..., description="消息序号(会话内递增，用于排序)")
 
     # 消息基本信息
     message_type: str = Field(..., description="消息类型: human/ai/system/tool")
