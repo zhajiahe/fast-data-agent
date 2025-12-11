@@ -174,7 +174,7 @@ class AnalysisSessionService:
             # 调用沙盒 API 初始化 DuckDB
             response = await client.post(
                 "/init_session",
-                params={"user_id": user_id, "thread_id": session_id},
+                params={"user_id": str(user_id), "thread_id": str(session_id)},
                 json=init_request,
             )
 

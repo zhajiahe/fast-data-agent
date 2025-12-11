@@ -165,13 +165,13 @@ class ChatService:
 
         return "\n".join(lines)
 
-    async def _get_local_files(self, user_id: int, session_id: int) -> list[dict[str, Any]]:
+    async def _get_local_files(self, user_id: Any, session_id: Any) -> list[dict[str, Any]]:
         """获取会话本地文件列表"""
         try:
             client = get_sandbox_client()
             response = await client.get(
                 "/files",
-                params={"user_id": user_id, "thread_id": session_id},
+                params={"user_id": str(user_id), "thread_id": str(session_id)},
             )
             result = response.json()
             return result.get("files", []) if result.get("success") else []
@@ -182,8 +182,8 @@ class ChatService:
     async def _get_system_prompt(
         self,
         data_source: DataSource | None,
-        user_id: int,
-        session_id: int,
+        user_id: Any,
+        session_id: Any,
     ) -> str:
         """构建系统提示词"""
         data_source_info = self._format_data_source(data_source)
@@ -221,7 +221,7 @@ class ChatService:
 - 使用中文交流
 """
 
-    async def _create_agent(self, data_source: DataSource | None, user_id: int, session_id: int):
+    async def _create_agent(self, data_source: DataSource | None, user_id: Any, session_id: Any):
         """创建 ReAct Agent"""
         system_prompt = await self._get_system_prompt(data_source, user_id, session_id)
         return create_agent(
@@ -246,7 +246,7 @@ class ChatService:
                     continue
 
                 raw_ctx_data: dict[str, Any] = {
-                    "id": raw.id,
+                    "id": str(raw.id),  # UUID 转为字符串
                     "name": raw.name,
                     "raw_type": raw.raw_type,
                 }
@@ -262,7 +262,7 @@ class ChatService:
                 elif raw.raw_type == "database_table" and raw.connection:
                     raw_ctx_data.update(
                         {
-                            "connection_id": raw.connection_id,
+                            "connection_id": str(raw.connection_id) if raw.connection_id else None,  # UUID 转为字符串
                             "db_type": raw.connection.db_type,
                             "host": raw.connection.host,
                             "port": raw.connection.port,
@@ -279,7 +279,7 @@ class ChatService:
 
         # 构建数据源上下文
         ctx_data: dict[str, Any] = {
-            "id": ds.id,
+            "id": str(ds.id),  # UUID 转为字符串
             "name": ds.name,
             "description": ds.description,
             "category": ds.category,
@@ -367,8 +367,8 @@ class ChatService:
 
         # 创建上下文
         context = ChatContext(
-            user_id=session.user_id,
-            thread_id=session.id,
+            user_id=str(session.user_id),  # UUID 转为字符串
+            thread_id=str(session.id),  # UUID 转为字符串
             data_source=ds_context,
         )
         logger.debug(f"上下文: {context}")

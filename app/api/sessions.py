@@ -153,7 +153,7 @@ async def upload_session_file(
 
     response = await client.post(
         "/upload",
-        params={"user_id": current_user.id, "thread_id": session_id},
+        params={"user_id": str(current_user.id), "thread_id": str(session_id)},
         files={"file": (file.filename, content, file.content_type or "application/octet-stream")},
     )
     result = response.json()
@@ -191,7 +191,7 @@ async def list_session_files(session_id: uuid.UUID, current_user: CurrentUser, d
     client = get_sandbox_client()
     response = await client.get(
         "/files",
-        params={"user_id": current_user.id, "thread_id": session_id},
+        params={"user_id": str(current_user.id), "thread_id": str(session_id)},
     )
     result = response.json()
 
@@ -225,7 +225,7 @@ async def download_session_file(
     client = get_sandbox_client()
     response = await client.get(
         f"/download/{filename}",
-        params={"user_id": current_user.id, "thread_id": session_id},
+        params={"user_id": str(current_user.id), "thread_id": str(session_id)},
     )
 
     if response.status_code == 404:
