@@ -235,7 +235,21 @@ async def preview_raw_data(
 
         # 从 preview_data 获取行
         preview_data = uploaded_file.preview_data or {}
-        rows = preview_data.get("rows", [])[: request.limit]
+
+        # 兼容 list/dict 两种格式
+        if isinstance(preview_data, dict):
+            rows = preview_data.get("rows", [])[: request.limit]
+        elif isinstance(preview_data, list):
+            rows = preview_data[: request.limit]
+            # 如果还没有列定义，尝试从第一行推断
+            if rows and not columns:
+                first = rows[0]
+                if isinstance(first, dict):
+                    columns = [
+                        ColumnSchema(name=k, data_type="unknown", nullable=True) for k in first.keys()  # type: ignore[arg-type]
+                    ]
+        else:
+            rows = []
         total_rows = uploaded_file.row_count
 
     else:
