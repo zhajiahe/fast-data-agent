@@ -27,10 +27,19 @@ import {
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
 
+// 将后端时间字符串（无时区信息）按 UTC 解析，再转换为本地相对时间
+const parseServerDate = (dateStr: string | null | undefined): Date | null => {
+  if (!dateStr) return null;
+  const hasTimezone = /[zZ]|[+-]\d{2}:?\d{2}$/.test(dateStr);
+  const normalized = hasTimezone ? dateStr : `${dateStr}Z`; // 视作 UTC
+  const date = new Date(normalized);
+  return Number.isNaN(date.getTime()) ? null : date;
+};
+
 // 辅助函数：格式化相对时间
 const formatRelativeTime = (dateStr: string | null | undefined): string => {
-  if (!dateStr) return '-';
-  const date = new Date(dateStr);
+  const date = parseServerDate(dateStr);
+  if (!date) return '-';
   const now = new Date();
   const diffMs = now.getTime() - date.getTime();
   const diffMins = Math.floor(diffMs / 60000);
@@ -85,7 +94,7 @@ const groupSessionsByDate = (
   ];
 
   for (const session of sessions) {
-    const date = new Date(session.update_time || session.create_time || '');
+    const date = parseServerDate(session.update_time || session.create_time) || new Date(0);
     if (date >= today) {
       groups[0].sessions.push(session);
     } else if (date >= yesterday) {

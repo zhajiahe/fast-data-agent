@@ -74,9 +74,11 @@ class DataSourceService:
         self, data_source_id: int, user_id: int, *, limit: int = 100
     ) -> DataSourcePreviewResponse:
         """
-        基于 RawData.sample_data 和字段映射，合并生成预览数据。
+        基于 RawData.sample_data/preview_data 和字段映射，合并生成预览数据。
 
         仅使用已启用的映射；当样本数据缺失时跳过该 RawData。
+        注意：这是“合并后”视图的预览，前端如果需要分表预览，
+        应调用 /raw-data/{id}/preview。
         """
         data_source = await self.get_data_source_with_mappings(data_source_id, user_id)
 

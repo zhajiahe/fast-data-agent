@@ -5,7 +5,7 @@
 ## ✨ 特性
 
 - 🤖 **LangGraph Agent** - 智能数据分析助手
-- 🗄️ **多数据源支持** - MySQL, PostgreSQL, ClickHouse, 文件等
+- 🗄️ **多数据源支持** - MySQL, PostgreSQL, 文件等
 - 📊 **智能推荐** - 自动生成分析任务推荐
 - 💬 **对话式分析** - 自然语言驱动的数据探索
 - 📈 **可视化** - Plotly 前端图表渲染
