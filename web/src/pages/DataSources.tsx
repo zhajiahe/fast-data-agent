@@ -139,6 +139,11 @@ export const DataSources = () => {
     },
   ];
 
+  const formatDateTime = (dateStr?: string | null) => {
+    if (!dateStr) return '-';
+    return new Date(dateStr).toLocaleString('zh-CN', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+  };
+
   // 刷新所有数据
   const handleRefreshAll = () => {
     refetchDs();
@@ -300,47 +305,58 @@ export const DataSources = () => {
               ) : (
                 <div className="divide-y">
                   {dataSources.map((ds) => (
-                    <div key={ds.id} className="flex items-center justify-between py-4 first:pt-0 last:pb-0">
-                      <div className="flex items-center gap-4">
-                        <div className="p-2 rounded-lg bg-teal-500/10">
-                          <Table2 className="h-5 w-5 text-teal-600 dark:text-teal-400" />
-                        </div>
-                        <div>
-                          <p className="font-medium">{ds.name}</p>
-                          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                            <span>{ds.category || '数据源'}</span>
-                            {ds.target_fields && ds.target_fields.length > 0 && (
+                    <div key={ds.id} className="py-4 first:pt-0 last:pb-0">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="flex items-start gap-3 min-w-0">
+                          <div className="p-2 rounded-lg bg-teal-500/10">
+                            <Table2 className="h-5 w-5 text-teal-600 dark:text-teal-400" />
+                          </div>
+                          <div className="min-w-0 space-y-1">
+                            <div className="flex items-center gap-2">
+                              <p className="font-medium truncate">{ds.name}</p>
                               <Badge variant="secondary" className="text-xs">
-                                {ds.target_fields.length} 字段
+                                {ds.target_fields?.length || 0} 字段
                               </Badge>
-                            )}
+                              {ds.category && (
+                                <Badge variant="outline" className="text-xs">
+                                  {ds.category}
+                                </Badge>
+                              )}
+                            </div>
+                            <p className="text-sm text-muted-foreground line-clamp-1">
+                              {ds.description || '暂无描述'}
+                            </p>
+                            <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                              <span>创建: {formatDateTime(ds.create_time)}</span>
+                              <span>更新: {formatDateTime(ds.update_time)}</span>
+                            </div>
                           </div>
                         </div>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Button variant="ghost" size="sm" onClick={() => setPreviewDataSourceId(ds.id)}>
-                          {t('dataSources.previewData')}
-                        </Button>
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="icon">
-                              <MoreHorizontal className="h-4 w-4" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuItem onClick={() => handleSyncSchema(ds.id)}>
-                              <RefreshCw className="h-4 w-4 mr-2" />
-                              {t('dataSources.refreshSchema')}
-                            </DropdownMenuItem>
-                            <DropdownMenuItem
-                              className="text-destructive"
-                              onClick={() => setDeleteTarget({ type: 'dataSource', id: ds.id, name: ds.name })}
-                            >
-                              <Trash2 className="h-4 w-4 mr-2" />
-                              {t('common.delete')}
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
+                        <div className="flex items-center gap-2">
+                          <Button variant="ghost" size="sm" onClick={() => setPreviewDataSourceId(ds.id)}>
+                            {t('dataSources.previewData')}
+                          </Button>
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="ghost" size="icon">
+                                <MoreHorizontal className="h-4 w-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuItem onClick={() => handleSyncSchema(ds.id)}>
+                                <RefreshCw className="h-4 w-4 mr-2" />
+                                {t('dataSources.refreshSchema')}
+                              </DropdownMenuItem>
+                              <DropdownMenuItem
+                                className="text-destructive"
+                                onClick={() => setDeleteTarget({ type: 'dataSource', id: ds.id, name: ds.name })}
+                              >
+                                <Trash2 className="h-4 w-4 mr-2" />
+                                {t('common.delete')}
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </div>
                       </div>
                     </div>
                   ))}
