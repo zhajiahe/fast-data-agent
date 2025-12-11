@@ -13,6 +13,7 @@ import {
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
+  useDataSourceDetail,
   useDataSources,
   useDbConnections,
   useDeleteDataSource,
@@ -143,6 +144,26 @@ export const DataSources = () => {
     if (!dateStr) return '-';
     return new Date(dateStr).toLocaleString('zh-CN', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
   };
+
+const DataSourceTablesInline = ({ dataSourceId }: { dataSourceId: string }) => {
+  const { data, isLoading, isError } = useDataSourceDetail(dataSourceId);
+  const rawMappings = data?.data.data?.raw_mappings || [];
+
+  if (isLoading) return <span className="text-xs text-muted-foreground">表：加载中...</span>;
+  if (isError) return <span className="text-xs text-destructive">表信息加载失败</span>;
+  if (!rawMappings.length) return <span className="text-xs text-muted-foreground">表：未配置映射</span>;
+
+  const names = rawMappings.map((m: any) => m.raw_data_name || m.raw_data_id);
+  const preview = names.slice(0, 3).join('、');
+  const rest = names.length > 3 ? ` 等 ${names.length} 张` : '';
+
+  return (
+    <span className="text-xs text-muted-foreground" title={names.join('、')}>
+      表：{preview}
+      {rest}
+    </span>
+  );
+};
 
   // 刷新所有数据
   const handleRefreshAll = () => {
@@ -329,6 +350,7 @@ export const DataSources = () => {
                             <div className="flex items-center gap-3 text-xs text-muted-foreground">
                               <span>创建: {formatDateTime(ds.create_time)}</span>
                               <span>更新: {formatDateTime(ds.update_time)}</span>
+                              <DataSourceTablesInline dataSourceId={ds.id} />
                             </div>
                           </div>
                         </div>
