@@ -16,6 +16,27 @@ from app.repositories.user import UserRepository
 from app.utils.tools import SandboxHttpClient
 
 
+async def _check_sandbox_health() -> bool:
+    """
+    检查沙盒服务健康状态
+
+    Returns:
+        bool: 沙盒是否健康
+    """
+    try:
+        client = SandboxHttpClient.get_client()
+        response = await client.get("/health", timeout=5.0)
+        if response.status_code == 200:
+            logger.info(f"✅ 沙盒服务健康 ({settings.SANDBOX_URL})")
+            return True
+        else:
+            logger.warning(f"⚠️ 沙盒服务响应异常: {response.status_code}")
+            return False
+    except Exception as e:
+        logger.error(f"❌ 沙盒服务不可用: {e}")
+        return False
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """
@@ -23,7 +44,8 @@ async def lifespan(app: FastAPI):
 
     启动时:
     - 初始化数据库连接
-    - 创建数据库表（开发环境）
+    - 检查沙盒服务健康状态
+    - 创建默认超级管理员
 
     关闭时:
     - 关闭数据库连接
@@ -36,6 +58,15 @@ async def lifespan(app: FastAPI):
         # 初始化数据库
         await init_db()
         logger.info("✅ 数据库初始化成功")
+
+        # 检查沙盒服务健康状态
+        sandbox_healthy = await _check_sandbox_health()
+        if not sandbox_healthy:
+            logger.warning(
+                "⚠️ 沙盒服务不可用，部分功能（SQL 执行、图表生成）将无法使用。"
+                f"\n   请确保沙盒服务已启动: make sandbox-start"
+                f"\n   沙盒地址: {settings.SANDBOX_URL}"
+            )
 
         # 确保默认超级管理员存在（仅在没有超级管理员时创建）
         await _ensure_default_superuser()

@@ -16,7 +16,6 @@ from typing import Any
 from langchain.agents import create_agent
 from langchain_core.messages import AIMessage, BaseMessage, HumanMessage
 from langchain_openai import ChatOpenAI
-from openai import AsyncOpenAI
 from loguru import logger
 from sqlalchemy.ext.asyncio import AsyncSession
 

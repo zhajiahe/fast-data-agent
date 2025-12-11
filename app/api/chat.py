@@ -22,8 +22,8 @@ from typing import Any
 
 from fastapi import APIRouter, Depends
 from fastapi.responses import StreamingResponse
-from loguru import logger
 from langchain_core.messages import AIMessageChunk, ToolMessageChunk
+from loguru import logger
 
 from app.core.deps import CurrentUser, DBSession
 from app.models.base import BasePageQuery, BaseResponse, PageResponse
@@ -287,7 +287,9 @@ async def _stream_chat_response(
                             tool_name = tool_call.get("name") or "unknown"
                             tool_args = tool_call.get("args", {})
                             # 调试日志：查看原始 tool_call 数据
-                            logger.debug(f"Tool call received: id={tool_call_id}, name={tool_name}, args={tool_args}, raw={tool_call}")
+                            logger.debug(
+                                f"Tool call received: id={tool_call_id}, name={tool_name}, args={tool_args}, raw={tool_call}"
+                            )
                             yield builder.tool_input_start(tool_call_id, tool_name)
                             yield builder.tool_input_available(tool_call_id, tool_name, tool_args)
                     continue

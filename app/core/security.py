@@ -44,10 +44,7 @@ def get_token_hash(token: str) -> str:
 def create_tokens(data: dict) -> tuple[str, str]:
     """创建访问令牌和刷新令牌"""
     # 将 UUID 转换为字符串以便 JSON 序列化
-    serializable_data = {
-        k: str(v) if isinstance(v, uuid.UUID) else v
-        for k, v in data.items()
-    }
+    serializable_data = {k: str(v) if isinstance(v, uuid.UUID) else v for k, v in data.items()}
 
     # 访问令牌
     access_expire = datetime.now() + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)

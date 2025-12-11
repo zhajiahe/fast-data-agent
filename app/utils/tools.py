@@ -2,8 +2,9 @@ from typing import Any
 
 import httpx
 from langchain.tools import ToolRuntime, tool
-from pydantic import BaseModel, Field
 from loguru import logger
+from pydantic import BaseModel, Field
+
 from app.core.config import settings
 
 # ==================== HTTP 客户端连接池 ====================
@@ -366,7 +367,7 @@ async def quick_analysis(
 - 查询 VIEW：`SELECT category, SUM(amount) FROM "pg_orders" GROUP BY category`
 - 读取上次结果：`SELECT * FROM 'sql_result_xxx.parquet' WHERE amount > 1000`
 
-**重要**：结果自动保存为 parquet 文件（result_file），供后续工具使用"""
+**重要**：结果自动保存为 parquet 文件（result_file），供后续工具使用""",
 )
 async def execute_sql(
     sql: str,

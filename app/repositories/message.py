@@ -89,9 +89,7 @@ class ChatMessageRepository(BaseRepository[ChatMessage]):
         """
         from sqlalchemy import func
 
-        query = select(func.coalesce(func.max(ChatMessage.seq), 0)).where(
-            ChatMessage.session_id == session_id
-        )
+        query = select(func.coalesce(func.max(ChatMessage.seq), 0)).where(ChatMessage.session_id == session_id)
         result = await self.db.execute(query)
         max_seq = result.scalar() or 0
         return max_seq + 1
@@ -187,9 +185,7 @@ class ChatMessageRepository(BaseRepository[ChatMessage]):
 
         saved = []
         for i, message in enumerate(messages):
-            chat_message = await self.save_langchain_message(
-                session_id, message, user_id, seq=next_seq + i
-            )
+            chat_message = await self.save_langchain_message(session_id, message, user_id, seq=next_seq + i)
             saved.append(chat_message)
         return saved
 

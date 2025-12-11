@@ -246,7 +246,8 @@ async def preview_raw_data(
                 first = rows[0]
                 if isinstance(first, dict):
                     columns = [
-                        ColumnSchema(name=k, data_type="unknown", nullable=True) for k in first.keys()  # type: ignore[arg-type]
+                        ColumnSchema(name=k, data_type="unknown", nullable=True)
+                        for k in first.keys()  # type: ignore[arg-type]
                     ]
         else:
             rows = []
