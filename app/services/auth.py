@@ -51,7 +51,11 @@ class AuthService:
 
         return Token(
             id=user.id,
+            username=user.username,
             nickname=user.nickname,
+            email=user.email,
+            is_active=user.is_active,
+            is_superuser=user.is_superuser,
             access_token=access_token,
             refresh_token=refresh_token,
         )
@@ -126,7 +130,11 @@ class AuthService:
 
         return Token(
             id=user.id,
+            username=user.username,
             nickname=user.nickname,
+            email=user.email,
+            is_active=user.is_active,
+            is_superuser=user.is_superuser,
             access_token=access_token,
             refresh_token=refresh_token,
         )

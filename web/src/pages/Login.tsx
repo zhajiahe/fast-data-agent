@@ -41,8 +41,19 @@ export const Login = () => {
       onSuccess: (response) => {
         const responseData = response.data.data;
         if (!responseData) return;
-        const { id, nickname, access_token, refresh_token } = responseData;
-        setAuth({ id: String(id), username: '', nickname }, access_token, refresh_token);
+        const { id, username, nickname, email, is_active, is_superuser, access_token, refresh_token } = responseData;
+        setAuth(
+          {
+            id: String(id),
+            username: username ?? '',
+            nickname: nickname ?? undefined,
+            email: email ?? undefined,
+            is_active: is_active ?? true,
+            is_superuser: is_superuser ?? false,
+          },
+          access_token,
+          refresh_token
+        );
         toast({ title: t('auth.login_success'), description: t('auth.login_success_desc', { username: nickname }) });
         navigate(from, { replace: true });
       },

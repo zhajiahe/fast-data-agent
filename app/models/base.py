@@ -69,7 +69,11 @@ class Token(BaseModel):
     """Token基础数据"""
 
     id: uuid.UUID
+    username: str
     nickname: str
+    email: str
+    is_active: bool
+    is_superuser: bool
     access_token: str
     refresh_token: str
     token_type: str = "bearer"
