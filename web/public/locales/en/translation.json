@@ -135,13 +135,6 @@
     "invalidSession": "Invalid session",
     "welcome": "Start Your Analysis",
     "welcomeHint": "Ask questions and AI will help analyze data and generate charts",
-    "exampleQuestionsTitle": "Try these questions:",
-    "exampleQuestions": {
-      "overview": "Analyze the data overview, what are the key metrics?",
-      "trend": "Show recent trends",
-      "detail": "Are there any anomalies in the data?",
-      "comparison": "What are the differences between categories?"
-    },
     "inputPlaceholder": "Type your question...",
     "send": "Send",
     "stop": "Stop",
