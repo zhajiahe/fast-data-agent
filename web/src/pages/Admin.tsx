@@ -1025,21 +1025,14 @@ export const Admin = () => {
         </div>
       )}
 
-      {/* 用户管理 Tabs */}
+      {/* 用户管理 */}
       <Card>
         <CardHeader>
           <CardTitle>用户管理</CardTitle>
           <CardDescription>管理系统用户，包括激活/禁用、角色分配、密码重置等</CardDescription>
         </CardHeader>
         <CardContent>
-          <Tabs defaultValue="users">
-            <TabsList>
-              <TabsTrigger value="users">用户列表</TabsTrigger>
-            </TabsList>
-            <TabsContent value="users" className="mt-4">
-              <UserList />
-            </TabsContent>
-          </Tabs>
+          <UserList />
         </CardContent>
       </Card>
     </div>

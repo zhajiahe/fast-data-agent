@@ -40,11 +40,14 @@ def unique_user() -> dict[str, str]:
 
 
 @pytest.fixture(scope="function")
-def auth_headers(client: TestClient, unique_user: dict[str, str]) -> dict[str, str]:
+def auth_headers(
+    client: TestClient, unique_user: dict[str, str]
+) -> Generator[dict[str, str], None, None]:
     """
     提供认证头 fixture
 
     自动注册和登录测试用户，返回带有 access_token 的请求头
+    测试结束后自动清理用户（通过管理员 API）
     """
     # 注册测试用户
     client.post("/api/v1/auth/register", json=unique_user)
@@ -60,8 +63,23 @@ def auth_headers(client: TestClient, unique_user: dict[str, str]) -> dict[str, s
 
     data = login_response.json()
     access_token = data.get("data", {}).get("access_token", "")
+    user_id = data.get("data", {}).get("id", "")
 
-    return {"Authorization": f"Bearer {access_token}"}
+    yield {"Authorization": f"Bearer {access_token}"}
+
+    # 清理：删除测试用户（通过管理员 API）
+    # 先获取管理员 token
+    admin_login = client.post(
+        "/api/v1/auth/login",
+        json={"username": "admin", "password": "admin123"},
+    )
+    if admin_login.status_code == 200:
+        admin_token = admin_login.json().get("data", {}).get("access_token", "")
+        if admin_token and user_id:
+            client.delete(
+                f"/api/v1/admin/users/{user_id}/cascade",
+                headers={"Authorization": f"Bearer {admin_token}"},
+            )
 
 
 @pytest.fixture(scope="function")
