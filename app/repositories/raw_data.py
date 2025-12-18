@@ -151,3 +151,24 @@ class RawDataRepository(BaseRepository[RawData]):
             query = query.where(RawData.id != exclude_id)
         result = await self.db.execute(query)
         return result.scalar_one_or_none() is not None
+
+    async def exists_by_file(self, file_id: uuid.UUID) -> bool:
+        """
+        检查是否有 RawData 引用指定的上传文件
+
+        Args:
+            file_id: 上传文件 ID
+
+        Returns:
+            是否存在引用
+        """
+        query = (
+            select(func.count())
+            .select_from(RawData)
+            .where(
+                RawData.file_id == file_id,
+                RawData.deleted == 0,
+            )
+        )
+        result = await self.db.execute(query)
+        return (result.scalar() or 0) > 0

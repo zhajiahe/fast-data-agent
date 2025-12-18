@@ -14,6 +14,7 @@ from app.core.exceptions import BadRequestException, NotFoundException
 from app.core.minio import minio_client
 from app.models.data_source import FileType
 from app.models.uploaded_file import UploadedFile
+from app.repositories.raw_data import RawDataRepository
 from app.repositories.uploaded_file import UploadedFileRepository
 from app.schemas.uploaded_file import FileListQuery, FilePreviewResponse
 from app.services.file_processor import FileProcessorService
@@ -25,6 +26,7 @@ class UploadedFileService:
     def __init__(self, db: AsyncSession):
         self.db = db
         self.repo = UploadedFileRepository(db)
+        self.raw_data_repo = RawDataRepository(db)
 
     async def get_file(self, file_id: uuid.UUID, user_id: uuid.UUID) -> UploadedFile:
         """
@@ -212,8 +214,13 @@ class UploadedFileService:
 
         Raises:
             NotFoundException: 文件不存在
+            BadRequestException: 有数据对象正在使用该文件
         """
         file = await self.get_file(file_id, user_id)
+
+        # 检查是否有 RawData 引用此文件
+        if await self.raw_data_repo.exists_by_file(file_id):
+            raise BadRequestException(msg="有数据对象正在使用该文件，请先删除数据对象后再删除文件")
 
         # 从 MinIO 删除
         try:

@@ -267,7 +267,7 @@ class DatabaseConnectionService:
 
         update_data = {
             "is_active": is_active,
-            "last_tested_at": datetime.now().isoformat(),
+            "last_tested_at": datetime.now(),
         }
 
         return await self.repo.update(connection, update_data)

@@ -14,6 +14,7 @@ from app.core.exceptions import BadRequestException, NotFoundException
 from app.models.data_source import DataSource, DataSourceRawMapping
 from app.repositories.data_source import DataSourceRawMappingRepository, DataSourceRepository
 from app.repositories.raw_data import RawDataRepository
+from app.repositories.session import AnalysisSessionRepository
 from app.schemas.data_source import (
     DataSourceCreate,
     DataSourceListQuery,
@@ -32,6 +33,7 @@ class DataSourceService:
         self.repo = DataSourceRepository(db)
         self.mapping_repo = DataSourceRawMappingRepository(db)
         self.raw_data_repo = RawDataRepository(db)
+        self.session_repo = AnalysisSessionRepository(db)
 
     async def get_data_source(self, data_source_id: uuid.UUID, user_id: uuid.UUID) -> DataSource:
         """
@@ -325,9 +327,14 @@ class DataSourceService:
 
         Raises:
             NotFoundException: 数据源不存在
+            BadRequestException: 有会话正在使用该数据源
         """
         # 验证权限
         await self.get_data_source(data_source_id, user_id)
+
+        # 检查是否有会话引用此数据源
+        if await self.session_repo.exists_by_data_source(data_source_id):
+            raise BadRequestException(msg="有分析会话正在使用该数据源，请先删除或更换会话的数据源后再删除")
 
         # 删除映射关系
         await self.mapping_repo.delete_by_data_source(data_source_id)

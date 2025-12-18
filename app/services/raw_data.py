@@ -299,7 +299,7 @@ class RawDataService:
 
         update_data: dict[str, Any] = {
             "status": status,
-            "synced_at": datetime.now().isoformat(),
+            "synced_at": datetime.now(),
         }
 
         if columns_schema is not None:
@@ -478,6 +478,6 @@ class RawDataService:
                 "status": "ready",
                 "columns_schema": columns_schema,
                 "row_count_estimate": row_count,
-                "synced_at": datetime.now().isoformat(),
+                "synced_at": datetime.now(),
             },
         )
