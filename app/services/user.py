@@ -4,6 +4,8 @@
 处理用户管理相关的业务逻辑
 """
 
+import uuid
+
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.exceptions import BadRequestException, NotFoundException
@@ -20,7 +22,7 @@ class UserService:
         self.db = db
         self.user_repo = UserRepository(db)
 
-    async def get_user(self, user_id: int) -> User:
+    async def get_user(self, user_id: uuid.UUID) -> User:
         """
         获取单个用户
 
@@ -101,7 +103,7 @@ class UserService:
 
     async def update_user(
         self,
-        user_id: int,
+        user_id: uuid.UUID,
         user_data: UserUpdate,
     ) -> User:
         """
@@ -168,7 +170,7 @@ class UserService:
 
         return user
 
-    async def delete_user(self, user_id: int) -> None:
+    async def delete_user(self, user_id: uuid.UUID) -> None:
         """
         删除用户（逻辑删除）
 

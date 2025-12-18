@@ -5,14 +5,14 @@
 """
 
 import uuid
-from typing import Any
 
-from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, SystemMessage, ToolMessage
+from langchain_core.messages import BaseMessage
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.message import ChatMessage, MessageType
+from app.models.message import ChatMessage
 from app.repositories.base import BaseRepository
+from app.utils.message_converter import MessageConverter
 
 
 class ChatMessageRepository(BaseRepository[ChatMessage]):
@@ -114,49 +114,12 @@ class ChatMessageRepository(BaseRepository[ChatMessage]):
         Returns:
             保存的 ChatMessage 对象
         """
-        # 确定消息类型
-        if isinstance(message, HumanMessage):
-            message_type = MessageType.HUMAN.value
-        elif isinstance(message, AIMessage):
-            message_type = MessageType.AI.value
-        elif isinstance(message, SystemMessage):
-            message_type = MessageType.SYSTEM.value
-        elif isinstance(message, ToolMessage):
-            message_type = MessageType.TOOL.value
-        else:
-            message_type = MessageType.AI.value  # 默认
-
         # 获取序号（如果未提供）
         if seq is None:
             seq = await self.get_next_seq(session_id)
 
-        # 构建基础数据
-        content = message.content if isinstance(message.content, str) else str(message.content)
-        data: dict[str, Any] = {
-            "session_id": session_id,
-            "seq": seq,
-            "message_type": message_type,
-            "content": content,
-            "message_id": getattr(message, "id", None),
-            "name": getattr(message, "name", None),
-            "additional_kwargs": getattr(message, "additional_kwargs", None) or None,
-            "response_metadata": getattr(message, "response_metadata", None) or None,
-            "create_by": str(user_id),
-            "update_by": str(user_id),
-        }
-
-        # AIMessage 特有字段
-        if isinstance(message, AIMessage):
-            data["tool_calls"] = message.tool_calls if message.tool_calls else None
-            data["invalid_tool_calls"] = message.invalid_tool_calls if message.invalid_tool_calls else None
-            usage = getattr(message, "usage_metadata", None)
-            data["usage_metadata"] = dict(usage) if usage else None
-
-        # ToolMessage 特有字段
-        if isinstance(message, ToolMessage):
-            data["tool_call_id"] = message.tool_call_id
-            data["artifact"] = getattr(message, "artifact", None)
-            data["status"] = getattr(message, "status", None)
+        # 使用转换器构建数据
+        data = MessageConverter.from_langchain_message(message, session_id, user_id, seq)
 
         return await self.create(data)
 
@@ -193,61 +156,95 @@ class ChatMessageRepository(BaseRepository[ChatMessage]):
         """
         将 ChatMessage 转换为 LangChain 消息
 
-        Args:
-            chat_message: 数据库消息对象
-
-        Returns:
-            LangChain 消息对象
+        注：此方法委托给 MessageConverter，保留是为了向后兼容。
+        新代码应直接使用 MessageConverter.to_langchain_message()。
         """
-        if chat_message.message_type == MessageType.HUMAN.value:
-            return HumanMessage(
-                content=chat_message.content,
-                id=chat_message.message_id,
-                name=chat_message.name,
-            )
-
-        elif chat_message.message_type == MessageType.AI.value:
-            return AIMessage(
-                content=chat_message.content,
-                id=chat_message.message_id,
-                name=chat_message.name,
-                tool_calls=chat_message.tool_calls or [],
-                invalid_tool_calls=chat_message.invalid_tool_calls or [],
-            )
-
-        elif chat_message.message_type == MessageType.SYSTEM.value:
-            return SystemMessage(
-                content=chat_message.content,
-                id=chat_message.message_id,
-                name=chat_message.name,
-            )
-
-        elif chat_message.message_type == MessageType.TOOL.value:
-            return ToolMessage(
-                content=chat_message.content,
-                tool_call_id=chat_message.tool_call_id or "",
-                name=chat_message.name,
-                id=chat_message.message_id,
-                artifact=chat_message.artifact,
-                status=chat_message.status or "success",
-            )
-
-        else:
-            # 默认作为 HumanMessage
-            return HumanMessage(
-                content=chat_message.content,
-                id=chat_message.message_id,
-                name=chat_message.name,
-            )
+        return MessageConverter.to_langchain_message(chat_message)
 
     def to_langchain_messages(self, chat_messages: list[ChatMessage]) -> list[BaseMessage]:
         """
         批量转换为 LangChain 消息
 
+        注：此方法委托给 MessageConverter，保留是为了向后兼容。
+        新代码应直接使用 MessageConverter.to_langchain_messages()。
+        """
+        return MessageConverter.to_langchain_messages(chat_messages)
+
+    async def get_by_sessions_batch(
+        self,
+        session_ids: list[uuid.UUID],
+        *,
+        limit_per_session: int = 100,
+    ) -> dict[uuid.UUID, list[ChatMessage]]:
+        """
+        批量获取多个会话的消息
+
         Args:
-            chat_messages: 数据库消息列表
+            session_ids: 会话 ID 列表
+            limit_per_session: 每个会话的消息数量上限
 
         Returns:
-            LangChain 消息列表
+            会话ID -> 消息列表 的字典
         """
-        return [self.to_langchain_message(m) for m in chat_messages]
+
+        if not session_ids:
+            return {}
+
+        # 使用窗口函数获取每个会话的前 N 条消息
+        # 这比多次查询效率更高
+
+        # 简化实现：批量查询，然后在内存中分组
+        query = (
+            select(ChatMessage)
+            .where(
+                ChatMessage.session_id.in_(session_ids),
+                ChatMessage.deleted == 0,
+            )
+            .order_by(ChatMessage.session_id, ChatMessage.seq.asc())
+        )
+        result = await self.db.execute(query)
+        all_messages = list(result.scalars().all())
+
+        # 按会话分组并限制数量
+        grouped: dict[uuid.UUID, list[ChatMessage]] = {sid: [] for sid in session_ids}
+        for msg in all_messages:
+            if msg.session_id in grouped and len(grouped[msg.session_id]) < limit_per_session:
+                grouped[msg.session_id].append(msg)
+
+        return grouped
+
+    async def count_by_sessions_batch(
+        self,
+        session_ids: list[uuid.UUID],
+    ) -> dict[uuid.UUID, int]:
+        """
+        批量获取多个会话的消息总数
+
+        Args:
+            session_ids: 会话 ID 列表
+
+        Returns:
+            会话ID -> 消息数量 的字典
+        """
+        from sqlalchemy import func
+
+        if not session_ids:
+            return {}
+
+        query = (
+            select(ChatMessage.session_id, func.count(ChatMessage.id).label("count"))
+            .where(
+                ChatMessage.session_id.in_(session_ids),
+                ChatMessage.deleted == 0,
+            )
+            .group_by(ChatMessage.session_id)
+        )
+        result = await self.db.execute(query)
+        rows = result.all()
+
+        # 构建结果字典，未找到的会话返回 0
+        counts: dict[uuid.UUID, int] = dict.fromkeys(session_ids, 0)
+        for row in rows:
+            counts[row.session_id] = row.count  # type: ignore[assignment]
+
+        return counts

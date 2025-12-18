@@ -5,9 +5,10 @@
 """
 
 import uuid
+from datetime import datetime
 from enum import Enum
 
-from sqlalchemy import ForeignKey, Integer, String, Text
+from sqlalchemy import DateTime, ForeignKey, Integer, String, Text
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -49,7 +50,7 @@ class DatabaseConnection(Base, BaseTableMixin):
     extra_params: Mapped[dict | None] = mapped_column(JSONB, nullable=True, comment="额外连接参数(JSON)")
 
     # 连接状态
-    last_tested_at: Mapped[str | None] = mapped_column(String(50), nullable=True, comment="最后测试时间")
+    last_tested_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True, comment="最后测试时间")
     is_active: Mapped[bool] = mapped_column(default=True, comment="是否可用")
 
     # 关系

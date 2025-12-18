@@ -9,6 +9,7 @@
 5. generate_chart: 生成图表，基于 plotly 实现
 """
 
+import uuid
 import warnings
 from collections.abc import AsyncGenerator
 from typing import Any
@@ -271,7 +272,7 @@ class ChatService:
                             "database": raw.connection.database,
                             "username": raw.connection.username,
                             # 使用解密后的密码，避免将密文透传到 Agent
-                            "password": decrypt_str(raw.connection.password),
+                            "password": decrypt_str(raw.connection.password, allow_plaintext=True),
                             "schema_name": raw.schema_name,
                             "table_name": raw.table_name,
                         }
@@ -293,7 +294,7 @@ class ChatService:
 
     async def get_history(
         self,
-        session_id: int,
+        session_id: uuid.UUID,
         *,
         skip: int = 0,
         limit: int = 100,
@@ -315,7 +316,7 @@ class ChatService:
 
     async def get_history_as_langchain(
         self,
-        session_id: int,
+        session_id: uuid.UUID,
         *,
         limit: int = 50,
     ) -> list[BaseMessage]:
@@ -434,18 +435,19 @@ class ChatService:
                 if messages_to_save:
                     logger.debug(f"保存 {len(messages_to_save)} 条消息")
                     await self.message_repo.save_langchain_messages(session.id, messages_to_save, session.user_id)
-                    # 显式 commit，确保消息在发送 [DONE] 之前持久化
-                    # 避免前端 refetch 时看不到最新消息
-                    await self.db.commit()
+
                     # 同步更新会话的消息计数，确保列表页显示正确
                     try:
                         msg_count = await self.message_repo.count_by_session(session.id)
                         session_obj = await self.session_repo.get_by_id(session.id)
                         if session_obj:
                             await self.session_repo.update(session_obj, {"message_count": msg_count})
-                            await self.db.commit()
                     except Exception as update_err:
                         logger.warning(f"更新会话消息计数失败: {update_err}")
+
+                    # 统一 commit，确保消息保存和计数更新在同一事务中
+                    # 避免部分成功导致数据不一致
+                    await self.db.commit()
 
         except Exception as e:
             logger.exception("聊天流处理失败: {}", e)

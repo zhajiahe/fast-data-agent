@@ -3328,30 +3328,6 @@ export const updateRecommendationApiV1SessionsSessionIdRecommendationsRecommenda
     );
   }
 
-/**
- * SPA 路由回退，所有非静态资源请求都返回 index.html
- * @summary Serve Spa
- */
-export const serveSpaWebFullPathGet = <TData = AxiosResponse<unknown>>(
-    fullPath: string, options?: AxiosRequestConfig
- ): Promise<TData> => {
-    return axios.get(
-      `/web/${fullPath}`,options
-    );
-  }
-
-/**
- * SPA 根路径
- * @summary Serve Spa Root
- */
-export const serveSpaRootWebGet = <TData = AxiosResponse<unknown>>(
-     options?: AxiosRequestConfig
- ): Promise<TData> => {
-    return axios.get(
-      `/web`,options
-    );
-  }
-
 export type RootGetResult = AxiosResponse<unknown>
 export type HealthCheckHealthGetResult = AxiosResponse<unknown>
 export type LoginApiV1AuthLoginPostResult = AxiosResponse<BaseResponseToken>
@@ -3414,5 +3390,3 @@ export type GenerateRecommendationsApiV1SessionsSessionIdRecommendationsPostResu
 export type DismissAllRecommendationsApiV1SessionsSessionIdRecommendationsDeleteResult = AxiosResponse<BaseResponseNoneType>
 export type GenerateFollowupRecommendationsApiV1SessionsSessionIdRecommendationsFollowupPostResult = AxiosResponse<BaseResponseListTaskRecommendationResponse>
 export type UpdateRecommendationApiV1SessionsSessionIdRecommendationsRecommendationIdPutResult = AxiosResponse<BaseResponseTaskRecommendationResponse>
-export type ServeSpaWebFullPathGetResult = AxiosResponse<unknown>
-export type ServeSpaRootWebGetResult = AxiosResponse<unknown>

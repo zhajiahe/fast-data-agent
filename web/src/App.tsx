@@ -53,7 +53,7 @@ const ProtectedFullHeightLayout = () => (
  * 应用根组件
  */
 function App() {
-  // BASE_URL 末尾有斜杠（如 /web/），需要去掉以匹配 Router basename
+  // 从环境变量或 vite 配置获取 base path，去掉末尾斜杠
   const basePath = (import.meta.env.VITE_BASE_PATH || import.meta.env.BASE_URL || '/').replace(/\/$/, '') || '/';
 
   return (

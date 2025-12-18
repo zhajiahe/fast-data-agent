@@ -29,7 +29,13 @@ from app.core.deps import CurrentUser, DBSession
 from app.models.base import BasePageQuery, BaseResponse, PageResponse
 from app.models.message import ChatMessage
 from app.repositories.message import ChatMessageRepository
-from app.schemas.message import ChatMessageCreate, ChatMessageResponse
+from app.schemas.message import (
+    BatchMessagesRequest,
+    BatchMessagesResponse,
+    ChatMessageCreate,
+    ChatMessageResponse,
+    SessionMessages,
+)
 from app.services.chat import ChatService
 from app.services.session import AnalysisSessionService
 
@@ -488,4 +494,79 @@ async def clear_messages(
         code=200,
         msg=f"已清空 {count} 条消息",
         data=count,
+    )
+
+
+# ==================== 批量消息 API ====================
+
+# 注意：这是一个独立的路由，不在 /sessions/{session_id} 下
+batch_router = APIRouter(prefix="/messages", tags=["messages"])
+
+
+@batch_router.post("/batch", response_model=BaseResponse[BatchMessagesResponse])
+async def get_messages_batch(
+    request: BatchMessagesRequest,
+    current_user: CurrentUser,
+    db: DBSession,
+):
+    """
+    批量获取多个会话的消息
+
+    用于一次性获取多个会话的消息，避免 N+1 查询问题。
+    比如图表工作台需要获取所有会话的消息来提取图表。
+
+    **性能优化**：
+    - 单次数据库查询获取所有消息
+    - 最多支持 100 个会话
+    - 每个会话最多返回 page_size 条消息
+
+    **权限**：
+    - 仅返回属于当前用户的会话消息
+    - 不属于当前用户的会话会被静默忽略
+    """
+    from app.repositories.session import AnalysisSessionRepository
+
+    session_repo = AnalysisSessionRepository(db)
+    message_repo = ChatMessageRepository(db)
+
+    # 验证会话权限：只获取属于当前用户的会话
+    valid_sessions = await session_repo.get_by_ids_and_user(
+        request.session_ids, current_user.id
+    )
+    valid_session_ids = [s.id for s in valid_sessions]
+
+    if not valid_session_ids:
+        return BaseResponse(
+            success=True,
+            code=200,
+            msg="获取消息成功",
+            data=BatchMessagesResponse(items=[]),
+        )
+
+    # 批量获取消息
+    messages_by_session = await message_repo.get_by_sessions_batch(
+        valid_session_ids, limit_per_session=request.page_size
+    )
+
+    # 批量获取消息总数
+    counts_by_session = await message_repo.count_by_sessions_batch(valid_session_ids)
+
+    # 构建响应
+    items = []
+    for session_id in valid_session_ids:
+        messages = messages_by_session.get(session_id, [])
+        total = counts_by_session.get(session_id, 0)
+        items.append(
+            SessionMessages(
+                session_id=session_id,
+                messages=[_chat_message_to_response(msg) for msg in messages],
+                total=total,
+            )
+        )
+
+    return BaseResponse(
+        success=True,
+        code=200,
+        msg="获取消息成功",
+        data=BatchMessagesResponse(items=items),
     )

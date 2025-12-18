@@ -4,6 +4,7 @@
 处理数据源管理相关的业务逻辑
 """
 
+import uuid
 from datetime import datetime
 from typing import Any
 
@@ -32,7 +33,7 @@ class DataSourceService:
         self.mapping_repo = DataSourceRawMappingRepository(db)
         self.raw_data_repo = RawDataRepository(db)
 
-    async def get_data_source(self, data_source_id: int, user_id: int) -> DataSource:
+    async def get_data_source(self, data_source_id: uuid.UUID, user_id: uuid.UUID) -> DataSource:
         """
         获取单个数据源
 
@@ -51,7 +52,7 @@ class DataSourceService:
             raise NotFoundException(msg="数据源不存在")
         return data_source
 
-    async def get_data_source_with_mappings(self, data_source_id: int, user_id: int) -> DataSource:
+    async def get_data_source_with_mappings(self, data_source_id: uuid.UUID, user_id: uuid.UUID) -> DataSource:
         """
         获取数据源（包含关联的 raw_mappings）
 
@@ -71,7 +72,7 @@ class DataSourceService:
         return data_source
 
     async def preview_data_source(
-        self, data_source_id: int, user_id: int, *, limit: int = 100
+        self, data_source_id: uuid.UUID, user_id: uuid.UUID, *, limit: int = 100
     ) -> DataSourcePreviewResponse:
         """
         基于 RawData.sample_data/preview_data 和字段映射，合并生成预览数据。
@@ -165,7 +166,7 @@ class DataSourceService:
 
     async def get_data_sources(
         self,
-        user_id: int,
+        user_id: uuid.UUID,
         query_params: DataSourceListQuery,
         page_num: int = 1,
         page_size: int = 10,
@@ -191,7 +192,7 @@ class DataSourceService:
             limit=page_size,
         )
 
-    async def create_data_source(self, user_id: int, data: DataSourceCreate) -> DataSource:
+    async def create_data_source(self, user_id: uuid.UUID, data: DataSourceCreate) -> DataSource:
         """
         创建数据源
 
@@ -237,8 +238,8 @@ class DataSourceService:
 
     async def update_data_source(
         self,
-        data_source_id: int,
-        user_id: int,
+        data_source_id: uuid.UUID,
+        user_id: uuid.UUID,
         data: DataSourceUpdate,
     ) -> DataSource:
         """
@@ -297,7 +298,7 @@ class DataSourceService:
 
     async def _create_mappings(
         self,
-        data_source_id: int,
+        data_source_id: uuid.UUID,
         mappings: list[FieldMapping],
     ) -> list[DataSourceRawMapping]:
         """创建映射关系"""
@@ -314,7 +315,7 @@ class DataSourceService:
             created_mappings.append(created)
         return created_mappings
 
-    async def delete_data_source(self, data_source_id: int, user_id: int) -> None:
+    async def delete_data_source(self, data_source_id: uuid.UUID, user_id: uuid.UUID) -> None:
         """
         删除数据源
 
@@ -338,8 +339,8 @@ class DataSourceService:
 
     async def update_schema_cache(
         self,
-        data_source_id: int,
-        user_id: int,
+        data_source_id: uuid.UUID,
+        user_id: uuid.UUID,
         schema_cache: dict[str, Any],
     ) -> DataSource:
         """
@@ -360,7 +361,7 @@ class DataSourceService:
 
         return await self.repo.update(data_source, {"schema_cache": schema_cache})
 
-    async def get_data_sources_by_ids(self, ids: list[int], user_id: int) -> list[DataSource]:
+    async def get_data_sources_by_ids(self, ids: list[uuid.UUID], user_id: uuid.UUID) -> list[DataSource]:
         """
         根据 ID 列表获取数据源
 
@@ -373,7 +374,7 @@ class DataSourceService:
         """
         return await self.repo.get_by_ids(ids, user_id)
 
-    async def refresh_schema_cache(self, data_source_id: int, user_id: int) -> DataSource:
+    async def refresh_schema_cache(self, data_source_id: uuid.UUID, user_id: uuid.UUID) -> DataSource:
         """
         刷新数据源的 Schema 缓存
 

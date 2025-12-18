@@ -6,8 +6,15 @@ import base64
 import hashlib
 
 from cryptography.fernet import Fernet, InvalidToken
+from loguru import logger
 
 from app.core.config import settings
+
+
+class DecryptionError(Exception):
+    """解密失败异常"""
+
+    pass
 
 
 def _get_fernet() -> Fernet:
@@ -27,14 +34,25 @@ def encrypt_str(plain: str) -> str:
     return f.encrypt(plain.encode("utf-8")).decode("utf-8")
 
 
-def decrypt_str(cipher: str) -> str:
+def decrypt_str(cipher: str, *, allow_plaintext: bool = False) -> str:
     """
     解密字符串。
 
-    如果解密失败（如格式错误），返回原文以避免中断流程。
+    Args:
+        cipher: 加密后的字符串
+        allow_plaintext: 是否允许明文（解密失败时返回原文）
+
+    Returns:
+        解密后的字符串
+
+    Raises:
+        DecryptionError: 解密失败且不允许明文时抛出
     """
     f = _get_fernet()
     try:
         return f.decrypt(cipher.encode("utf-8")).decode("utf-8")
-    except (InvalidToken, ValueError):
-        return cipher
+    except (InvalidToken, ValueError) as e:
+        if allow_plaintext:
+            logger.warning(f"解密失败，返回原文（可能是未加密的明文）: {e}")
+            return cipher
+        raise DecryptionError(f"解密失败: {e}") from e

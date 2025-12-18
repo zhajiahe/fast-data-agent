@@ -4,14 +4,11 @@ FastAPI 应用主入口
 提供应用配置、路由注册和中间件设置
 """
 
-from pathlib import Path
-
-from fastapi import FastAPI, Request
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
-from fastapi.staticfiles import StaticFiles
 from loguru import logger
 
+from app.api.chat import batch_router as messages_batch_router
 from app.api.chat import router as chat_router
 from app.api.data_sources import router as data_sources_router
 from app.api.database_connections import router as database_connections_router
@@ -97,34 +94,16 @@ app.include_router(sessions_router, prefix="/api/v1")
 # 注册对话路由
 app.include_router(chat_router, prefix="/api/v1")
 
+# 注册批量消息路由（用于解决 N+1 查询问题）
+app.include_router(messages_batch_router, prefix="/api/v1")
+
 # 注册推荐路由
 app.include_router(recommendations_router, prefix="/api/v1")
 
-# 挂载前端静态文件
-# 前端构建产物目录（相对于项目根目录）
-WEB_DIST_DIR = Path(__file__).parent.parent / "web" / "dist"
-if WEB_DIST_DIR.exists():
-    # 挂载静态资源（CSS、JS、图片等）
-    app.mount("/web/assets", StaticFiles(directory=str(WEB_DIST_DIR / "assets")), name="web_assets")
-    logger.info(f"前端静态文件已挂载到 /web，目录: {WEB_DIST_DIR}")
-
-    # SPA 回退路由 - 所有 /web/* 路径都返回 index.html
-    @app.get("/web/{full_path:path}")
-    async def serve_spa(request: Request, full_path: str):
-        """SPA 路由回退，所有非静态资源请求都返回 index.html"""
-        # 检查是否请求静态文件
-        file_path = WEB_DIST_DIR / full_path
-        if file_path.is_file():
-            return FileResponse(file_path)
-        # 否则返回 index.html（SPA 回退）
-        return FileResponse(WEB_DIST_DIR / "index.html")
-
-    @app.get("/web")
-    async def serve_spa_root():
-        """SPA 根路径"""
-        return FileResponse(WEB_DIST_DIR / "index.html")
-else:
-    logger.warning(f"前端静态文件目录不存在: {WEB_DIST_DIR}，跳过挂载")
+# 前端静态文件由 Nginx 托管
+# 参考 nginx/conf.d/default.conf 的配置
+# - 前端静态文件: /web/dist -> Nginx 服务
+# - API 请求: /api/* -> FastAPI 代理
 
 
 if __name__ == "__main__":

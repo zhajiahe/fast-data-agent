@@ -5,6 +5,7 @@
 """
 
 from datetime import datetime
+import uuid
 from typing import Any
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -28,7 +29,7 @@ class DatabaseConnectionService:
         self.repo = DatabaseConnectionRepository(db)
         self.raw_data_repo = RawDataRepository(db)
 
-    async def get_connection(self, connection_id: int, user_id: int) -> DatabaseConnection:
+    async def get_connection(self, connection_id: uuid.UUID, user_id: uuid.UUID) -> DatabaseConnection:
         """
         获取单个数据库连接
 
@@ -49,7 +50,7 @@ class DatabaseConnectionService:
 
     async def get_connections(
         self,
-        user_id: int,
+        user_id: uuid.UUID,
         *,
         keyword: str | None = None,
         db_type: str | None = None,
@@ -80,7 +81,7 @@ class DatabaseConnectionService:
 
     async def create_connection(
         self,
-        user_id: int,
+        user_id: uuid.UUID,
         data: DatabaseConnectionCreate,
         *,
         auto_create_raw_data: bool = True,
@@ -170,8 +171,8 @@ class DatabaseConnectionService:
 
     async def update_connection(
         self,
-        connection_id: int,
-        user_id: int,
+        connection_id: uuid.UUID,
+        user_id: uuid.UUID,
         data: DatabaseConnectionUpdate,
     ) -> DatabaseConnection:
         """
@@ -222,7 +223,7 @@ class DatabaseConnectionService:
 
         return connection
 
-    async def delete_connection(self, connection_id: int, user_id: int) -> None:
+    async def delete_connection(self, connection_id: uuid.UUID, user_id: uuid.UUID) -> None:
         """
         删除数据库连接
 
@@ -246,8 +247,8 @@ class DatabaseConnectionService:
 
     async def update_test_status(
         self,
-        connection_id: int,
-        user_id: int,
+        connection_id: uuid.UUID,
+        user_id: uuid.UUID,
         *,
         is_active: bool,
     ) -> DatabaseConnection:

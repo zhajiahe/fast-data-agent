@@ -24,7 +24,7 @@ from typing import Any
 
 from fastapi import FastAPI, UploadFile, File, Query, HTTPException
 from fastapi.responses import FileResponse, JSONResponse
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 # 配置日志
 logging.basicConfig(level=logging.INFO)
@@ -145,6 +145,7 @@ class SqlRequest(BaseModel):
     """Request model for SQL execution."""
 
     sql: str
+    max_rows: int = Field(default=10000, ge=1, le=100000, description="结果集最大行数限制")
 
 
 class ChartRequest(BaseModel):
@@ -1005,7 +1006,14 @@ async def execute_sql(
             # 语法检查通过，执行实际查询
             result = conn.execute(request.sql)
             columns = [desc[0] for desc in result.description] if result.description else []
-            rows = result.fetchall()
+
+            # 使用 fetchmany 限制内存使用，避免大结果集导致 OOM
+            max_rows = request.max_rows
+            rows = result.fetchmany(max_rows + 1)  # 多取一行用于检测是否有更多数据
+            has_more = len(rows) > max_rows
+            if has_more:
+                rows = rows[:max_rows]  # 截断到限制行数
+                logger.warning(f"SQL result truncated to {max_rows} rows (has more data)")
 
             # 自动保存结果到 parquet 文件（供后续工具使用）
             result_file = None
@@ -1026,6 +1034,8 @@ async def execute_sql(
                 "rows": [list(row) for row in rows],
                 "row_count": len(rows),
                 "result_file": result_file,  # 结果文件路径
+                "truncated": has_more,  # 是否被截断
+                "max_rows": max_rows,  # 最大行数限制
             }
         finally:
             os.chdir(original_cwd)

@@ -5,9 +5,10 @@
 """
 
 import uuid
+from datetime import datetime
 from enum import Enum
 
-from sqlalchemy import ForeignKey, Integer, String, Text
+from sqlalchemy import DateTime, ForeignKey, Integer, String, Text
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -62,7 +63,7 @@ class RawData(Base, BaseTableMixin):
         JSONB, nullable=True, comment="预览抽样数据(JSON): {columns, rows}"
     )
     row_count_estimate: Mapped[int | None] = mapped_column(Integer, nullable=True, comment="估算行数")
-    synced_at: Mapped[str | None] = mapped_column(String(50), nullable=True, comment="最后同步时间")
+    synced_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True, comment="最后同步时间")
 
     # 状态
     status: Mapped[str] = mapped_column(

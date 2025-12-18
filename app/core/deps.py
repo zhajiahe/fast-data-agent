@@ -57,6 +57,7 @@ async def get_current_user(
     if user is None:
         raise credentials_exception
 
+    # 检查用户是否激活
     if not user.is_active:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
@@ -70,22 +71,17 @@ async def get_current_active_user(
     current_user: Annotated[User, Depends(get_current_user)],
 ) -> User:
     """
-    获取当前激活的用户
+    获取当前激活的用户（已被 get_current_user 包含）
+
+    保留此函数是为了向后兼容。新代码应直接使用 CurrentUser。
 
     Args:
         current_user: 当前用户
 
     Returns:
         User: 当前用户对象
-
-    Raises:
-        HTTPException: 用户未激活时抛出 403 错误
     """
-    if not current_user.is_active:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="用户未激活",
-        )
+    # is_active 检查已在 get_current_user 中完成
     return current_user
 
 

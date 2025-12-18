@@ -9,6 +9,7 @@
 """
 
 import json
+import uuid
 from typing import Any
 
 from langchain.messages import HumanMessage, SystemMessage
@@ -537,7 +538,7 @@ class RecommendService:
         self,
         session: AnalysisSession,
         data_source: DataSource | None,
-        user_id: int,
+        user_id: uuid.UUID,
         max_count: int = 5,
         *,
         force_regenerate: bool = False,
@@ -582,11 +583,11 @@ class RecommendService:
         session: AnalysisSession,
         data_source: DataSource | None,
         conversation_context: str,
-        user_id: int,
+        user_id: uuid.UUID,
         *,
         last_result: dict | None = None,
         max_count: int = 3,
-        trigger_message_id: int | None = None,
+        trigger_message_id: uuid.UUID | None = None,
     ) -> list[TaskRecommendation]:
         """
         生成并保存追问推荐
@@ -626,7 +627,7 @@ class RecommendService:
 
     async def get_session_recommendations(
         self,
-        session_id: int,
+        session_id: uuid.UUID,
         *,
         status: str | None = None,
         source_type: str | None = None,
@@ -636,7 +637,7 @@ class RecommendService:
 
     async def update_recommendation_status(
         self,
-        recommendation_id: int,
+        recommendation_id: uuid.UUID,
         status: str,
     ) -> TaskRecommendation | None:
         """更新推荐状态"""

@@ -26,7 +26,7 @@ class UploadedFileService:
         self.db = db
         self.repo = UploadedFileRepository(db)
 
-    async def get_file(self, file_id: int, user_id: int) -> UploadedFile:
+    async def get_file(self, file_id: uuid.UUID, user_id: uuid.UUID) -> UploadedFile:
         """
         获取单个文件
 
@@ -47,7 +47,7 @@ class UploadedFileService:
 
     async def get_files(
         self,
-        user_id: int,
+        user_id: uuid.UUID,
         query_params: FileListQuery,
         page_num: int = 1,
         page_size: int = 10,
@@ -76,7 +76,7 @@ class UploadedFileService:
 
     async def upload_file(
         self,
-        user_id: int,
+        user_id: uuid.UUID,
         filename: str,
         content: bytes,
         content_type: str | None = None,
@@ -202,7 +202,7 @@ class UploadedFileService:
 
         return final_file, raw_data_info
 
-    async def delete_file(self, file_id: int, user_id: int) -> None:
+    async def delete_file(self, file_id: uuid.UUID, user_id: uuid.UUID) -> None:
         """
         删除文件
 
@@ -224,7 +224,7 @@ class UploadedFileService:
         # 软删除数据库记录
         await self.repo.delete(file_id, soft_delete=True)
 
-    async def get_preview(self, file_id: int, user_id: int, rows: int = 100) -> FilePreviewResponse:
+    async def get_preview(self, file_id: uuid.UUID, user_id: uuid.UUID, rows: int = 100) -> FilePreviewResponse:
         """
         获取文件预览
 
@@ -255,7 +255,7 @@ class UploadedFileService:
 
         return FilePreviewResponse(columns=columns, data=data, total_rows=total)
 
-    async def get_download_url(self, file_id: int, user_id: int, expires: int = 3600) -> str:
+    async def get_download_url(self, file_id: uuid.UUID, user_id: uuid.UUID, expires: int = 3600) -> str:
         """
         获取文件下载 URL
 

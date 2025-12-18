@@ -53,7 +53,7 @@ class Settings(BaseSettings):
     DEFAULT_ADMIN_PASSWORD: str = "admin123"
 
     # CORS 配置
-    ALLOWED_ORIGINS: list[str] = ["localhost:8000", "localhost:3000"]
+    ALLOWED_ORIGINS: list[str] = ["http://localhost:8000", "http://localhost:3000", "http://localhost:5173"]
 
     # AI/LLM 配置
     OPENAI_API_KEY: str = ""

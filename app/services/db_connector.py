@@ -4,8 +4,9 @@
 提供数据库连接测试和 Schema 提取功能
 """
 
+import hashlib
 import time
-from typing import Any
+from typing import Any, ClassVar
 
 from loguru import logger
 from sqlalchemy import create_engine, inspect, text
@@ -17,11 +18,102 @@ from app.models.database_connection import DatabaseConnection, DatabaseType
 from app.schemas.database_connection import DatabaseConnectionTestResult
 
 
+class EngineCache:
+    """
+    数据库引擎缓存
+
+    缓存 SQLAlchemy Engine 实例以复用连接池，避免每次操作都创建新引擎。
+    使用连接配置的哈希值作为缓存键。
+    """
+
+    def __init__(self, max_size: int = 20, ttl_seconds: int = 3600):
+        """
+        初始化缓存
+
+        Args:
+            max_size: 最大缓存引擎数量
+            ttl_seconds: 缓存过期时间（秒）
+        """
+        self._cache: dict[str, tuple[Engine, float]] = {}
+        self._max_size = max_size
+        self._ttl = ttl_seconds
+
+    def _make_key(self, connection: DatabaseConnection) -> str:
+        """生成缓存键"""
+        # 使用连接配置的关键字段生成哈希
+        key_parts = [
+            str(connection.id),
+            connection.db_type,
+            connection.host,
+            str(connection.port),
+            connection.database,
+            connection.username,
+            connection.password,  # 加密后的密码
+        ]
+        key_str = "|".join(key_parts)
+        return hashlib.sha256(key_str.encode()).hexdigest()[:32]
+
+    def get(self, connection: DatabaseConnection) -> Engine | None:
+        """获取缓存的引擎"""
+        key = self._make_key(connection)
+        if key in self._cache:
+            engine, created_at = self._cache[key]
+            # 检查是否过期
+            if time.time() - created_at < self._ttl:
+                return engine
+            # 过期则移除
+            self._remove(key)
+        return None
+
+    def put(self, connection: DatabaseConnection, engine: Engine) -> None:
+        """缓存引擎"""
+        # 清理过期条目
+        self._cleanup_expired()
+
+        # 如果超过最大数量，移除最旧的
+        if len(self._cache) >= self._max_size:
+            oldest_key = min(self._cache, key=lambda k: self._cache[k][1])
+            self._remove(oldest_key)
+
+        key = self._make_key(connection)
+        self._cache[key] = (engine, time.time())
+
+    def remove(self, connection: DatabaseConnection) -> None:
+        """移除缓存的引擎"""
+        key = self._make_key(connection)
+        self._remove(key)
+
+    def _remove(self, key: str) -> None:
+        """移除指定键的引擎"""
+        if key in self._cache:
+            engine, _ = self._cache.pop(key)
+            try:
+                engine.dispose()
+            except Exception as e:
+                logger.warning(f"Error disposing engine: {e}")
+
+    def _cleanup_expired(self) -> None:
+        """清理过期条目"""
+        now = time.time()
+        expired_keys = [k for k, (_, created_at) in self._cache.items() if now - created_at >= self._ttl]
+        for key in expired_keys:
+            self._remove(key)
+
+    def clear(self) -> None:
+        """清空所有缓存"""
+        for key in list(self._cache.keys()):
+            self._remove(key)
+
+
+# 全局引擎缓存实例
+_engine_cache = EngineCache()
+
+
 class DBConnectorService:
     """数据库连接器服务"""
 
     # 数据库驱动映射
-    DRIVER_MAP = {
+    DRIVER_MAP: ClassVar[dict[DatabaseType, str]] = {
         DatabaseType.MYSQL: "mysql+pymysql",
         DatabaseType.POSTGRESQL: "postgresql+psycopg2",
     }
@@ -42,7 +134,7 @@ class DBConnectorService:
         if not driver:
             raise BadRequestException(msg=f"不支持的数据库类型: {db_type}")
 
-        password = decrypt_str(connection.password)
+        password = decrypt_str(connection.password, allow_plaintext=True)
 
         # 构建标准 URL
         url = f"{driver}://{connection.username}:{password}@{connection.host}:{connection.port}/{connection.database}"
@@ -54,9 +146,39 @@ class DBConnectorService:
 
         return url
 
+    def _get_engine(self, connection: DatabaseConnection, *, use_cache: bool = True) -> Engine:
+        """
+        获取数据库引擎（优先从缓存获取）
+
+        Args:
+            connection: 数据库连接配置
+            use_cache: 是否使用缓存（测试连接时可能需要新引擎）
+
+        Returns:
+            SQLAlchemy 引擎
+        """
+        if use_cache:
+            cached = _engine_cache.get(connection)
+            if cached:
+                return cached
+
+        url = self._build_connection_url(connection)
+        engine = create_engine(
+            url,
+            pool_pre_ping=True,
+            pool_size=5,  # 增加连接池大小
+            max_overflow=10,  # 允许额外连接
+            pool_recycle=3600,  # 1小时回收连接
+        )
+
+        if use_cache:
+            _engine_cache.put(connection, engine)
+
+        return engine
+
     def _create_engine(self, connection: DatabaseConnection) -> Engine:
         """
-        创建数据库引擎
+        创建数据库引擎（兼容性方法，内部使用 _get_engine）
 
         Args:
             connection: 数据库连接配置
@@ -64,8 +186,7 @@ class DBConnectorService:
         Returns:
             SQLAlchemy 引擎
         """
-        url = self._build_connection_url(connection)
-        return create_engine(url, pool_pre_ping=True, pool_size=1, max_overflow=0)
+        return self._get_engine(connection)
 
     async def test_database_connection(self, connection: DatabaseConnection) -> DatabaseConnectionTestResult:
         """
@@ -78,14 +199,17 @@ class DBConnectorService:
             测试结果
         """
         try:
-            engine = self._create_engine(connection)
+            # 测试连接时不使用缓存，确保测试的是新连接
+            engine = self._get_engine(connection, use_cache=False)
             start_time = time.time()
 
             with engine.connect() as conn:
                 conn.execute(text("SELECT 1"))
 
             latency_ms = int((time.time() - start_time) * 1000)
-            engine.dispose()
+
+            # 测试成功后将引擎加入缓存
+            _engine_cache.put(connection, engine)
 
             return DatabaseConnectionTestResult(
                 success=True,
@@ -146,7 +270,7 @@ class DBConnectorService:
                         }
                     )
 
-            engine.dispose()
+            # 引擎由缓存管理，不需要手动 dispose
             return tables
         except Exception as e:
             logger.error(f"Get tables failed: {e}")
@@ -194,8 +318,7 @@ class DBConnectorService:
             # 获取行数估算
             row_count = self._get_row_count_estimate(engine, table_name, schema=schema_name)
 
-            engine.dispose()
-
+            # 引擎由缓存管理，不需要手动 dispose
             return {
                 "columns": columns,
                 "row_count": row_count,
@@ -271,8 +394,7 @@ class DBConnectorService:
             if table_name:
                 total_rows = self._get_row_count_estimate(engine, table_name, schema=schema_name)
 
-            engine.dispose()
-
+            # 引擎由缓存管理，不需要手动 dispose
             return {
                 "columns": columns,
                 "rows": rows,
@@ -307,7 +429,7 @@ class DBConnectorService:
                 columns = list(result.keys())
                 rows = [dict(zip(columns, row, strict=False)) for row in result.fetchmany(limit)]
 
-            engine.dispose()
+            # 引擎由缓存管理，不需要手动 dispose
             return rows, columns
         except Exception as e:
             logger.error(f"Query execution failed: {e}")

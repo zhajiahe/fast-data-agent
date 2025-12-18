@@ -4,6 +4,7 @@
 基于字段名相似度和数据类型兼容性，为用户推荐最佳的字段映射关系。
 """
 
+import uuid
 from dataclasses import dataclass
 from difflib import SequenceMatcher
 
@@ -14,7 +15,7 @@ class FieldMappingSuggestion:
 
     target_field: str  # 目标字段名
     source_field: str  # 推荐的源字段名
-    raw_data_id: int  # 来源 RawData ID
+    raw_data_id: uuid.UUID  # 来源 RawData ID
     raw_data_name: str  # 来源 RawData 名称
     confidence: float  # 匹配置信度 (0-1)
     reason: str  # 推荐理由

@@ -48,3 +48,24 @@ class ChatStreamEvent(BaseModel):
 
     event: str = Field(..., description="事件类型")
     data: dict[str, Any] = Field(default_factory=dict, description="事件数据")
+
+
+class BatchMessagesRequest(BaseModel):
+    """批量获取消息请求"""
+
+    session_ids: list[uuid.UUID] = Field(..., min_length=1, max_length=100, description="会话ID列表")
+    page_size: int = Field(default=100, ge=1, le=500, description="每个会话的消息数量上限")
+
+
+class SessionMessages(BaseModel):
+    """单个会话的消息列表"""
+
+    session_id: uuid.UUID = Field(..., description="会话ID")
+    messages: list[ChatMessageResponse] = Field(default_factory=list, description="消息列表")
+    total: int = Field(default=0, description="消息总数")
+
+
+class BatchMessagesResponse(BaseModel):
+    """批量获取消息响应"""
+
+    items: list[SessionMessages] = Field(default_factory=list, description="各会话的消息列表")

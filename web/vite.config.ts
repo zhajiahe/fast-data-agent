@@ -3,7 +3,8 @@ import react from "@vitejs/plugin-react-swc";
 import { defineConfig } from "vite";
 
 export default defineConfig({
-  base: "/web/",
+  // 开发时使用根路径，生产环境通过环境变量配置
+  base: "/",
   plugins: [react()],
   resolve: {
     alias: {

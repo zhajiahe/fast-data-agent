@@ -5,6 +5,7 @@
 """
 
 from datetime import datetime
+import uuid
 from typing import Any
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -33,7 +34,7 @@ class RawDataService:
         self.file_repo = UploadedFileRepository(db)
         self.mapping_repo = DataSourceRawMappingRepository(db)
 
-    async def get_raw_data(self, raw_data_id: int, user_id: int) -> RawData:
+    async def get_raw_data(self, raw_data_id: uuid.UUID, user_id: uuid.UUID) -> RawData:
         """
         获取单个数据对象
 
@@ -52,7 +53,7 @@ class RawDataService:
             raise NotFoundException(msg="数据对象不存在")
         return raw_data
 
-    async def get_raw_data_with_relations(self, raw_data_id: int, user_id: int) -> RawData:
+    async def get_raw_data_with_relations(self, raw_data_id: uuid.UUID, user_id: uuid.UUID) -> RawData:
         """
         获取数据对象（包含关联的 connection 和 uploaded_file）
 
@@ -73,7 +74,7 @@ class RawDataService:
 
     async def get_raw_data_list(
         self,
-        user_id: int,
+        user_id: uuid.UUID,
         query_params: RawDataListQuery,
         page_num: int = 1,
         page_size: int = 10,
@@ -100,7 +101,7 @@ class RawDataService:
             limit=page_size,
         )
 
-    async def create_raw_data(self, user_id: int, data: RawDataCreate) -> RawData:
+    async def create_raw_data(self, user_id: uuid.UUID, data: RawDataCreate) -> RawData:
         """
         创建数据对象
 
@@ -180,8 +181,8 @@ class RawDataService:
 
     async def update_raw_data(
         self,
-        raw_data_id: int,
-        user_id: int,
+        raw_data_id: uuid.UUID,
+        user_id: uuid.UUID,
         data: RawDataUpdate,
     ) -> RawData:
         """
@@ -247,8 +248,8 @@ class RawDataService:
 
     async def update_columns_schema(
         self,
-        raw_data_id: int,
-        user_id: int,
+        raw_data_id: uuid.UUID,
+        user_id: uuid.UUID,
         data: RawDataColumnUpdate,
     ) -> RawData:
         """
@@ -270,8 +271,8 @@ class RawDataService:
 
     async def update_sync_status(
         self,
-        raw_data_id: int,
-        user_id: int,
+        raw_data_id: uuid.UUID,
+        user_id: uuid.UUID,
         *,
         status: str,
         columns_schema: list[dict[str, Any]] | None = None,
@@ -312,7 +313,7 @@ class RawDataService:
 
         return await self.repo.update(raw_data, update_data)
 
-    async def delete_raw_data(self, raw_data_id: int, user_id: int) -> None:
+    async def delete_raw_data(self, raw_data_id: uuid.UUID, user_id: uuid.UUID) -> None:
         """
         删除数据对象
 
@@ -334,7 +335,7 @@ class RawDataService:
         if not success:
             raise NotFoundException(msg="数据对象不存在")
 
-    async def get_raw_data_by_ids(self, ids: list[int], user_id: int) -> list[RawData]:
+    async def get_raw_data_by_ids(self, ids: list[uuid.UUID], user_id: uuid.UUID) -> list[RawData]:
         """
         根据 ID 列表获取数据对象
 
@@ -349,8 +350,8 @@ class RawDataService:
 
     async def batch_create_from_connection(
         self,
-        user_id: int,
-        connection_id: int,
+        user_id: uuid.UUID,
+        connection_id: uuid.UUID,
         tables: list[dict[str, Any]],
         name_prefix: str | None = None,
         auto_sync: bool = True,

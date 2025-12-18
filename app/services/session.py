@@ -4,6 +4,7 @@
 处理分析会话相关的业务逻辑
 """
 
+import uuid
 from typing import Any
 
 from loguru import logger
@@ -28,7 +29,7 @@ class AnalysisSessionService:
         self.repo = AnalysisSessionRepository(db)
         self.data_source_service = DataSourceService(db)
 
-    async def get_session(self, session_id: int, user_id: int) -> AnalysisSession:
+    async def get_session(self, session_id: uuid.UUID, user_id: uuid.UUID) -> AnalysisSession:
         """
         获取单个会话
 
@@ -49,7 +50,7 @@ class AnalysisSessionService:
 
     async def get_sessions(
         self,
-        user_id: int,
+        user_id: uuid.UUID,
         query_params: AnalysisSessionListQuery,
         page_num: int = 1,
         page_size: int = 10,
@@ -77,7 +78,7 @@ class AnalysisSessionService:
 
     async def create_session(
         self,
-        user_id: int,
+        user_id: uuid.UUID,
         data: AnalysisSessionCreate,
         *,
         generate_recommendations: bool = True,
@@ -124,8 +125,8 @@ class AnalysisSessionService:
 
     async def _init_session_duckdb(
         self,
-        user_id: int,
-        session_id: int,
+        user_id: uuid.UUID,
+        session_id: uuid.UUID,
         data_source: Any | None,
     ) -> None:
         """
@@ -236,7 +237,7 @@ class AnalysisSessionService:
                             "port": conn.port,
                             "database": conn.database,
                             "username": conn.username,
-                            "password": decrypt_str(conn.password),  # 解密密码
+                            "password": decrypt_str(conn.password, allow_plaintext=True),  # 解密密码
                             "schema_name": raw_data.schema_name,
                             "table_name": raw_data.table_name,
                             "custom_sql": raw_data.custom_sql,
@@ -313,8 +314,8 @@ class AnalysisSessionService:
 
     async def update_session(
         self,
-        session_id: int,
-        user_id: int,
+        session_id: uuid.UUID,
+        user_id: uuid.UUID,
         data: AnalysisSessionUpdate,
     ) -> AnalysisSession:
         """
@@ -365,7 +366,7 @@ class AnalysisSessionService:
 
         return session
 
-    async def delete_session(self, session_id: int, user_id: int) -> None:
+    async def delete_session(self, session_id: uuid.UUID, user_id: uuid.UUID) -> None:
         """
         删除会话
 
@@ -383,7 +384,7 @@ class AnalysisSessionService:
         if not success:
             raise NotFoundException(msg="会话不存在")
 
-    async def archive_session(self, session_id: int, user_id: int) -> AnalysisSession:
+    async def archive_session(self, session_id: uuid.UUID, user_id: uuid.UUID) -> AnalysisSession:
         """
         归档会话
 
@@ -399,8 +400,8 @@ class AnalysisSessionService:
 
     async def get_session_with_data_source(
         self,
-        session_id: int,
-        user_id: int,
+        session_id: uuid.UUID,
+        user_id: uuid.UUID,
     ) -> tuple[AnalysisSession, Any | None]:
         """
         获取会话及其关联的数据源

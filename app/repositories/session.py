@@ -78,3 +78,31 @@ class AnalysisSessionRepository(BaseRepository[AnalysisSession]):
         if session:
             session.message_count += 1
             await self.db.flush()
+
+    async def get_by_ids_and_user(
+        self,
+        session_ids: list[uuid.UUID],
+        user_id: uuid.UUID,
+    ) -> list[AnalysisSession]:
+        """
+        根据 ID 列表和用户 ID 获取会话
+
+        只返回属于指定用户的会话，用于批量操作时的权限验证。
+
+        Args:
+            session_ids: 会话 ID 列表
+            user_id: 用户 ID
+
+        Returns:
+            属于该用户的会话列表
+        """
+        if not session_ids:
+            return []
+
+        query = select(AnalysisSession).where(
+            AnalysisSession.id.in_(session_ids),
+            AnalysisSession.user_id == user_id,
+            AnalysisSession.deleted == 0,
+        )
+        result = await self.db.execute(query)
+        return list(result.scalars().all())
