@@ -115,5 +115,6 @@ if __name__ == "__main__":
         host="0.0.0.0",
         port=8000,
         reload=True,  # 开发模式自动重载
-        log_level="info",
+        log_level="warning",  # 禁用 uvicorn 访问日志，使用自定义中间件
+        access_log=False,  # 禁用 uvicorn 访问日志
     )

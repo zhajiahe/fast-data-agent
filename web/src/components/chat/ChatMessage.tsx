@@ -1,5 +1,5 @@
 import { AlertCircle, Bot, User, Wrench } from 'lucide-react';
-import { useMemo } from 'react';
+import { memo, useMemo } from 'react';
 import ReactMarkdown from 'react-markdown';
 import rehypeHighlight from 'rehype-highlight';
 import remarkGfm from 'remark-gfm';
@@ -55,10 +55,37 @@ interface ChatMessageProps {
   isStreaming?: boolean;
 }
 
+// Markdown 插件配置（静态，避免每次渲染创建新数组）
+const remarkPlugins = [remarkGfm];
+const rehypePlugins = [rehypeHighlight];
+
+/**
+ * Markdown 内容渲染组件（使用 memo 避免重复渲染）
+ */
+const MarkdownContent = memo(({ content, isStreaming }: { content: string; isStreaming?: boolean }) => (
+  <div
+    className={cn(
+      'prose prose-sm dark:prose-invert max-w-none',
+      'prose-pre:bg-muted prose-pre:border prose-pre:rounded-lg',
+      'prose-code:before:content-none prose-code:after:content-none',
+      isStreaming && 'streaming-text'
+    )}
+  >
+    <ReactMarkdown remarkPlugins={remarkPlugins} rehypePlugins={rehypePlugins}>
+      {content}
+    </ReactMarkdown>
+    {isStreaming && (
+      <span className="inline-block w-0.5 h-5 ml-0.5 bg-primary/70 animate-blink align-text-bottom" />
+    )}
+  </div>
+));
+
+MarkdownContent.displayName = 'MarkdownContent';
+
 /**
  * 聊天消息组件
  */
-export const ChatMessage = ({ message, isStreaming }: ChatMessageProps) => {
+const ChatMessageComponent = ({ message, isStreaming }: ChatMessageProps) => {
   const isUser = message.message_type === 'human';
   const isTool = message.message_type === 'tool';
 
@@ -270,24 +297,7 @@ export const ChatMessage = ({ message, isStreaming }: ChatMessageProps) => {
       {avatar}
       <div className="flex-1 min-w-0">
         {/* 文本内容 */}
-        {hasContent && (
-          <div
-            className={cn(
-              'prose prose-sm dark:prose-invert max-w-none',
-              'prose-pre:bg-muted prose-pre:border prose-pre:rounded-lg',
-              'prose-code:before:content-none prose-code:after:content-none',
-              isStreaming && 'streaming-text'
-            )}
-          >
-            <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeHighlight]}>
-              {message.content}
-            </ReactMarkdown>
-            {/* 流式光标 */}
-            {isStreaming && (
-              <span className="inline-block w-0.5 h-5 ml-0.5 bg-primary/70 animate-blink align-text-bottom" />
-            )}
-          </div>
-        )}
+        {hasContent && <MarkdownContent content={message.content} isStreaming={isStreaming} />}
         {/* 工具调用提示（当没有文本但有工具调用时） */}
         {!hasContent && hasToolCalls && (
           <div className="text-sm text-muted-foreground italic">
@@ -302,25 +312,11 @@ export const ChatMessage = ({ message, isStreaming }: ChatMessageProps) => {
         )}
         {renderArtifact()}
       </div>
-      {/* 流式效果样式 */}
-      {isStreaming && (
-        <style>{`
-          @keyframes blink {
-            0%, 49% { opacity: 1; }
-            50%, 100% { opacity: 0; }
-          }
-          .animate-blink {
-            animation: blink 1s step-end infinite;
-          }
-          .streaming-text {
-            animation: fadeIn 0.3s ease-out;
-          }
-          @keyframes fadeIn {
-            from { opacity: 0.7; }
-            to { opacity: 1; }
-          }
-        `}</style>
-      )}
     </div>
   );
 };
+
+// 使用 memo 包装，避免父组件更新导致的不必要重渲染
+export const ChatMessage = memo(ChatMessageComponent);
+
+ChatMessage.displayName = 'ChatMessage';

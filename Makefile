@@ -18,7 +18,7 @@ install: ## 安装后端依赖
 
 dev: ## 启动后端开发服务器 (port: 8000)
 	@echo "🚀 启动后端服务器..."
-	uv run uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+	uv run uvicorn app.main:app --reload --host 0.0.0.0 --port 8000 --no-access-log
 
 test: ## 运行所有测试
 	@echo "🧪 运行测试..."
