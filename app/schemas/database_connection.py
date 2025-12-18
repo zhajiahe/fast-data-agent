@@ -59,7 +59,7 @@ class DatabaseConnectionResponse(DatabaseConnectionBase):
     extra_params: dict[str, Any] | None = Field(default=None, description="额外连接参数")
 
     # 状态
-    last_tested_at: str | None = Field(default=None, description="最后测试时间")
+    last_tested_at: datetime | None = Field(default=None, description="最后测试时间")
     is_active: bool = Field(default=True, description="是否可用")
 
     create_time: datetime | None = Field(default=None, description="创建时间")

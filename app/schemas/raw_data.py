@@ -108,7 +108,7 @@ class RawDataResponse(RawDataBase):
     # 元数据
     columns_schema: list[ColumnSchema] | None = Field(default=None, description="列结构信息")
     row_count_estimate: int | None = Field(default=None, description="估算行数")
-    synced_at: str | None = Field(default=None, description="最后同步时间")
+    synced_at: datetime | None = Field(default=None, description="最后同步时间")
 
     # 状态
     status: str = Field(default="pending", description="状态: pending/syncing/ready/error")
