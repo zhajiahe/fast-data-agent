@@ -8,7 +8,8 @@ COPY requirements.txt .
 
 RUN pip install --no-cache-dir -r requirements.txt -i https://pypi.tuna.tsinghua.edu.cn/simple
 
-COPY main.py .
+# Copy the entire sandbox_runtime package
+COPY . /app/sandbox_runtime/
 
 # Change ownership of the /app directory to the non-root user 1000.
 RUN chown -R 1000:1000 /app
@@ -20,4 +21,4 @@ EXPOSE 8888
 
 # The command to run when the container starts.
 # This starts the Uvicorn server, making our API available.
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8888", "--log-level", "trace"]
+CMD ["uvicorn", "sandbox_runtime.main:app", "--host", "0.0.0.0", "--port", "8888", "--log-level", "trace"]
