@@ -8,6 +8,7 @@ import {
   MessageSquare,
   MoonIcon,
   SettingsIcon,
+  ShieldCheck,
   SunIcon,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
@@ -153,6 +154,14 @@ export const Layout = ({ children, fullHeight = false }: LayoutProps) => {
                     {t('nav.settings')}
                   </Link>
                 </DropdownMenuItem>
+                {user?.is_superuser && (
+                  <DropdownMenuItem asChild className="cursor-pointer">
+                    <Link to="/admin">
+                      <ShieldCheck className="h-4 w-4 mr-2" />
+                      管理后台
+                    </Link>
+                  </DropdownMenuItem>
+                )}
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={handleLogout} className="cursor-pointer text-destructive">
                   <LogOutIcon className="h-4 w-4 mr-2" />

@@ -12,6 +12,7 @@ const Sessions = lazy(() => import('@/pages/Sessions').then((m) => ({ default: m
 const Charts = lazy(() => import('@/pages/Charts').then((m) => ({ default: m.Charts })));
 const Chat = lazy(() => import('@/pages/Chat').then((m) => ({ default: m.Chat })));
 const Settings = lazy(() => import('@/pages/Settings').then((m) => ({ default: m.Settings })));
+const Admin = lazy(() => import('@/pages/Admin').then((m) => ({ default: m.Admin })));
 const Login = lazy(() => import('@/pages/Login').then((m) => ({ default: m.Login })));
 const Register = lazy(() => import('@/pages/Register').then((m) => ({ default: m.Register })));
 
@@ -72,6 +73,7 @@ function App() {
               <Route path="sessions" element={<Sessions />} />
               <Route path="charts" element={<Charts />} />
               <Route path="settings" element={<Settings />} />
+              <Route path="admin" element={<Admin />} />
             </Route>
 
             {/* 聊天页面 - 带导航栏，全屏高度 */}

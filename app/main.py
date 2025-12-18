@@ -16,6 +16,7 @@ from app.api.files import router as files_router
 from app.api.raw_data import router as raw_data_router
 from app.api.recommendations import router as recommendations_router
 from app.api.sessions import router as sessions_router
+from app.api.admin import router as admin_router
 from app.api.users import auth_router
 from app.api.users import router as users_router
 from app.core.config import settings
@@ -99,6 +100,9 @@ app.include_router(messages_batch_router, prefix="/api/v1")
 
 # 注册推荐路由
 app.include_router(recommendations_router, prefix="/api/v1")
+
+# 注册管理员路由
+app.include_router(admin_router, prefix="/api/v1")
 
 # 前端静态文件由 Nginx 托管
 # 参考 nginx/conf.d/default.conf 的配置
