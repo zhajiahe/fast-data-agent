@@ -287,11 +287,13 @@ export const Sessions = () => {
               <Card>
                 <CardContent className="p-0 divide-y">
                   {group.sessions.map((session) => (
-                    <button
-                      type="button"
+                    <div
                       key={session.id}
-                      className="w-full flex items-center justify-between p-4 hover:bg-muted/50 transition-colors text-left"
+                      role="button"
+                      tabIndex={0}
+                      className="w-full flex items-center justify-between p-4 hover:bg-muted/50 transition-colors text-left cursor-pointer"
                       onClick={() => navigate(`/chat/${session.id}`)}
+                      onKeyDown={(e) => e.key === 'Enter' && navigate(`/chat/${session.id}`)}
                     >
                       <div className="flex items-center gap-4 min-w-0">
                         <div className="p-2 rounded-lg bg-gradient-to-br from-teal-500/20 to-cyan-500/20">
@@ -340,7 +342,7 @@ export const Sessions = () => {
                           </DropdownMenuItem>
                         </DropdownMenuContent>
                       </DropdownMenu>
-                    </button>
+                    </div>
                   ))}
                 </CardContent>
               </Card>
