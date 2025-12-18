@@ -46,6 +46,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
 import { storage } from '@/utils/storage';
@@ -682,160 +683,182 @@ const UserList = () => {
         )}
       </div>
 
-      {/* 全选控制 */}
-      {users.length > 0 && (
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <Checkbox
-              checked={selectedUserIds.size === users.length && users.length > 0}
-              onCheckedChange={toggleSelectAll}
-            />
-            <span>全选本页 ({users.length} 个)</span>
-            {selectedUserIds.size > 0 && (
-              <span className="text-primary font-medium">
-                已选 {selectedUserIds.size} 个
-              </span>
-            )}
-          </div>
-          <div className="text-sm text-muted-foreground">
-            共 {totalUsers} 个用户
-          </div>
-        </div>
-      )}
-
-      {/* 用户列表 */}
-      <ScrollArea className="h-[500px]">
-        {isLoading ? (
-          <div className="space-y-3">
-            {[1, 2, 3, 4, 5].map((i) => (
-              <Skeleton key={i} className="h-16 w-full" />
-            ))}
-          </div>
-        ) : users.length === 0 ? (
-          <div className="text-center py-8 text-muted-foreground">
-            <Users className="h-12 w-12 mx-auto mb-2 opacity-50" />
-            <p>暂无用户</p>
-          </div>
-        ) : (
-          <div className="space-y-2">
-            {users.map((user) => (
-              <div
-                key={user.id}
-                className={`flex items-center justify-between p-4 rounded-lg border bg-card hover:bg-muted/50 transition-colors ${
-                  selectedUserIds.has(user.id) ? 'ring-2 ring-primary bg-primary/5' : ''
-                }`}
-              >
-                <div className="flex items-center gap-3">
-                  <Checkbox
-                    checked={selectedUserIds.has(user.id)}
-                    onCheckedChange={() => toggleUserSelection(user.id)}
-                  />
-                  <Avatar className="h-10 w-10">
-                    <AvatarFallback className="bg-primary/10 text-primary">
-                      {user.username.charAt(0).toUpperCase()}
-                    </AvatarFallback>
-                  </Avatar>
-                  <div>
-                    <div className="flex items-center gap-2">
+      {/* 用户表格 */}
+      <div className="rounded-md border">
+        <Table>
+          <TableHeader>
+            <TableRow className="bg-muted/50">
+              <TableHead className="w-12">
+                <Checkbox
+                  checked={selectedUserIds.size === users.length && users.length > 0}
+                  onCheckedChange={toggleSelectAll}
+                />
+              </TableHead>
+              <TableHead>用户</TableHead>
+              <TableHead>邮箱</TableHead>
+              <TableHead className="text-center">状态</TableHead>
+              <TableHead className="text-center">角色</TableHead>
+              <TableHead className="text-center">注册时间</TableHead>
+              <TableHead className="text-right">操作</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {isLoading ? (
+              Array.from({ length: 5 }).map((_, i) => (
+                <TableRow key={i}>
+                  <TableCell colSpan={7}>
+                    <Skeleton className="h-12 w-full" />
+                  </TableCell>
+                </TableRow>
+              ))
+            ) : users.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={7} className="text-center py-12 text-muted-foreground">
+                  <Users className="h-12 w-12 mx-auto mb-2 opacity-50" />
+                  <p>暂无用户</p>
+                </TableCell>
+              </TableRow>
+            ) : (
+              users.map((user) => (
+                <TableRow
+                  key={user.id}
+                  className={selectedUserIds.has(user.id) ? 'bg-primary/5' : ''}
+                >
+                  <TableCell>
+                    <Checkbox
+                      checked={selectedUserIds.has(user.id)}
+                      onCheckedChange={() => toggleUserSelection(user.id)}
+                    />
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex items-center gap-3">
+                      <Avatar className="h-8 w-8">
+                        <AvatarFallback className="bg-primary/10 text-primary text-sm">
+                          {user.username.charAt(0).toUpperCase()}
+                        </AvatarFallback>
+                      </Avatar>
                       <span className="font-medium">{user.nickname || user.username}</span>
-                      {user.is_superuser && (
-                        <Badge variant="default" className="text-xs">
-                          <Shield className="h-3 w-3 mr-1" />
-                          管理员
-                        </Badge>
-                      )}
-                      {!user.is_active && (
-                        <Badge variant="destructive" className="text-xs">
-                          已禁用
-                        </Badge>
-                      )}
                     </div>
-                    <div className="text-sm text-muted-foreground">{user.email}</div>
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-2">
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => setViewResourcesUserId(user.id)}
-                    title="查看资源"
-                  >
-                    <Eye className="h-4 w-4" />
-                  </Button>
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="icon">
-                        <MoreHorizontal className="h-4 w-4" />
+                  </TableCell>
+                  <TableCell className="text-muted-foreground">{user.email}</TableCell>
+                  <TableCell className="text-center">
+                    {user.is_active ? (
+                      <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
+                        <CheckCircle className="h-3 w-3 mr-1" />
+                        正常
+                      </Badge>
+                    ) : (
+                      <Badge variant="destructive">
+                        <Ban className="h-3 w-3 mr-1" />
+                        禁用
+                      </Badge>
+                    )}
+                  </TableCell>
+                  <TableCell className="text-center">
+                    {user.is_superuser ? (
+                      <Badge className="bg-amber-100 text-amber-800 border-amber-200">
+                        <Shield className="h-3 w-3 mr-1" />
+                        管理员
+                      </Badge>
+                    ) : (
+                      <Badge variant="secondary">普通用户</Badge>
+                    )}
+                  </TableCell>
+                  <TableCell className="text-center text-sm text-muted-foreground">
+                    {user.create_time ? new Date(user.create_time).toLocaleDateString() : '-'}
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <div className="flex items-center justify-end gap-1">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setViewResourcesUserId(user.id)}
+                        title="查看资源"
+                      >
+                        <Eye className="h-4 w-4" />
                       </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuItem onClick={() => setViewResourcesUserId(user.id)}>
-                        <Eye className="h-4 w-4 mr-2" />
-                        查看资源
-                      </DropdownMenuItem>
-                      <DropdownMenuSeparator />
-                      <DropdownMenuItem
-                        onClick={() => toggleStatusMutation.mutate({ userId: user.id, isActive: !user.is_active })}
-                      >
-                        {user.is_active ? (
-                          <>
-                            <Ban className="h-4 w-4 mr-2" />
-                            禁用用户
-                          </>
-                        ) : (
-                          <>
-                            <CheckCircle className="h-4 w-4 mr-2" />
-                            启用用户
-                          </>
-                        )}
-                      </DropdownMenuItem>
-                      <DropdownMenuItem
-                        onClick={() => toggleRoleMutation.mutate({ userId: user.id, isSuperuser: !user.is_superuser })}
-                      >
-                        {user.is_superuser ? (
-                          <>
-                            <ShieldOff className="h-4 w-4 mr-2" />
-                            取消管理员
-                          </>
-                        ) : (
-                          <>
-                            <Shield className="h-4 w-4 mr-2" />
-                            设为管理员
-                          </>
-                        )}
-                      </DropdownMenuItem>
-                      <DropdownMenuSeparator />
-                      <DropdownMenuItem onClick={() => setResetPasswordUser(user)}>
-                        <Key className="h-4 w-4 mr-2" />
-                        重置密码
-                      </DropdownMenuItem>
-                      <DropdownMenuSeparator />
-                      <DropdownMenuItem
-                        className="text-destructive focus:text-destructive"
-                        onClick={() => {
-                          setSelectedUserIds(new Set([user.id]));
-                          handleBatchDelete();
-                        }}
-                      >
-                        <Trash2 className="h-4 w-4 mr-2" />
-                        删除用户
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </ScrollArea>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="sm">
+                            <MoreHorizontal className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem onClick={() => setViewResourcesUserId(user.id)}>
+                            <Eye className="h-4 w-4 mr-2" />
+                            查看资源
+                          </DropdownMenuItem>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem
+                            onClick={() => toggleStatusMutation.mutate({ userId: user.id, isActive: !user.is_active })}
+                          >
+                            {user.is_active ? (
+                              <>
+                                <Ban className="h-4 w-4 mr-2" />
+                                禁用用户
+                              </>
+                            ) : (
+                              <>
+                                <CheckCircle className="h-4 w-4 mr-2" />
+                                启用用户
+                              </>
+                            )}
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            onClick={() => toggleRoleMutation.mutate({ userId: user.id, isSuperuser: !user.is_superuser })}
+                          >
+                            {user.is_superuser ? (
+                              <>
+                                <ShieldOff className="h-4 w-4 mr-2" />
+                                取消管理员
+                              </>
+                            ) : (
+                              <>
+                                <Shield className="h-4 w-4 mr-2" />
+                                设为管理员
+                              </>
+                            )}
+                          </DropdownMenuItem>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem onClick={() => setResetPasswordUser(user)}>
+                            <Key className="h-4 w-4 mr-2" />
+                            重置密码
+                          </DropdownMenuItem>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem
+                            className="text-destructive focus:text-destructive"
+                            onClick={() => {
+                              setSelectedUserIds(new Set([user.id]));
+                              handleBatchDelete();
+                            }}
+                          >
+                            <Trash2 className="h-4 w-4 mr-2" />
+                            删除用户
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ))
+            )}
+          </TableBody>
+        </Table>
+      </div>
 
       {/* 分页控制 */}
-      {totalPages > 1 && (
-        <div className="flex items-center justify-between pt-4 border-t">
-          <div className="text-sm text-muted-foreground">
-            共 {totalUsers} 个用户，第 {pageNum}/{totalPages} 页
-          </div>
+      <div className="flex items-center justify-between py-4">
+        <div className="flex items-center gap-4">
+          <span className="text-sm text-muted-foreground">
+            共 <span className="font-medium text-foreground">{totalUsers}</span> 个用户
+          </span>
+          {selectedUserIds.size > 0 && (
+            <Badge variant="secondary">
+              已选中 {selectedUserIds.size} 个
+            </Badge>
+          )}
+        </div>
+        {totalPages > 1 && (
           <div className="flex items-center gap-2">
             <Button
               variant="outline"
@@ -845,31 +868,9 @@ const UserList = () => {
             >
               上一页
             </Button>
-            <div className="flex items-center gap-1">
-              {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                let page: number;
-                if (totalPages <= 5) {
-                  page = i + 1;
-                } else if (pageNum <= 3) {
-                  page = i + 1;
-                } else if (pageNum >= totalPages - 2) {
-                  page = totalPages - 4 + i;
-                } else {
-                  page = pageNum - 2 + i;
-                }
-                return (
-                  <Button
-                    key={page}
-                    variant={page === pageNum ? 'default' : 'outline'}
-                    size="sm"
-                    className="w-8 h-8 p-0"
-                    onClick={() => setPageNum(page)}
-                  >
-                    {page}
-                  </Button>
-                );
-              })}
-            </div>
+            <span className="text-sm px-2">
+              {pageNum} / {totalPages}
+            </span>
             <Button
               variant="outline"
               size="sm"
@@ -879,8 +880,8 @@ const UserList = () => {
               下一页
             </Button>
           </div>
-        </div>
-      )}
+        )}
+      </div>
 
       {/* 重置密码对话框 */}
       <Dialog open={!!resetPasswordUser} onOpenChange={() => setResetPasswordUser(null)}>
