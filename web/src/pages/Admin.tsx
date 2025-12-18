@@ -1,10 +1,13 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   Activity,
+  AlertTriangle,
   Ban,
   CheckCircle,
   Database,
+  Eye,
   FileText,
+  FolderOpen,
   Key,
   MessageSquare,
   MoreHorizontal,
@@ -12,6 +15,7 @@ import {
   Search,
   Shield,
   ShieldOff,
+  Trash2,
   UserCheck,
   UserCog,
   Users,
@@ -37,6 +41,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -73,6 +78,78 @@ interface UserItem {
   is_superuser: boolean;
   create_time: string;
   update_time: string;
+}
+
+// 用户资源统计
+interface UserResourceStats {
+  user_id: string;
+  username: string;
+  nickname: string;
+  sessions_count: number;
+  messages_count: number;
+  data_sources_count: number;
+  raw_data_count: number;
+  connections_count: number;
+  files_count: number;
+  total_file_size: number;
+}
+
+// 用户资源详情
+interface UserResourceDetail {
+  user: UserItem;
+  resources: UserResourceStats;
+  sessions: Array<{
+    id: string;
+    name: string;
+    status: string;
+    message_count: number;
+    create_time: string;
+  }>;
+  data_sources: Array<{
+    id: string;
+    name: string;
+    description: string;
+    create_time: string;
+  }>;
+  connections: Array<{
+    id: string;
+    name: string;
+    db_type: string;
+    host: string;
+    database: string;
+    create_time: string;
+  }>;
+  files: Array<{
+    id: string;
+    original_name: string;
+    file_type: string;
+    file_size: number;
+    status: string;
+    create_time: string;
+  }>;
+}
+
+// 批量删除结果
+interface BatchDeleteResult {
+  success_count: number;
+  failed_count: number;
+  skipped_count: number;
+  details: Array<{
+    user_id: string;
+    username?: string;
+    status: string;
+    reason?: string;
+    deleted_resources?: {
+      sessions: number;
+      messages: number;
+      data_sources: number;
+      raw_data: number;
+      connections: number;
+      files: number;
+      minio_files: number;
+      sandbox_cleaned: boolean;
+    };
+  }>;
 }
 
 // API 封装
@@ -146,6 +223,51 @@ const adminApi = {
     if (!data.success) throw new Error(data.msg);
     return data;
   },
+
+  getUserResources: async (userId: string): Promise<UserResourceDetail> => {
+    const token = storage.getToken();
+    const res = await fetch(`${API_BASE}/admin/users/${userId}/resources`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    const data = await res.json();
+    if (!data.success) throw new Error(data.msg);
+    return data.data;
+  },
+
+  batchDeleteUsers: async (userIds: string[]): Promise<BatchDeleteResult> => {
+    const token = storage.getToken();
+    const res = await fetch(`${API_BASE}/admin/users/batch-delete`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ user_ids: userIds }),
+    });
+    const data = await res.json();
+    if (!data.success) throw new Error(data.msg);
+    return data.data;
+  },
+
+  cascadeDeleteUser: async (userId: string) => {
+    const token = storage.getToken();
+    const res = await fetch(`${API_BASE}/admin/users/${userId}/cascade`, {
+      method: 'DELETE',
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    const data = await res.json();
+    if (!data.success) throw new Error(data.msg);
+    return data.data;
+  },
+};
+
+// 格式化文件大小
+const formatFileSize = (bytes: number): string => {
+  if (bytes === 0) return '0 B';
+  const k = 1024;
+  const sizes = ['B', 'KB', 'MB', 'GB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return `${parseFloat((bytes / Math.pow(k, i)).toFixed(2))} ${sizes[i]}`;
 };
 
 // 统计卡片组件
@@ -176,6 +298,247 @@ const StatCard = ({
   </Card>
 );
 
+// 用户资源详情对话框
+const UserResourceDialog = ({
+  userId,
+  open,
+  onClose,
+}: {
+  userId: string | null;
+  open: boolean;
+  onClose: () => void;
+}) => {
+  const { data, isLoading } = useQuery({
+    queryKey: ['user-resources', userId],
+    queryFn: () => (userId ? adminApi.getUserResources(userId) : Promise.reject()),
+    enabled: !!userId && open,
+  });
+
+  return (
+    <Dialog open={open} onOpenChange={onClose}>
+      <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <FolderOpen className="h-5 w-5" />
+            用户资源详情
+          </DialogTitle>
+          {data && (
+            <DialogDescription>
+              查看 <strong>{data.user.nickname || data.user.username}</strong> 的所有资源
+            </DialogDescription>
+          )}
+        </DialogHeader>
+
+        {isLoading ? (
+          <div className="space-y-4 py-4">
+            <Skeleton className="h-20 w-full" />
+            <Skeleton className="h-40 w-full" />
+          </div>
+        ) : data ? (
+          <div className="space-y-6 py-4">
+            {/* 资源统计概览 */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              <div className="p-3 rounded-lg bg-blue-50 dark:bg-blue-950 text-center">
+                <div className="text-2xl font-bold text-blue-600">{data.resources.sessions_count}</div>
+                <div className="text-xs text-muted-foreground">会话</div>
+              </div>
+              <div className="p-3 rounded-lg bg-green-50 dark:bg-green-950 text-center">
+                <div className="text-2xl font-bold text-green-600">{data.resources.messages_count}</div>
+                <div className="text-xs text-muted-foreground">消息</div>
+              </div>
+              <div className="p-3 rounded-lg bg-purple-50 dark:bg-purple-950 text-center">
+                <div className="text-2xl font-bold text-purple-600">{data.resources.data_sources_count}</div>
+                <div className="text-xs text-muted-foreground">数据源</div>
+              </div>
+              <div className="p-3 rounded-lg bg-orange-50 dark:bg-orange-950 text-center">
+                <div className="text-2xl font-bold text-orange-600">{data.resources.files_count}</div>
+                <div className="text-xs text-muted-foreground">文件 ({formatFileSize(data.resources.total_file_size)})</div>
+              </div>
+            </div>
+
+            {/* 详细列表 */}
+            <Tabs defaultValue="sessions" className="w-full">
+              <TabsList className="grid w-full grid-cols-4">
+                <TabsTrigger value="sessions">会话 ({data.sessions.length})</TabsTrigger>
+                <TabsTrigger value="data_sources">数据源 ({data.data_sources.length})</TabsTrigger>
+                <TabsTrigger value="connections">连接 ({data.connections.length})</TabsTrigger>
+                <TabsTrigger value="files">文件 ({data.files.length})</TabsTrigger>
+              </TabsList>
+
+              <TabsContent value="sessions" className="mt-4">
+                <ScrollArea className="h-[200px]">
+                  {data.sessions.length === 0 ? (
+                    <p className="text-center text-muted-foreground py-4">暂无会话</p>
+                  ) : (
+                    <div className="space-y-2">
+                      {data.sessions.map((s) => (
+                        <div key={s.id} className="flex justify-between items-center p-2 rounded border text-sm">
+                          <span className="font-medium truncate flex-1">{s.name}</span>
+                          <Badge variant="outline" className="ml-2">{s.message_count} 条消息</Badge>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </ScrollArea>
+              </TabsContent>
+
+              <TabsContent value="data_sources" className="mt-4">
+                <ScrollArea className="h-[200px]">
+                  {data.data_sources.length === 0 ? (
+                    <p className="text-center text-muted-foreground py-4">暂无数据源</p>
+                  ) : (
+                    <div className="space-y-2">
+                      {data.data_sources.map((ds) => (
+                        <div key={ds.id} className="flex justify-between items-center p-2 rounded border text-sm">
+                          <span className="font-medium truncate flex-1">{ds.name}</span>
+                          <span className="text-xs text-muted-foreground">{ds.create_time?.split('T')[0]}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </ScrollArea>
+              </TabsContent>
+
+              <TabsContent value="connections" className="mt-4">
+                <ScrollArea className="h-[200px]">
+                  {data.connections.length === 0 ? (
+                    <p className="text-center text-muted-foreground py-4">暂无数据库连接</p>
+                  ) : (
+                    <div className="space-y-2">
+                      {data.connections.map((c) => (
+                        <div key={c.id} className="flex justify-between items-center p-2 rounded border text-sm">
+                          <div className="flex-1">
+                            <span className="font-medium">{c.name}</span>
+                            <span className="text-muted-foreground ml-2">({c.db_type})</span>
+                          </div>
+                          <span className="text-xs text-muted-foreground truncate max-w-[150px]">{c.host}/{c.database}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </ScrollArea>
+              </TabsContent>
+
+              <TabsContent value="files" className="mt-4">
+                <ScrollArea className="h-[200px]">
+                  {data.files.length === 0 ? (
+                    <p className="text-center text-muted-foreground py-4">暂无上传文件</p>
+                  ) : (
+                    <div className="space-y-2">
+                      {data.files.map((f) => (
+                        <div key={f.id} className="flex justify-between items-center p-2 rounded border text-sm">
+                          <span className="font-medium truncate flex-1">{f.original_name}</span>
+                          <span className="text-xs text-muted-foreground">{formatFileSize(f.file_size)}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </ScrollArea>
+              </TabsContent>
+            </Tabs>
+          </div>
+        ) : null}
+      </DialogContent>
+    </Dialog>
+  );
+};
+
+// 批量删除确认对话框
+const BatchDeleteDialog = ({
+  selectedUsers,
+  open,
+  onClose,
+  onConfirm,
+  isPending,
+  result,
+}: {
+  selectedUsers: UserItem[];
+  open: boolean;
+  onClose: () => void;
+  onConfirm: () => void;
+  isPending: boolean;
+  result: BatchDeleteResult | null;
+}) => {
+  return (
+    <Dialog open={open} onOpenChange={onClose}>
+      <DialogContent className="max-w-lg">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2 text-destructive">
+            <AlertTriangle className="h-5 w-5" />
+            确认批量删除
+          </DialogTitle>
+          <DialogDescription>
+            此操作将删除选中用户及其所有关联资源，包括会话、消息、数据源、文件等。此操作不可撤销！
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="py-4">
+          {result ? (
+            // 显示删除结果
+            <div className="space-y-4">
+              <div className="flex gap-4 justify-center">
+                <div className="text-center">
+                  <div className="text-2xl font-bold text-green-600">{result.success_count}</div>
+                  <div className="text-xs text-muted-foreground">成功</div>
+                </div>
+                <div className="text-center">
+                  <div className="text-2xl font-bold text-red-600">{result.failed_count}</div>
+                  <div className="text-xs text-muted-foreground">失败</div>
+                </div>
+                <div className="text-center">
+                  <div className="text-2xl font-bold text-yellow-600">{result.skipped_count}</div>
+                  <div className="text-xs text-muted-foreground">跳过</div>
+                </div>
+              </div>
+              <ScrollArea className="h-[200px] border rounded p-2">
+                {result.details.map((d, i) => (
+                  <div key={i} className="flex justify-between items-center py-1 text-sm border-b last:border-0">
+                    <span>{d.username || d.user_id}</span>
+                    <Badge variant={d.status === 'success' ? 'default' : d.status === 'skipped' ? 'secondary' : 'destructive'}>
+                      {d.status === 'success' ? '已删除' : d.status === 'skipped' ? '跳过' : '失败'}
+                    </Badge>
+                  </div>
+                ))}
+              </ScrollArea>
+            </div>
+          ) : (
+            // 显示待删除用户列表
+            <>
+              <p className="text-sm mb-3">即将删除以下 <strong>{selectedUsers.length}</strong> 个用户：</p>
+              <ScrollArea className="h-[200px] border rounded p-2">
+                {selectedUsers.map((user) => (
+                  <div key={user.id} className="flex items-center gap-2 py-1 border-b last:border-0">
+                    <Avatar className="h-6 w-6">
+                      <AvatarFallback className="text-xs">{user.username.charAt(0).toUpperCase()}</AvatarFallback>
+                    </Avatar>
+                    <span className="text-sm">{user.nickname || user.username}</span>
+                    <span className="text-xs text-muted-foreground">({user.email})</span>
+                  </div>
+                ))}
+              </ScrollArea>
+            </>
+          )}
+        </div>
+
+        <DialogFooter>
+          {result ? (
+            <Button onClick={onClose}>关闭</Button>
+          ) : (
+            <>
+              <Button variant="outline" onClick={onClose} disabled={isPending}>
+                取消
+              </Button>
+              <Button variant="destructive" onClick={onConfirm} disabled={isPending}>
+                {isPending ? '删除中...' : `确认删除 ${selectedUsers.length} 个用户`}
+              </Button>
+            </>
+          )}
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+};
+
 // 用户列表组件
 const UserList = () => {
   const { t } = useTranslation();
@@ -184,6 +547,10 @@ const UserList = () => {
   const [searchKeyword, setSearchKeyword] = useState('');
   const [resetPasswordUser, setResetPasswordUser] = useState<UserItem | null>(null);
   const [newPassword, setNewPassword] = useState('');
+  const [selectedUserIds, setSelectedUserIds] = useState<Set<string>>(new Set());
+  const [viewResourcesUserId, setViewResourcesUserId] = useState<string | null>(null);
+  const [batchDeleteOpen, setBatchDeleteOpen] = useState(false);
+  const [batchDeleteResult, setBatchDeleteResult] = useState<BatchDeleteResult | null>(null);
 
   const { data, isLoading, refetch } = useQuery({
     queryKey: ['admin-users', searchKeyword],
@@ -227,13 +594,68 @@ const UserList = () => {
     },
   });
 
+  const batchDeleteMutation = useMutation({
+    mutationFn: (userIds: string[]) => adminApi.batchDeleteUsers(userIds),
+    onSuccess: (result) => {
+      setBatchDeleteResult(result);
+      queryClient.invalidateQueries({ queryKey: ['admin-users'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-stats'] });
+      setSelectedUserIds(new Set());
+      toast({
+        title: '批量删除完成',
+        description: `成功: ${result.success_count}, 失败: ${result.failed_count}`,
+      });
+    },
+    onError: (err: Error) => {
+      toast({ title: '批量删除失败', description: err.message, variant: 'destructive' });
+    },
+  });
+
   const users: UserItem[] = data?.items || [];
+
+  // 切换单个用户选中状态
+  const toggleUserSelection = (userId: string) => {
+    const newSelection = new Set(selectedUserIds);
+    if (newSelection.has(userId)) {
+      newSelection.delete(userId);
+    } else {
+      newSelection.add(userId);
+    }
+    setSelectedUserIds(newSelection);
+  };
+
+  // 切换全选
+  const toggleSelectAll = () => {
+    if (selectedUserIds.size === users.length) {
+      setSelectedUserIds(new Set());
+    } else {
+      setSelectedUserIds(new Set(users.map((u) => u.id)));
+    }
+  };
+
+  // 获取选中的用户对象
+  const selectedUsers = users.filter((u) => selectedUserIds.has(u.id));
+
+  // 处理批量删除
+  const handleBatchDelete = () => {
+    setBatchDeleteResult(null);
+    setBatchDeleteOpen(true);
+  };
+
+  const confirmBatchDelete = () => {
+    batchDeleteMutation.mutate(Array.from(selectedUserIds));
+  };
+
+  const closeBatchDeleteDialog = () => {
+    setBatchDeleteOpen(false);
+    setBatchDeleteResult(null);
+  };
 
   return (
     <div className="space-y-4">
-      {/* 搜索栏 */}
-      <div className="flex gap-2">
-        <div className="relative flex-1">
+      {/* 搜索栏和操作按钮 */}
+      <div className="flex gap-2 flex-wrap">
+        <div className="relative flex-1 min-w-[200px]">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
             placeholder="搜索用户名、邮箱或昵称..."
@@ -245,7 +667,24 @@ const UserList = () => {
         <Button variant="outline" size="icon" onClick={() => refetch()}>
           <RefreshCw className="h-4 w-4" />
         </Button>
+        {selectedUserIds.size > 0 && (
+          <Button variant="destructive" onClick={handleBatchDelete}>
+            <Trash2 className="h-4 w-4 mr-2" />
+            删除选中 ({selectedUserIds.size})
+          </Button>
+        )}
       </div>
+
+      {/* 全选控制 */}
+      {users.length > 0 && (
+        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+          <Checkbox
+            checked={selectedUserIds.size === users.length && users.length > 0}
+            onCheckedChange={toggleSelectAll}
+          />
+          <span>全选 ({users.length} 个用户)</span>
+        </div>
+      )}
 
       {/* 用户列表 */}
       <ScrollArea className="h-[500px]">
@@ -265,9 +704,15 @@ const UserList = () => {
             {users.map((user) => (
               <div
                 key={user.id}
-                className="flex items-center justify-between p-4 rounded-lg border bg-card hover:bg-muted/50 transition-colors"
+                className={`flex items-center justify-between p-4 rounded-lg border bg-card hover:bg-muted/50 transition-colors ${
+                  selectedUserIds.has(user.id) ? 'ring-2 ring-primary bg-primary/5' : ''
+                }`}
               >
                 <div className="flex items-center gap-3">
+                  <Checkbox
+                    checked={selectedUserIds.has(user.id)}
+                    onCheckedChange={() => toggleUserSelection(user.id)}
+                  />
                   <Avatar className="h-10 w-10">
                     <AvatarFallback className="bg-primary/10 text-primary">
                       {user.username.charAt(0).toUpperCase()}
@@ -292,50 +737,76 @@ const UserList = () => {
                   </div>
                 </div>
 
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" size="icon">
-                      <MoreHorizontal className="h-4 w-4" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end">
-                    <DropdownMenuItem
-                      onClick={() => toggleStatusMutation.mutate({ userId: user.id, isActive: !user.is_active })}
-                    >
-                      {user.is_active ? (
-                        <>
-                          <Ban className="h-4 w-4 mr-2" />
-                          禁用用户
-                        </>
-                      ) : (
-                        <>
-                          <CheckCircle className="h-4 w-4 mr-2" />
-                          启用用户
-                        </>
-                      )}
-                    </DropdownMenuItem>
-                    <DropdownMenuItem
-                      onClick={() => toggleRoleMutation.mutate({ userId: user.id, isSuperuser: !user.is_superuser })}
-                    >
-                      {user.is_superuser ? (
-                        <>
-                          <ShieldOff className="h-4 w-4 mr-2" />
-                          取消管理员
-                        </>
-                      ) : (
-                        <>
-                          <Shield className="h-4 w-4 mr-2" />
-                          设为管理员
-                        </>
-                      )}
-                    </DropdownMenuItem>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem onClick={() => setResetPasswordUser(user)}>
-                      <Key className="h-4 w-4 mr-2" />
-                      重置密码
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => setViewResourcesUserId(user.id)}
+                    title="查看资源"
+                  >
+                    <Eye className="h-4 w-4" />
+                  </Button>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="ghost" size="icon">
+                        <MoreHorizontal className="h-4 w-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem onClick={() => setViewResourcesUserId(user.id)}>
+                        <Eye className="h-4 w-4 mr-2" />
+                        查看资源
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem
+                        onClick={() => toggleStatusMutation.mutate({ userId: user.id, isActive: !user.is_active })}
+                      >
+                        {user.is_active ? (
+                          <>
+                            <Ban className="h-4 w-4 mr-2" />
+                            禁用用户
+                          </>
+                        ) : (
+                          <>
+                            <CheckCircle className="h-4 w-4 mr-2" />
+                            启用用户
+                          </>
+                        )}
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        onClick={() => toggleRoleMutation.mutate({ userId: user.id, isSuperuser: !user.is_superuser })}
+                      >
+                        {user.is_superuser ? (
+                          <>
+                            <ShieldOff className="h-4 w-4 mr-2" />
+                            取消管理员
+                          </>
+                        ) : (
+                          <>
+                            <Shield className="h-4 w-4 mr-2" />
+                            设为管理员
+                          </>
+                        )}
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem onClick={() => setResetPasswordUser(user)}>
+                        <Key className="h-4 w-4 mr-2" />
+                        重置密码
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem
+                        className="text-destructive focus:text-destructive"
+                        onClick={() => {
+                          setSelectedUserIds(new Set([user.id]));
+                          handleBatchDelete();
+                        }}
+                      >
+                        <Trash2 className="h-4 w-4 mr-2" />
+                        删除用户
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
               </div>
             ))}
           </div>
@@ -377,6 +848,23 @@ const UserList = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* 用户资源详情对话框 */}
+      <UserResourceDialog
+        userId={viewResourcesUserId}
+        open={!!viewResourcesUserId}
+        onClose={() => setViewResourcesUserId(null)}
+      />
+
+      {/* 批量删除确认对话框 */}
+      <BatchDeleteDialog
+        selectedUsers={selectedUsers}
+        open={batchDeleteOpen}
+        onClose={closeBatchDeleteDialog}
+        onConfirm={confirmBatchDelete}
+        isPending={batchDeleteMutation.isPending}
+        result={batchDeleteResult}
+      />
     </div>
   );
 };

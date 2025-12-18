@@ -4,18 +4,23 @@
 提供系统管理功能，包括：
 - 系统统计信息
 - 用户管理增强功能
+- 用户资源查看
+- 批量用户删除（级联删除资源）
 - 系统配置管理
 """
 
 import uuid
-from datetime import datetime, timedelta
+from datetime import datetime
+from typing import Any
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter
+from loguru import logger
 from pydantic import BaseModel, Field
-from sqlalchemy import func, select
+from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.deps import CurrentSuperUser, DBSession
+from app.core.minio import minio_client
 from app.core.security import get_password_hash
 from app.models.base import BaseResponse
 from app.models.data_source import DataSource
@@ -68,6 +73,62 @@ class ResetPasswordRequest(BaseModel):
     new_password: str = Field(..., min_length=6, max_length=128, description="新密码")
 
 
+class UserResourceStats(BaseModel):
+    """用户资源统计"""
+
+    user_id: uuid.UUID = Field(..., description="用户ID")
+    username: str = Field(..., description="用户名")
+    nickname: str = Field(..., description="昵称")
+    sessions_count: int = Field(..., description="会话数")
+    messages_count: int = Field(..., description="消息数")
+    data_sources_count: int = Field(..., description="数据源数")
+    raw_data_count: int = Field(..., description="数据对象数")
+    connections_count: int = Field(..., description="数据库连接数")
+    files_count: int = Field(..., description="上传文件数")
+    total_file_size: int = Field(..., description="文件总大小(bytes)")
+
+
+class UserResourceDetail(BaseModel):
+    """用户资源详情"""
+
+    user: UserResponse = Field(..., description="用户信息")
+    resources: UserResourceStats = Field(..., description="资源统计")
+    sessions: list[dict[str, Any]] = Field(default_factory=list, description="会话列表")
+    data_sources: list[dict[str, Any]] = Field(default_factory=list, description="数据源列表")
+    connections: list[dict[str, Any]] = Field(default_factory=list, description="数据库连接列表")
+    files: list[dict[str, Any]] = Field(default_factory=list, description="文件列表")
+
+
+class BatchDeleteRequest(BaseModel):
+    """批量删除请求"""
+
+    user_ids: list[uuid.UUID] = Field(..., min_length=1, description="要删除的用户ID列表")
+
+
+class BatchDeleteResult(BaseModel):
+    """批量删除结果"""
+
+    success_count: int = Field(..., description="成功删除数")
+    failed_count: int = Field(..., description="失败数")
+    skipped_count: int = Field(..., description="跳过数（如当前用户）")
+    details: list[dict[str, Any]] = Field(default_factory=list, description="详细结果")
+
+
+class CascadeDeleteResult(BaseModel):
+    """级联删除结果"""
+
+    user_id: uuid.UUID = Field(..., description="用户ID")
+    username: str = Field(..., description="用户名")
+    deleted_sessions: int = Field(..., description="删除的会话数")
+    deleted_messages: int = Field(..., description="删除的消息数")
+    deleted_data_sources: int = Field(..., description="删除的数据源数")
+    deleted_raw_data: int = Field(..., description="删除的数据对象数")
+    deleted_connections: int = Field(..., description="删除的数据库连接数")
+    deleted_files: int = Field(..., description="删除的文件数")
+    sandbox_cleaned: bool = Field(..., description="沙箱是否已清理")
+    minio_files_deleted: int = Field(..., description="MinIO文件删除数")
+
+
 # ==================== 系统统计接口 ====================
 
 
@@ -86,7 +147,7 @@ async def get_system_stats(
     # 用户统计
     total_users = (await db.execute(select(func.count()).select_from(User).where(User.deleted == 0))).scalar() or 0
     active_users = (
-        await db.execute(select(func.count()).select_from(User).where(User.deleted == 0, User.is_active == True))
+        await db.execute(select(func.count()).select_from(User).where(User.deleted == 0, User.is_active.is_(True)))
     ).scalar() or 0
     users_today = (
         await db.execute(
@@ -242,4 +303,452 @@ async def reset_user_password(
     await db.commit()
 
     return BaseResponse(success=True, code=200, msg="密码重置成功", data=None)
+
+
+# ==================== 用户资源查看接口 ====================
+
+
+@router.get("/users/{user_id}/resources", response_model=BaseResponse[UserResourceDetail])
+async def get_user_resources(
+    user_id: uuid.UUID,
+    _current_user: CurrentSuperUser,
+    db: DBSession,
+):
+    """
+    获取用户所有资源详情
+
+    包括会话、数据源、数据库连接、文件等
+
+    需要超级管理员权限
+    """
+    user_service = UserService(db)
+    user = await user_service.get_user(user_id)
+
+    # 获取各类资源统计
+    sessions_count = (
+        await db.execute(
+            select(func.count())
+            .select_from(AnalysisSession)
+            .where(AnalysisSession.user_id == user_id, AnalysisSession.deleted == 0)
+        )
+    ).scalar() or 0
+
+    messages_count = (
+        await db.execute(
+            select(func.count())
+            .select_from(ChatMessage)
+            .join(AnalysisSession, ChatMessage.session_id == AnalysisSession.id)
+            .where(AnalysisSession.user_id == user_id, ChatMessage.deleted == 0)
+        )
+    ).scalar() or 0
+
+    data_sources_count = (
+        await db.execute(
+            select(func.count())
+            .select_from(DataSource)
+            .where(DataSource.user_id == user_id, DataSource.deleted == 0)
+        )
+    ).scalar() or 0
+
+    raw_data_count = (
+        await db.execute(
+            select(func.count()).select_from(RawData).where(RawData.user_id == user_id, RawData.deleted == 0)
+        )
+    ).scalar() or 0
+
+    connections_count = (
+        await db.execute(
+            select(func.count())
+            .select_from(DatabaseConnection)
+            .where(DatabaseConnection.user_id == user_id, DatabaseConnection.deleted == 0)
+        )
+    ).scalar() or 0
+
+    files_result = await db.execute(
+        select(func.count(), func.coalesce(func.sum(UploadedFile.file_size), 0))
+        .select_from(UploadedFile)
+        .where(UploadedFile.user_id == user_id, UploadedFile.deleted == 0)
+    )
+    files_row = files_result.one()
+    files_count = files_row[0] or 0
+    total_file_size = files_row[1] or 0
+
+    # 获取详细列表（最近20条）
+    sessions_result = await db.execute(
+        select(AnalysisSession)
+        .where(AnalysisSession.user_id == user_id, AnalysisSession.deleted == 0)
+        .order_by(AnalysisSession.create_time.desc())
+        .limit(20)
+    )
+    sessions = [
+        {
+            "id": str(s.id),
+            "name": s.name,
+            "status": s.status,
+            "message_count": s.message_count,
+            "create_time": s.create_time.isoformat() if s.create_time else None,
+        }
+        for s in sessions_result.scalars().all()
+    ]
+
+    data_sources_result = await db.execute(
+        select(DataSource)
+        .where(DataSource.user_id == user_id, DataSource.deleted == 0)
+        .order_by(DataSource.create_time.desc())
+        .limit(20)
+    )
+    data_sources = [
+        {
+            "id": str(ds.id),
+            "name": ds.name,
+            "description": ds.description,
+            "create_time": ds.create_time.isoformat() if ds.create_time else None,
+        }
+        for ds in data_sources_result.scalars().all()
+    ]
+
+    connections_result = await db.execute(
+        select(DatabaseConnection)
+        .where(DatabaseConnection.user_id == user_id, DatabaseConnection.deleted == 0)
+        .order_by(DatabaseConnection.create_time.desc())
+        .limit(20)
+    )
+    connections = [
+        {
+            "id": str(c.id),
+            "name": c.name,
+            "db_type": c.db_type,
+            "host": c.host,
+            "database": c.database,
+            "create_time": c.create_time.isoformat() if c.create_time else None,
+        }
+        for c in connections_result.scalars().all()
+    ]
+
+    files_list_result = await db.execute(
+        select(UploadedFile)
+        .where(UploadedFile.user_id == user_id, UploadedFile.deleted == 0)
+        .order_by(UploadedFile.create_time.desc())
+        .limit(20)
+    )
+    files = [
+        {
+            "id": str(f.id),
+            "original_name": f.original_name,
+            "file_type": f.file_type,
+            "file_size": f.file_size,
+            "status": f.status,
+            "create_time": f.create_time.isoformat() if f.create_time else None,
+        }
+        for f in files_list_result.scalars().all()
+    ]
+
+    return BaseResponse(
+        success=True,
+        code=200,
+        msg="获取用户资源成功",
+        data=UserResourceDetail(
+            user=UserResponse.model_validate(user),
+            resources=UserResourceStats(
+                user_id=user.id,
+                username=user.username,
+                nickname=user.nickname,
+                sessions_count=sessions_count,
+                messages_count=messages_count,
+                data_sources_count=data_sources_count,
+                raw_data_count=raw_data_count,
+                connections_count=connections_count,
+                files_count=files_count,
+                total_file_size=total_file_size,
+            ),
+            sessions=sessions,
+            data_sources=data_sources,
+            connections=connections,
+            files=files,
+        ),
+    )
+
+
+# ==================== 批量删除接口 ====================
+
+
+async def _cascade_delete_user(
+    db: AsyncSession,
+    user_id: uuid.UUID,
+    username: str,
+) -> CascadeDeleteResult:
+    """
+    级联删除用户及其所有关联资源
+
+    删除顺序（考虑外键依赖）：
+    1. 消息 (ChatMessage) - 依赖会话
+    2. 会话 (AnalysisSession) - 依赖数据源
+    3. 数据源映射 (DataSourceRawMapping) - 通过数据源级联删除
+    4. 数据源 (DataSource) - 依赖原始数据
+    5. 原始数据 (RawData) - 依赖文件和数据库连接
+    6. 上传文件 (UploadedFile) - 需要清理 MinIO
+    7. 数据库连接 (DatabaseConnection)
+    8. 沙箱文件 - 调用沙箱 API
+    9. 用户 (User)
+
+    Args:
+        db: 数据库会话
+        user_id: 用户ID
+        username: 用户名
+
+    Returns:
+        CascadeDeleteResult: 删除结果
+    """
+    from app.models.data_source import DataSourceRawMapping
+    from app.utils.tools import get_sandbox_client
+
+    result = CascadeDeleteResult(
+        user_id=user_id,
+        username=username,
+        deleted_sessions=0,
+        deleted_messages=0,
+        deleted_data_sources=0,
+        deleted_raw_data=0,
+        deleted_connections=0,
+        deleted_files=0,
+        sandbox_cleaned=False,
+        minio_files_deleted=0,
+    )
+
+    try:
+        # 1. 获取用户的所有会话ID
+        session_ids_result = await db.execute(
+            select(AnalysisSession.id).where(
+                AnalysisSession.user_id == user_id,
+                AnalysisSession.deleted == 0,
+            )
+        )
+        session_ids = [row[0] for row in session_ids_result.fetchall()]
+
+        # 2. 删除消息（软删除）
+        if session_ids:
+            msg_update = await db.execute(
+                update(ChatMessage)
+                .where(ChatMessage.session_id.in_(session_ids), ChatMessage.deleted == 0)
+                .values(deleted=1)
+            )
+            result.deleted_messages = msg_update.rowcount or 0  # type: ignore[attr-defined]
+
+        # 3. 删除会话（软删除）
+        session_update = await db.execute(
+            update(AnalysisSession)
+            .where(AnalysisSession.user_id == user_id, AnalysisSession.deleted == 0)
+            .values(deleted=1)
+        )
+        result.deleted_sessions = session_update.rowcount or 0  # type: ignore[attr-defined]
+
+        # 4. 获取数据源ID并删除映射
+        ds_ids_result = await db.execute(
+            select(DataSource.id).where(
+                DataSource.user_id == user_id,
+                DataSource.deleted == 0,
+            )
+        )
+        ds_ids = [row[0] for row in ds_ids_result.fetchall()]
+
+        if ds_ids:
+            # 删除数据源映射（软删除）
+            await db.execute(
+                update(DataSourceRawMapping)
+                .where(DataSourceRawMapping.data_source_id.in_(ds_ids), DataSourceRawMapping.deleted == 0)
+                .values(deleted=1)
+            )
+
+        # 5. 删除数据源（软删除）
+        ds_update = await db.execute(
+            update(DataSource).where(DataSource.user_id == user_id, DataSource.deleted == 0).values(deleted=1)
+        )
+        result.deleted_data_sources = ds_update.rowcount or 0  # type: ignore[attr-defined]
+
+        # 6. 删除原始数据（软删除）
+        rd_update = await db.execute(
+            update(RawData).where(RawData.user_id == user_id, RawData.deleted == 0).values(deleted=1)
+        )
+        result.deleted_raw_data = rd_update.rowcount or 0  # type: ignore[attr-defined]
+
+        # 7. 获取文件列表并从 MinIO 删除
+        files_result = await db.execute(
+            select(UploadedFile.object_key).where(
+                UploadedFile.user_id == user_id,
+                UploadedFile.deleted == 0,
+            )
+        )
+        file_keys = [row[0] for row in files_result.fetchall()]
+
+        for object_key in file_keys:
+            try:
+                await minio_client.delete_file(object_key)
+                result.minio_files_deleted += 1
+            except Exception as e:
+                logger.warning(f"Failed to delete MinIO file {object_key}: {e}")
+
+        # 8. 删除文件记录（软删除）
+        file_update = await db.execute(
+            update(UploadedFile).where(UploadedFile.user_id == user_id, UploadedFile.deleted == 0).values(deleted=1)
+        )
+        result.deleted_files = file_update.rowcount or 0  # type: ignore[attr-defined]
+
+        # 9. 删除数据库连接（软删除）
+        conn_update = await db.execute(
+            update(DatabaseConnection)
+            .where(DatabaseConnection.user_id == user_id, DatabaseConnection.deleted == 0)
+            .values(deleted=1)
+        )
+        result.deleted_connections = conn_update.rowcount or 0  # type: ignore[attr-defined]
+
+        # 10. 清理沙箱用户目录
+        try:
+            client = get_sandbox_client()
+            sandbox_response = await client.post("/reset/user", params={"user_id": str(user_id)})
+            sandbox_result = sandbox_response.json()
+            result.sandbox_cleaned = sandbox_result.get("success", False)
+            logger.info(f"Sandbox cleanup for user {user_id}: {sandbox_result}")
+        except Exception as e:
+            logger.warning(f"Failed to cleanup sandbox for user {user_id}: {e}")
+            result.sandbox_cleaned = False
+
+        # 11. 删除用户（软删除）
+        await db.execute(update(User).where(User.id == user_id, User.deleted == 0).values(deleted=1))
+
+        await db.commit()
+        logger.info(f"Successfully cascade deleted user {username} ({user_id})")
+
+    except Exception as e:
+        await db.rollback()
+        logger.error(f"Failed to cascade delete user {username} ({user_id}): {e}")
+        raise
+
+    return result
+
+
+@router.post("/users/batch-delete", response_model=BaseResponse[BatchDeleteResult])
+async def batch_delete_users(
+    request: BatchDeleteRequest,
+    current_user: CurrentSuperUser,
+    db: DBSession,
+):
+    """
+    批量删除用户（级联删除所有关联资源）
+
+    删除内容包括：
+    - 用户的所有会话和消息
+    - 用户的所有数据源和数据源映射
+    - 用户的所有原始数据对象
+    - 用户的所有数据库连接
+    - 用户的所有上传文件（包括 MinIO 存储）
+    - 用户的沙箱工作目录
+
+    注意：
+    - 不能删除当前登录的管理员账号
+    - 删除操作为软删除，可以通过数据库恢复
+
+    需要超级管理员权限
+    """
+    result = BatchDeleteResult(
+        success_count=0,
+        failed_count=0,
+        skipped_count=0,
+        details=[],
+    )
+
+    for user_id in request.user_ids:
+        # 不能删除自己
+        if user_id == current_user.id:
+            result.skipped_count += 1
+            result.details.append(
+                {
+                    "user_id": str(user_id),
+                    "status": "skipped",
+                    "reason": "不能删除当前登录的管理员账号",
+                }
+            )
+            continue
+
+        try:
+            # 获取用户信息
+            user_service = UserService(db)
+            user = await user_service.get_user(user_id)
+
+            # 执行级联删除
+            delete_result = await _cascade_delete_user(db, user_id, user.username)
+
+            result.success_count += 1
+            result.details.append(
+                {
+                    "user_id": str(user_id),
+                    "username": delete_result.username,
+                    "status": "success",
+                    "deleted_resources": {
+                        "sessions": delete_result.deleted_sessions,
+                        "messages": delete_result.deleted_messages,
+                        "data_sources": delete_result.deleted_data_sources,
+                        "raw_data": delete_result.deleted_raw_data,
+                        "connections": delete_result.deleted_connections,
+                        "files": delete_result.deleted_files,
+                        "minio_files": delete_result.minio_files_deleted,
+                        "sandbox_cleaned": delete_result.sandbox_cleaned,
+                    },
+                }
+            )
+
+        except Exception as e:
+            result.failed_count += 1
+            result.details.append(
+                {
+                    "user_id": str(user_id),
+                    "status": "failed",
+                    "reason": str(e),
+                }
+            )
+            logger.error(f"Failed to delete user {user_id}: {e}")
+
+    return BaseResponse(
+        success=True,
+        code=200,
+        msg=f"批量删除完成: 成功 {result.success_count}, 失败 {result.failed_count}, 跳过 {result.skipped_count}",
+        data=result,
+    )
+
+
+@router.delete("/users/{user_id}/cascade", response_model=BaseResponse[CascadeDeleteResult])
+async def cascade_delete_user(
+    user_id: uuid.UUID,
+    current_user: CurrentSuperUser,
+    db: DBSession,
+):
+    """
+    级联删除单个用户及其所有关联资源
+
+    删除内容包括：
+    - 用户的所有会话和消息
+    - 用户的所有数据源和数据源映射
+    - 用户的所有原始数据对象
+    - 用户的所有数据库连接
+    - 用户的所有上传文件（包括 MinIO 存储）
+    - 用户的沙箱工作目录
+
+    需要超级管理员权限
+    """
+    # 不能删除自己
+    if user_id == current_user.id:
+        return BaseResponse(success=False, code=400, msg="不能删除当前登录的管理员账号", data=None)
+
+    # 获取用户信息
+    user_service = UserService(db)
+    user = await user_service.get_user(user_id)
+
+    # 执行级联删除
+    delete_result = await _cascade_delete_user(db, user_id, user.username)
+
+    return BaseResponse(
+        success=True,
+        code=200,
+        msg=f"用户 {user.username} 及其所有资源已删除",
+        data=delete_result,
+    )
 
