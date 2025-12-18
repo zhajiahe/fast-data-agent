@@ -377,8 +377,22 @@ class AnalysisSessionService:
         Raises:
             NotFoundException: 会话不存在
         """
+        from app.utils.tools import get_sandbox_client
+
         # 验证权限
         await self.get_session(session_id, user_id)
+
+        # 清理沙箱中的会话工作目录
+        try:
+            client = get_sandbox_client()
+            await client.post(
+                "/reset/session",
+                params={"user_id": str(user_id), "thread_id": str(session_id)},
+            )
+            logger.info(f"会话沙箱目录已清理: session_id={session_id}")
+        except Exception as e:
+            # 沙箱清理失败不应阻止会话删除
+            logger.warning(f"清理会话沙箱目录失败: session_id={session_id}, error={e}")
 
         success = await self.repo.delete(session_id, soft_delete=True)
         if not success:
