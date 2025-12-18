@@ -1,4 +1,5 @@
 import {
+  BarChart3,
   Check,
   Database,
   Languages,
@@ -50,6 +51,7 @@ export const Layout = ({ children, fullHeight = false }: LayoutProps) => {
     { path: '/', labelKey: 'nav.dashboard', icon: LayoutDashboardIcon },
     { path: '/sessions', labelKey: 'nav.sessions', icon: MessageSquare },
     { path: '/data-sources', labelKey: 'nav.dataSources', icon: Database },
+    { path: '/charts', labelKey: 'nav.charts', icon: BarChart3 },
   ];
 
   const isActive = (path: string) => location.pathname === path;

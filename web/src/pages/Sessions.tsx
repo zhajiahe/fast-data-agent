@@ -120,6 +120,7 @@ export const Sessions = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);
+  const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'archived'>('active');
 
   // API Hooks
   const { data: sessionsRes, isLoading } = useSessions({ page_size: 100 });
@@ -137,10 +138,18 @@ export const Sessions = () => {
 
   // 过滤和分组
   const filteredSessions = useMemo(() => {
-    if (!searchQuery.trim()) return sessions;
-    const query = searchQuery.toLowerCase();
-    return sessions.filter((s) => s.name.toLowerCase().includes(query) || s.description?.toLowerCase().includes(query));
-  }, [sessions, searchQuery]);
+    let result = sessions;
+    // 状态筛选
+    if (statusFilter !== 'all') {
+      result = result.filter((s) => s.status === statusFilter);
+    }
+    // 搜索筛选
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase();
+      result = result.filter((s) => s.name.toLowerCase().includes(query) || s.description?.toLowerCase().includes(query));
+    }
+    return result;
+  }, [sessions, searchQuery, statusFilter]);
 
   const groupedSessions = useMemo(() => groupSessionsByDate(filteredSessions, t), [filteredSessions, t]);
 
@@ -186,9 +195,12 @@ export const Sessions = () => {
         </Button>
       </div>
 
-      {/* 统计卡片 */}
+      {/* 统计卡片 - 可点击切换筛选 */}
       <div className="grid grid-cols-3 gap-4 mb-6">
-        <Card className="p-4">
+        <Card
+          className={`p-4 cursor-pointer transition-all ${statusFilter === 'all' ? 'ring-2 ring-teal-500' : 'hover:bg-muted/50'}`}
+          onClick={() => setStatusFilter('all')}
+        >
           <div className="flex items-center gap-3">
             <div className="p-2 rounded-lg bg-teal-500/10">
               <MessageSquare className="h-5 w-5 text-teal-600 dark:text-teal-400" />
@@ -199,7 +211,10 @@ export const Sessions = () => {
             </div>
           </div>
         </Card>
-        <Card className="p-4">
+        <Card
+          className={`p-4 cursor-pointer transition-all ${statusFilter === 'active' ? 'ring-2 ring-emerald-500' : 'hover:bg-muted/50'}`}
+          onClick={() => setStatusFilter('active')}
+        >
           <div className="flex items-center gap-3">
             <div className="p-2 rounded-lg bg-emerald-500/10">
               <Calendar className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
@@ -210,7 +225,10 @@ export const Sessions = () => {
             </div>
           </div>
         </Card>
-        <Card className="p-4">
+        <Card
+          className={`p-4 cursor-pointer transition-all ${statusFilter === 'archived' ? 'ring-2 ring-slate-500' : 'hover:bg-muted/50'}`}
+          onClick={() => setStatusFilter('archived')}
+        >
           <div className="flex items-center gap-3">
             <div className="p-2 rounded-lg bg-slate-500/10">
               <Archive className="h-5 w-5 text-slate-600 dark:text-slate-400" />

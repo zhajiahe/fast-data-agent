@@ -25,6 +25,7 @@
     "dashboard": "Dashboard",
     "sessions": "Sessions",
     "dataSources": "Data Sources",
+    "charts": "Charts",
     "settings": "Settings"
   },
   "dashboard": {
@@ -218,6 +219,22 @@
     "slogan_desc": "Analyze data, generate insights and visualizations through natural language conversation. Let AI be your data analysis expert.",
     "register_slogan_title": "Join Us, Start Smart Analysis",
     "register_slogan_desc": "Create an account to use our AI-powered data analysis platform. Connect data sources, query with natural language, and generate reports instantly."
+  },
+  "charts": {
+    "title": "Charts Workbench",
+    "subtitle": "Browse visualizations generated in analysis sessions",
+    "totalCharts": "Total Charts",
+    "thisWeek": "This Week",
+    "searchPlaceholder": "Search chart title or data...",
+    "empty": "No charts yet",
+    "emptyHint": "Generate charts by chatting with AI in analysis sessions",
+    "goToSessions": "Go to Sessions",
+    "noSearchResults": "No matching charts found",
+    "tryDifferentSearch": "Try different search terms",
+    "preview": "Chart Preview",
+    "viewSession": "View Session",
+    "from": "From",
+    "untitledChart": "Untitled Chart"
   },
   "settings": {
     "title": "Settings",

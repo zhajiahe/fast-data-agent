@@ -1,10 +1,39 @@
-# React 前端模板
+# Fast Data Agent 前端
 
-一个现代化的 vite + React + TypeScript 前端项目模板，集成了最佳实践和常用工具。
+基于 React + TypeScript + Vite 构建的智能数据分析平台前端。
 
-[online demo](https://g3nprjxy.pinit.eth.limo/)(Powered by pinme)
+## 📱 功能页面
 
-## 🎯 特性
+### 仪表盘 (Dashboard)
+- 数据概览：数据源、会话、图表统计
+- 快速操作：新建会话、添加数据源
+- 最近会话列表
+
+### 分析会话 (Sessions)
+- 会话管理：创建、删除、归档
+- 与 AI 对话分析数据
+- 自然语言生成 SQL 查询和图表
+
+### 数据源 (Data Sources)
+- 数据库连接管理（MySQL/PostgreSQL）
+- 文件上传（CSV/Excel/JSON/Parquet）
+- 数据对象浏览和预览
+
+### 图表工作台 (Charts) ✨
+- **图表浏览**：展示所有会话中生成的可视化图表
+- **搜索功能**：支持按标题、数据内容搜索
+- **图表预览**：卡片缩略图 + 全屏查看
+- **图表操作**：下载 PNG、跳转来源会话
+- **统计信息**：总图表数、本周新增数
+
+### 设置 (Settings)
+- 个人信息管理
+- 密码修改
+- 外观设置（深色/浅色主题）
+
+---
+
+## 🎯 技术特性
 
 ### 核心技术栈
 - **React 18** - 现代化的 UI 框架

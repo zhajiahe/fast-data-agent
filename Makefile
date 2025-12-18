@@ -79,14 +79,14 @@ reset: ## 重置所有资源（数据库、MinIO、沙盒）
 
 SANDBOX_IMAGE := data-agent-sandbox
 SANDBOX_CONTAINER := data-agent-sandbox
-SANDBOX_PORT := 8080
+SANDBOX_PORT := 8888
 
 sandbox-build: ## 构建沙盒 Docker 镜像
 	@echo "🔨 构建沙盒镜像..."
 	docker build -t $(SANDBOX_IMAGE) sandbox_runtime/
 	@echo "✅ 镜像构建完成: $(SANDBOX_IMAGE)"
 
-sandbox-start: ## 启动沙盒容器 (port: 8080)
+sandbox-start: ## 启动沙盒容器 (port: 8888)
 	@echo "🚀 启动沙盒容器..."
 	@if docker ps -q -f name=$(SANDBOX_CONTAINER) | grep -q .; then \
 		echo "⚠️  容器已在运行"; \

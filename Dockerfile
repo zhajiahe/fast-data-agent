@@ -1,5 +1,5 @@
 # =================================
-# FastAPI Template - Dockerfile
+# Fast Data Agent - Dockerfile
 # =================================
 # 使用多阶段构建优化镜像大小
 
@@ -59,7 +59,7 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
     CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')" || exit 1
 
 # 启动命令
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["uvicorn", "app.main:app", "--host", "127.0.0.1", "--port", "8000"]
 
 # ========== 开发阶段 ==========
 FROM runtime AS development
@@ -80,5 +80,5 @@ RUN uv sync --frozen --no-cache
 USER appuser
 
 # 启动开发服务器
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+CMD ["uvicorn", "app.main:app", "--host", "127.0.0.1", "--port", "8000", "--reload"]
 

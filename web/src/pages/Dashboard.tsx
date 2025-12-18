@@ -1,11 +1,25 @@
+import { useQueries } from '@tanstack/react-query';
+import type { AxiosResponse } from 'axios';
 import { ArrowRight, BarChart3, CheckCircle2, Circle, Clock, Database, MessageSquare, Plus } from 'lucide-react';
+import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
-import { useDataSources, useSessions } from '@/api';
+import {
+  type BaseResponsePageResponseChatMessageResponse,
+  getMessagesApiV1SessionsSessionIdMessagesGet,
+  useDataSources,
+  useSessions,
+} from '@/api';
 import { EmptyState } from '@/components/common';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useAuthStore } from '@/stores/authStore';
+
+// Artifact 类型
+interface MessageArtifact {
+  type: string;
+  chart_json?: string;
+}
 
 /**
  * 仪表盘页面
@@ -17,11 +31,61 @@ export const Dashboard = () => {
   const { user } = useAuthStore();
 
   const { data: dataSourcesResponse } = useDataSources({ page_size: 100 });
-  const { data: sessionsResponse } = useSessions({ page_size: 5 });
+  const { data: sessionsResponse } = useSessions({ page_size: 100 });
 
   const dataSources = dataSourcesResponse?.data.data?.items || [];
-  const sessions = sessionsResponse?.data.data?.items || [];
+  const allSessions = sessionsResponse?.data.data?.items || [];
   const totalSessions = sessionsResponse?.data.data?.total || 0;
+  const recentSessions = allSessions.slice(0, 5);
+
+  // 并行获取所有会话的消息以统计图表数量
+  const messagesQueries = useQueries({
+    queries: allSessions.map((session) => ({
+      queryKey: ['messages', session.id, { page_size: 200 }],
+      queryFn: () =>
+        getMessagesApiV1SessionsSessionIdMessagesGet(session.id, { page_size: 200 }) as Promise<
+          AxiosResponse<BaseResponsePageResponseChatMessageResponse>
+        >,
+      enabled: !!session.id,
+      staleTime: 5 * 60 * 1000, // 5 分钟缓存
+    })),
+  });
+
+  // 统计图表数量
+  const chartsCount = useMemo(() => {
+    let count = 0;
+    messagesQueries.forEach((query) => {
+      if (!query.data?.data.data?.items) return;
+      query.data.data.data.items.forEach((msg) => {
+        const artifact = msg.artifact as MessageArtifact | null;
+        if (artifact?.type === 'plotly' && artifact.chart_json) {
+          count++;
+        }
+      });
+    });
+    return count;
+  }, [messagesQueries]);
+
+  // 统计本周图表数量
+  const thisWeekChartsCount = useMemo(() => {
+    const weekAgo = new Date();
+    weekAgo.setDate(weekAgo.getDate() - 7);
+    let count = 0;
+    messagesQueries.forEach((query, index) => {
+      if (!query.data?.data.data?.items) return;
+      const session = allSessions[index];
+      query.data.data.data.items.forEach((msg) => {
+        const artifact = msg.artifact as MessageArtifact | null;
+        if (artifact?.type === 'plotly' && artifact.chart_json) {
+          const createTime = new Date(msg.create_time || session.create_time || '');
+          if (createTime >= weekAgo) {
+            count++;
+          }
+        }
+      });
+    });
+    return count;
+  }, [messagesQueries, allSessions]);
 
   const stats = [
     {
@@ -31,6 +95,7 @@ export const Dashboard = () => {
       icon: Database,
       color: 'text-slate-600 dark:text-slate-400',
       bgColor: 'bg-slate-500/10',
+      onClick: () => navigate('/data-sources'),
     },
     {
       title: t('dashboard.totalSessions'),
@@ -39,14 +104,16 @@ export const Dashboard = () => {
       icon: MessageSquare,
       color: 'text-teal-600 dark:text-teal-400',
       bgColor: 'bg-teal-500/10',
+      onClick: () => navigate('/sessions'),
     },
     {
       title: t('dashboard.chartsGenerated'),
-      value: '-',
-      subValue: t('dashboard.comingSoon'),
+      value: chartsCount,
+      subValue: thisWeekChartsCount > 0 ? `${thisWeekChartsCount} ${t('dashboard.thisWeek')}` : t('dashboard.thisWeek'),
       icon: BarChart3,
       color: 'text-cyan-600 dark:text-cyan-400',
       bgColor: 'bg-cyan-500/10',
+      onClick: () => navigate('/charts'),
     },
   ];
 
@@ -63,7 +130,11 @@ export const Dashboard = () => {
       {/* 统计卡片 */}
       <div className="grid gap-4 md:grid-cols-3 mb-8">
         {stats.map((stat) => (
-          <Card key={stat.title}>
+          <Card
+            key={stat.title}
+            className="cursor-pointer hover:shadow-md transition-shadow"
+            onClick={stat.onClick}
+          >
             <CardHeader className="flex flex-row items-center justify-between pb-2">
               <CardTitle className="text-sm font-medium text-muted-foreground">{stat.title}</CardTitle>
               <div className={`p-2 rounded-lg ${stat.bgColor}`}>
@@ -79,7 +150,7 @@ export const Dashboard = () => {
       </div>
 
       {/* 快速指引 - 仅在新用户或没有会话时显示 */}
-      {sessions.length === 0 && (
+      {recentSessions.length === 0 && (
         <Card className="mb-8 border-dashed border-primary/30 bg-gradient-to-br from-primary/5 to-transparent">
           <CardHeader>
             <CardTitle className="text-lg flex items-center gap-2">
@@ -193,7 +264,7 @@ export const Dashboard = () => {
           </Button>
         </CardHeader>
         <CardContent>
-          {sessions.length === 0 ? (
+          {recentSessions.length === 0 ? (
             <EmptyState
               icon={MessageSquare}
               title={t('dashboard.noRecentSessions')}
@@ -205,7 +276,7 @@ export const Dashboard = () => {
             />
           ) : (
             <div className="space-y-3">
-              {sessions.map((session) => (
+              {recentSessions.map((session) => (
                 <button
                   type="button"
                   key={session.id}

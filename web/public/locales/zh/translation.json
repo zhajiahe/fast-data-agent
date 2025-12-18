@@ -25,6 +25,7 @@
     "dashboard": "仪表盘",
     "sessions": "分析会话",
     "dataSources": "数据源",
+    "charts": "图表工作台",
     "settings": "设置"
   },
   "dashboard": {
@@ -218,6 +219,22 @@
     "slogan_desc": "通过自然语言对话，轻松分析数据、生成洞察报告和可视化图表。让 AI 成为您的数据分析专家。",
     "register_slogan_title": "加入我们，开启智能分析",
     "register_slogan_desc": "注册账号，即可使用 AI 驱动的数据分析平台。连接数据源、自然语言查询、一键生成报告。"
+  },
+  "charts": {
+    "title": "图表工作台",
+    "subtitle": "浏览分析会话中生成的可视化图表",
+    "totalCharts": "总图表",
+    "thisWeek": "本周新增",
+    "searchPlaceholder": "搜索图表标题或数据...",
+    "empty": "暂无图表",
+    "emptyHint": "在分析会话中与 AI 对话生成图表",
+    "goToSessions": "前往分析会话",
+    "noSearchResults": "未找到匹配的图表",
+    "tryDifferentSearch": "尝试其他搜索词",
+    "preview": "图表预览",
+    "viewSession": "查看会话",
+    "from": "来自",
+    "untitledChart": "未命名图表"
   },
   "settings": {
     "title": "设置",

@@ -26,12 +26,14 @@ const BASE_CONFIG = {
 interface PlotlyChartProps {
   chartJson: string;
   title?: string;
+  /** 紧凑模式：隐藏工具栏和操作按钮，用于预览卡片 */
+  compact?: boolean;
 }
 
 /**
  * Plotly 图表渲染组件 (CDN 版本)
  */
-export const PlotlyChart = ({ chartJson, title }: PlotlyChartProps) => {
+export const PlotlyChart = ({ chartJson, title, compact = false }: PlotlyChartProps) => {
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [plotlyReady, setPlotlyReady] = useState(!!window.Plotly);
   const chartRef = useRef<HTMLDivElement>(null);
@@ -69,13 +71,24 @@ export const PlotlyChart = ({ chartJson, title }: PlotlyChartProps) => {
   );
 
   const renderChart = useCallback(
-    (target: HTMLDivElement | null, height?: number) => {
+    (target: HTMLDivElement | null, height?: number, mode: 'compact' | 'normal' | 'fullscreen' = 'normal') => {
       if (!target || !chartData?.data || !plotlyReady) return;
+      let config;
+      if (mode === 'compact') {
+        // 紧凑模式：静态图表，不可交互
+        config = { ...BASE_CONFIG, displayModeBar: false, staticPlot: true };
+      } else if (mode === 'fullscreen') {
+        // 全屏模式：显示工具栏
+        config = BASE_CONFIG;
+      } else {
+        // 普通模式：隐藏 Plotly 工具栏（使用自定义按钮）
+        config = { ...BASE_CONFIG, displayModeBar: false };
+      }
       window.Plotly.react(
         target,
         chartData.data,
         { ...baseLayout, autosize: true, ...(height ? { height } : {}) },
-        BASE_CONFIG
+        config
       );
     },
     [baseLayout, chartData?.data, plotlyReady]
@@ -83,8 +96,8 @@ export const PlotlyChart = ({ chartJson, title }: PlotlyChartProps) => {
 
   // 渲染主图表
   useEffect(() => {
-    renderChart(chartRef.current, 350);
-  }, [renderChart]);
+    renderChart(chartRef.current, 350, compact ? 'compact' : 'normal');
+  }, [renderChart, compact]);
 
   // 渲染全屏图表
   useEffect(() => {
@@ -103,7 +116,7 @@ export const PlotlyChart = ({ chartJson, title }: PlotlyChartProps) => {
         window.requestAnimationFrame(renderFullscreen);
         return;
       }
-      renderChart(el, rect.height);
+      renderChart(el, rect.height, 'fullscreen');
       window.Plotly.Plots?.resize(el);
     };
 
@@ -143,6 +156,15 @@ export const PlotlyChart = ({ chartJson, title }: PlotlyChartProps) => {
       });
     }
   };
+
+  // 紧凑模式：只渲染图表，不显示操作按钮和弹窗
+  if (compact) {
+    return (
+      <div className="w-full h-full">
+        <div ref={chartRef} className="w-full h-full" />
+      </div>
+    );
+  }
 
   return (
     <>

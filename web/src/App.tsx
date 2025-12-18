@@ -9,6 +9,7 @@ import { Toaster } from '@/components/ui/toaster';
 const Dashboard = lazy(() => import('@/pages/Dashboard').then((m) => ({ default: m.Dashboard })));
 const DataSources = lazy(() => import('@/pages/DataSources').then((m) => ({ default: m.DataSources })));
 const Sessions = lazy(() => import('@/pages/Sessions').then((m) => ({ default: m.Sessions })));
+const Charts = lazy(() => import('@/pages/Charts').then((m) => ({ default: m.Charts })));
 const Chat = lazy(() => import('@/pages/Chat').then((m) => ({ default: m.Chat })));
 const Settings = lazy(() => import('@/pages/Settings').then((m) => ({ default: m.Settings })));
 const Login = lazy(() => import('@/pages/Login').then((m) => ({ default: m.Login })));
@@ -69,6 +70,7 @@ function App() {
               <Route index element={<Dashboard />} />
               <Route path="data-sources" element={<DataSources />} />
               <Route path="sessions" element={<Sessions />} />
+              <Route path="charts" element={<Charts />} />
               <Route path="settings" element={<Settings />} />
             </Route>
 

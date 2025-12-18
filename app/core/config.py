@@ -62,7 +62,7 @@ class Settings(BaseSettings):
     LLM_STREAMING: bool = True  # 是否启用流式响应（OpenRouter 等代理可能需要禁用）
 
     # Python 沙箱配置
-    SANDBOX_URL: str = "http://localhost:8080"  # 沙箱服务地址
+    SANDBOX_URL: str = "http://localhost:8888"  # 沙箱服务地址
     SANDBOX_ENABLED: bool = True
     SANDBOX_TIMEOUT: int = 60  # 执行超时（秒）
     SANDBOX_MEMORY_LIMIT: str = "512m"  # 内存限制
