@@ -6,7 +6,16 @@
 
 from typing import Literal
 
+from pydantic import model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+# 不安全的默认密钥，仅用于开发环境
+_INSECURE_SECRET_KEYS = {
+    "your-secret-key-here-change-in-production",
+    "your-secret-key-change-in-production",
+    "your-refresh-secret-key-here-change-in-production",
+    "your-refresh-secret-key-change-in-production",
+}
 
 
 class Settings(BaseSettings):
@@ -28,6 +37,23 @@ class Settings(BaseSettings):
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30  # 访问令牌过期时间（分钟）
     REFRESH_TOKEN_EXPIRE_DAYS: int = 7  # 刷新令牌过期时间（天）
+
+    @model_validator(mode="after")
+    def validate_production_secrets(self) -> "Settings":
+        """验证生产环境配置安全性"""
+        if self.ENVIRONMENT == "production":
+            if self.SECRET_KEY in _INSECURE_SECRET_KEYS:
+                raise ValueError(
+                    "生产环境禁止使用默认 SECRET_KEY，请设置安全的随机密钥。"
+                    "可使用: python -c \"import secrets; print(secrets.token_urlsafe(32))\""
+                )
+            if self.REFRESH_SECRET_KEY in _INSECURE_SECRET_KEYS:
+                raise ValueError(
+                    "生产环境禁止使用默认 REFRESH_SECRET_KEY，请设置安全的随机密钥。"
+                )
+            if self.DEBUG:
+                raise ValueError("生产环境禁止开启 DEBUG 模式")
+        return self
 
     # 数据库配置
     DATABASE_URL: str = "postgresql+asyncpg://postgres:postgres123@localhost:5432/data_agent"

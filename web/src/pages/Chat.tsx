@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { useQueryClient } from '@tanstack/react-query';
 import { ArrowDown, ChevronLeft, Database, PanelRight, PanelRightClose, Send, Sparkles, StopCircle, Trash2 } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -43,9 +42,7 @@ interface MessageGroup {
  */
 export const Chat = () => {
   const { id } = useParams<{ id: string }>();
-  // sessionId 可以是 UUID 字符串，这里直接使用原始值
-  // 注意：API 定义为 number 但实际后端使用 UUID
-  const sessionId = id as unknown as number; // 临时类型转换
+  const sessionId = id ?? '';
   const { t } = useTranslation();
   const { toast } = useToast();
   const navigate = useNavigate();

@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Download, File, FileCode, FileImage, FileText, FolderOpen, Loader2, RefreshCw, Upload } from 'lucide-react';
 import { useCallback, useState } from 'react';
@@ -10,7 +9,7 @@ import { useToast } from '@/hooks/use-toast';
 import { storage } from '@/utils/storage';
 
 interface SessionFilesPanelProps {
-  sessionId: number;
+  sessionId: string;
 }
 
 interface SessionFile {
