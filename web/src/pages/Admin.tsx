@@ -551,10 +551,12 @@ const UserList = () => {
   const [viewResourcesUserId, setViewResourcesUserId] = useState<string | null>(null);
   const [batchDeleteOpen, setBatchDeleteOpen] = useState(false);
   const [batchDeleteResult, setBatchDeleteResult] = useState<BatchDeleteResult | null>(null);
+  const [pageNum, setPageNum] = useState(1);
+  const pageSize = 20;
 
   const { data, isLoading, refetch } = useQuery({
-    queryKey: ['admin-users', searchKeyword],
-    queryFn: () => adminApi.getUsers({ page_num: 1, page_size: 100, keyword: searchKeyword || undefined }),
+    queryKey: ['admin-users', searchKeyword, pageNum],
+    queryFn: () => adminApi.getUsers({ page_num: pageNum, page_size: pageSize, keyword: searchKeyword || undefined }),
   });
 
   const toggleStatusMutation = useMutation({
@@ -612,6 +614,8 @@ const UserList = () => {
   });
 
   const users: UserItem[] = data?.items || [];
+  const totalUsers = data?.total || 0;
+  const totalPages = Math.ceil(totalUsers / pageSize);
 
   // 切换单个用户选中状态
   const toggleUserSelection = (userId: string) => {
@@ -661,7 +665,10 @@ const UserList = () => {
             placeholder="搜索用户名、邮箱或昵称..."
             className="pl-10"
             value={searchKeyword}
-            onChange={(e) => setSearchKeyword(e.target.value)}
+            onChange={(e) => {
+              setSearchKeyword(e.target.value);
+              setPageNum(1); // Reset to first page on search
+            }}
           />
         </div>
         <Button variant="outline" size="icon" onClick={() => refetch()}>
@@ -677,12 +684,22 @@ const UserList = () => {
 
       {/* 全选控制 */}
       {users.length > 0 && (
-        <div className="flex items-center gap-2 text-sm text-muted-foreground">
-          <Checkbox
-            checked={selectedUserIds.size === users.length && users.length > 0}
-            onCheckedChange={toggleSelectAll}
-          />
-          <span>全选 ({users.length} 个用户)</span>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <Checkbox
+              checked={selectedUserIds.size === users.length && users.length > 0}
+              onCheckedChange={toggleSelectAll}
+            />
+            <span>全选本页 ({users.length} 个)</span>
+            {selectedUserIds.size > 0 && (
+              <span className="text-primary font-medium">
+                已选 {selectedUserIds.size} 个
+              </span>
+            )}
+          </div>
+          <div className="text-sm text-muted-foreground">
+            共 {totalUsers} 个用户
+          </div>
         </div>
       )}
 
@@ -812,6 +829,58 @@ const UserList = () => {
           </div>
         )}
       </ScrollArea>
+
+      {/* 分页控制 */}
+      {totalPages > 1 && (
+        <div className="flex items-center justify-between pt-4 border-t">
+          <div className="text-sm text-muted-foreground">
+            共 {totalUsers} 个用户，第 {pageNum}/{totalPages} 页
+          </div>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setPageNum((p) => Math.max(1, p - 1))}
+              disabled={pageNum <= 1}
+            >
+              上一页
+            </Button>
+            <div className="flex items-center gap-1">
+              {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                let page: number;
+                if (totalPages <= 5) {
+                  page = i + 1;
+                } else if (pageNum <= 3) {
+                  page = i + 1;
+                } else if (pageNum >= totalPages - 2) {
+                  page = totalPages - 4 + i;
+                } else {
+                  page = pageNum - 2 + i;
+                }
+                return (
+                  <Button
+                    key={page}
+                    variant={page === pageNum ? 'default' : 'outline'}
+                    size="sm"
+                    className="w-8 h-8 p-0"
+                    onClick={() => setPageNum(page)}
+                  >
+                    {page}
+                  </Button>
+                );
+              })}
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setPageNum((p) => Math.min(totalPages, p + 1))}
+              disabled={pageNum >= totalPages}
+            >
+              下一页
+            </Button>
+          </div>
+        </div>
+      )}
 
       {/* 重置密码对话框 */}
       <Dialog open={!!resetPasswordUser} onOpenChange={() => setResetPasswordUser(null)}>
