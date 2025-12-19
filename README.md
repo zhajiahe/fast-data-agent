@@ -165,6 +165,50 @@ cp env.example .env
 # 编辑 .env 配置数据库、MinIO、OpenAI 等
 ```
 
+#### 环境模式
+
+项目支持两种运行环境：
+
+| 环境 | 说明 |
+|------|------|
+| `development` | 开发环境（默认）- 启用热重载、DEBUG 日志、详细错误信息 |
+| `production` | 生产环境 - 禁用热重载、强制安全密钥、隐藏错误详情 |
+
+##### Development 环境特性
+
+- ✅ 热重载自动启用
+- ✅ 日志级别默认为 DEBUG
+- ✅ API 文档 (`/docs`, `/redoc`) 始终启用
+- ✅ 错误响应包含完整堆栈信息
+- ✅ 允许使用默认的 SECRET_KEY
+
+##### Production 环境特性
+
+- ❌ 热重载禁用
+- 📋 日志级别默认为 INFO
+- 📋 API 文档可通过 `ENABLE_DOCS=false` 禁用
+- 🔒 错误响应隐藏内部细节
+- 🔒 必须修改 `SECRET_KEY` 和 `REFRESH_SECRET_KEY`
+- 🔒 禁止开启 `DEBUG=true`
+
+##### 切换环境
+
+```bash
+# 本地开发（默认）
+ENVIRONMENT=development
+
+# 生产部署
+ENVIRONMENT=production
+SECRET_KEY=your-secure-random-key-here
+REFRESH_SECRET_KEY=your-secure-refresh-key-here
+DEBUG=false
+```
+
+生成安全密钥：
+```bash
+python -c "import secrets; print(secrets.token_urlsafe(32))"
+```
+
 ### 4. 初始化数据库
 
 ```bash
@@ -173,6 +217,8 @@ alembic upgrade head
 ```
 
 ### 5. 启动服务
+
+#### 本地开发（推荐）
 
 ```bash
 # 启动沙盒服务
@@ -186,6 +232,31 @@ make dev
 # 启动前端（另一个终端）
 cd web && npm install && npm run dev
 # 访问 http://localhost:5173
+```
+
+#### Docker 开发环境
+
+```bash
+# 启动所有服务（开发模式）
+docker compose up -d
+
+# 执行数据库迁移
+docker compose --profile migration up migrate
+```
+
+#### Docker 生产部署
+
+```bash
+# 设置必要的环境变量
+export SECRET_KEY=$(python -c "import secrets; print(secrets.token_urlsafe(32))")
+export REFRESH_SECRET_KEY=$(python -c "import secrets; print(secrets.token_urlsafe(32))")
+export OPENAI_API_KEY=your-api-key
+
+# 启动生产环境
+docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+
+# 执行数据库迁移
+docker compose --profile migration up migrate
 ```
 
 ## 🛠️ 常用命令

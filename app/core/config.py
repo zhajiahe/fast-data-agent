@@ -28,8 +28,8 @@ class Settings(BaseSettings):
         extra="ignore",
     )
 
-    # 环境配置
-    ENVIRONMENT: Literal["development", "testing", "production"] = "development"
+    # 环境配置 (development | production)
+    ENVIRONMENT: Literal["development", "production"] = "development"
 
     # JWT 配置
     SECRET_KEY: str = "your-secret-key-here-change-in-production"  # 生产环境必须更改
@@ -71,6 +71,12 @@ class Settings(BaseSettings):
     # 应用配置
     APP_NAME: str = "Fast Data Agent"
     DEBUG: bool = False
+    
+    # 日志配置
+    LOG_LEVEL: str = "INFO"  # DEBUG, INFO, WARNING, ERROR
+    
+    # API 文档配置（生产环境可禁用）
+    ENABLE_DOCS: bool = True  # 是否启用 /docs 和 /redoc
 
     # 默认管理员账号（用于初始化系统时创建）
     DEFAULT_ADMIN_USERNAME: str = "admin"
@@ -108,9 +114,18 @@ class Settings(BaseSettings):
         return self.ENVIRONMENT == "production"
 
     @property
-    def is_testing(self) -> bool:
-        """是否为测试环境"""
-        return self.ENVIRONMENT == "testing"
+    def effective_log_level(self) -> str:
+        """获取有效的日志级别（开发环境默认 DEBUG）"""
+        if self.is_development and self.LOG_LEVEL == "INFO":
+            return "DEBUG"
+        return self.LOG_LEVEL
+
+    @property
+    def effective_docs_enabled(self) -> bool:
+        """获取有效的文档启用状态（生产环境默认禁用）"""
+        if self.is_production:
+            return self.ENABLE_DOCS  # 生产环境遵循显式配置
+        return True  # 开发环境始终启用
 
 
 # 创建全局配置实例

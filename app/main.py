@@ -27,14 +27,19 @@ from app.middleware.logging import LoggingMiddleware, setup_logging
 # 设置日志
 setup_logging()
 
+# 根据环境配置 API 文档
+docs_url = "/docs" if settings.effective_docs_enabled else None
+redoc_url = "/redoc" if settings.effective_docs_enabled else None
+
 # 创建 FastAPI 应用
 app = FastAPI(
     title="Fast Data Agent",
     description="基于 LangGraph 的 AI 数据分析平台",
     version="1.0.0",
-    docs_url="/docs",
-    redoc_url="/redoc",
+    docs_url=docs_url,
+    redoc_url=redoc_url,
     lifespan=lifespan,
+    debug=settings.DEBUG,  # 设置 debug 模式
 )
 
 # 注册全局异常处理器
@@ -113,12 +118,12 @@ app.include_router(admin_router, prefix="/api/v1")
 if __name__ == "__main__":
     import uvicorn
 
-    logger.info("Starting FastAPI application...")
+    logger.info(f"Starting FastAPI application (环境: {settings.ENVIRONMENT})...")
     uvicorn.run(
         "app.main:app",
-        host="0.0.0.0",
-        port=8000,
-        reload=True,  # 开发模式自动重载
+        host=settings.HOST,
+        port=settings.PORT,
+        reload=settings.is_development,  # 仅开发环境启用热重载
         log_level="warning",  # 禁用 uvicorn 访问日志，使用自定义中间件
         access_log=False,  # 禁用 uvicorn 访问日志
     )

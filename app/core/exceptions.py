@@ -4,6 +4,7 @@
 统一处理应用中的各种异常，返回一致的错误响应格式
 """
 
+import traceback
 from typing import Any
 
 from fastapi import FastAPI, HTTPException, Request, status
@@ -11,6 +12,8 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from loguru import logger
 from pydantic import ValidationError
+
+from app.core.config import settings
 
 
 class AppException(Exception):
@@ -146,10 +149,26 @@ def register_exception_handlers(app: FastAPI) -> None:
 
     @app.exception_handler(Exception)
     async def general_exception_handler(request: Request, exc: Exception) -> JSONResponse:
-        """处理未捕获的异常"""
+        """
+        处理未捕获的异常
+        
+        开发环境返回详细错误信息和堆栈，生产环境只返回通用错误消息
+        """
         logger.exception(f"Unhandled exception: {exc}")
+        
+        # 开发环境返回详细错误信息
+        if settings.is_development:
+            detail = {
+                "error": str(exc),
+                "type": type(exc).__name__,
+                "traceback": traceback.format_exc(),
+            }
+        else:
+            # 生产环境隐藏内部错误细节
+            detail = None
+        
         return create_error_response(
             code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             msg="服务器内部错误",
-            detail=str(exc) if app.debug else None,
+            detail=detail,
         )

@@ -23,17 +23,28 @@ services:
     ports:
       - "8000:8000"  # 开发时直接访问，生产环境通过 nginx 代理
     environment:
+      # 环境配置 (development | production)
+      - ENVIRONMENT=${ENVIRONMENT:-development}
+      - DEBUG=${DEBUG:-true}
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+      - ENABLE_DOCS=${ENABLE_DOCS:-true}
+      # 数据库配置
       - DATABASE_URL=postgresql+asyncpg://postgres:postgres123@postgres:5432/data_agent
+      # MinIO 配置
       - MINIO_ENDPOINT=minio:9000
       - MINIO_ACCESS_KEY=admin
       - MINIO_SECRET_KEY=admin123456
       - MINIO_BUCKET=data-agent
       - MINIO_SECURE=false
+      # 沙盒配置
       - SANDBOX_URL=http://sandbox:8888
+      # AI/LLM 配置
       - OPENAI_API_KEY=${OPENAI_API_KEY:-}
       - OPENAI_API_BASE=${OPENAI_API_BASE:-}
       - LLM_MODEL=${LLM_MODEL:-google/gemini-2.0-flash-exp:free}
+      # JWT 配置（生产环境必须修改）
       - SECRET_KEY=${SECRET_KEY:-dev-secret-key}
+      - REFRESH_SECRET_KEY=${REFRESH_SECRET_KEY:-dev-refresh-secret-key}
     volumes:
       - ./app:/app/app:ro
       - ./alembic:/app/alembic:ro

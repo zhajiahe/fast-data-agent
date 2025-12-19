@@ -12,6 +12,8 @@ from fastapi import Request, Response
 from loguru import logger
 from starlette.middleware.base import BaseHTTPMiddleware
 
+from app.core.config import settings
+
 
 class LoggingMiddleware(BaseHTTPMiddleware):
     """HTTP 请求日志中间件"""
@@ -77,9 +79,15 @@ def setup_logging():
     配置 loguru 日志
 
     设置日志格式、级别、输出文件等
+    日志级别根据环境自动调整：
+    - development: 默认 DEBUG
+    - production: 默认 INFO
     """
     # 移除默认的 handler
     logger.remove()
+
+    # 获取有效的日志级别
+    log_level = settings.effective_log_level
 
     # 添加控制台输出（带颜色）
     logger.add(
@@ -90,7 +98,7 @@ def setup_logging():
             "<cyan>{name}</cyan>:<cyan>{function}</cyan>:<cyan>{line}</cyan> | "
             "<level>{message}</level>"
         ),
-        level="INFO",
+        level=log_level,
         colorize=True,
     )
 
@@ -101,7 +109,7 @@ def setup_logging():
         retention="30 days",  # 保留 30 天的日志
         compression="zip",  # 压缩旧日志
         format="{time:YYYY-MM-DD HH:mm:ss} | {level: <8} | {name}:{function}:{line} | {message}",
-        level="INFO",
+        level=log_level,
     )
 
     # 添加错误日志文件
@@ -114,4 +122,4 @@ def setup_logging():
         level="ERROR",
     )
 
-    logger.info("✅ 日志系统初始化完成")
+    logger.info(f"✅ 日志系统初始化完成 (环境: {settings.ENVIRONMENT}, 日志级别: {log_level})")
