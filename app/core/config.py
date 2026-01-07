@@ -64,7 +64,7 @@ class Settings(BaseSettings):
     MINIO_SECURE: bool = False  # 是否使用 HTTPS
 
     # 文件上传配置
-    MAX_UPLOAD_SIZE: int = 100 * 1024 * 1024  # 100MB
+    MAX_UPLOAD_SIZE: int = 500 * 1024 * 1024  # 500MB
 
     # 应用配置
     APP_NAME: str = "Fast Data Agent"

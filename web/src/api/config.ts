@@ -7,7 +7,7 @@ import { storage } from '@/utils/storage';
 
 // 配置 axios 默认值
 axios.defaults.baseURL = import.meta.env.VITE_API_BASE_URL || '';
-axios.defaults.timeout = 30000;
+axios.defaults.timeout = 300000; // 5分钟，支持大文件上传
 // 注意：不要设置全局 Content-Type，让 axios 根据数据类型自动设置
 // 如果设置为 application/json，会导致 FormData 文件上传失败
 
