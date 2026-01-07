@@ -7,7 +7,7 @@ import { useNavigate } from 'react-router-dom';
 import {
   type BaseResponsePageResponseChatMessageResponse,
   getMessagesApiV1SessionsSessionIdMessagesGet,
-  useDataSources,
+  useRawDataList,
   useSessions,
 } from '@/api';
 import { EmptyState } from '@/components/common';
@@ -30,10 +30,10 @@ export const Dashboard = () => {
   const navigate = useNavigate();
   const { user } = useAuthStore();
 
-  const { data: dataSourcesResponse } = useDataSources({ page_size: 100 });
+  const { data: rawDataResponse } = useRawDataList({ page_size: 100 });
   const { data: sessionsResponse } = useSessions({ page_size: 100 });
 
-  const dataSources = dataSourcesResponse?.data.data?.items || [];
+  const rawDataList = rawDataResponse?.data.data?.items || [];
   const allSessions = sessionsResponse?.data.data?.items || [];
   const totalSessions = sessionsResponse?.data.data?.total || 0;
   const recentSessions = allSessions.slice(0, 5);
@@ -89,9 +89,9 @@ export const Dashboard = () => {
 
   const stats = [
     {
-      title: t('dashboard.totalDataSources'),
-      value: dataSources.length,
-      subValue: `${dataSources.length} ${t('dashboard.active')}`,
+      title: t('dashboard.totalDataObjects'),
+      value: rawDataList.length,
+      subValue: `${rawDataList.length} ${t('dashboard.active')}`,
       icon: Database,
       color: 'text-slate-600 dark:text-slate-400',
       bgColor: 'bg-slate-500/10',
@@ -166,7 +166,7 @@ export const Dashboard = () => {
                   step: 1,
                   title: t('dashboard.quickStart.step1Title'),
                   desc: t('dashboard.quickStart.step1Desc'),
-                  done: dataSources.length > 0,
+                  done: rawDataList.length > 0,
                   action: () => navigate('/data-sources'),
                 },
                 {
@@ -295,9 +295,6 @@ export const Dashboard = () => {
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
-                    <span className="text-xs text-muted-foreground">
-                      {(session.data_source_id ? 1 : 0)} {t('dashboard.dataSources')}
-                    </span>
                     <ArrowRight className="h-4 w-4 text-muted-foreground" />
                   </div>
                 </button>

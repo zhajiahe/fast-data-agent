@@ -16,8 +16,6 @@ import type {
   BaseResponseDatabaseConnectionTablesResponse,
   BaseResponseDatabaseConnectionWithRawResponse,
   BaseResponseDatabaseTableSchemaResponse,
-  BaseResponseDataSourcePreviewResponse,
-  BaseResponseDataSourceResponse,
   BaseResponseFilePreviewResponse,
   BaseResponseInt,
   BaseResponseListTaskRecommendationResponse,
@@ -25,7 +23,6 @@ import type {
   BaseResponsePageResponseAnalysisSessionResponse,
   BaseResponsePageResponseChatMessageResponse,
   BaseResponsePageResponseDatabaseConnectionResponse,
-  BaseResponsePageResponseDataSourceResponse,
   BaseResponsePageResponseRawDataResponse,
   BaseResponsePageResponseTaskRecommendationResponse,
   BaseResponsePageResponseUploadedFileResponse,
@@ -39,18 +36,15 @@ import type {
   BodyUploadFileApiV1FilesUploadPost,
   CreateConnectionApiV1DatabaseConnectionsPostParams,
   DatabaseConnectionCreate,
-  DataSourceCreate,
   GenerateRecommendationsApiV1SessionsSessionIdRecommendationsPostBody,
   GetConnectionsApiV1DatabaseConnectionsGetParams,
   GetConnectionTableSchemaApiV1DatabaseConnectionsConnectionIdSchemaGetParams,
-  GetDataSourcesApiV1DataSourcesGetParams,
   GetFilePreviewApiV1FilesFileIdPreviewGetParams,
   GetMessagesApiV1SessionsSessionIdMessagesGetParams,
   GetRawDataListApiV1RawDataGetParams,
   GetRecommendationsApiV1SessionsSessionIdRecommendationsGetParams,
   GetSessionsApiV1SessionsGetParams,
   LoginRequest,
-  PreviewDataSourceApiV1DataSourcesDataSourceIdPreviewPostBody,
   PreviewRawDataApiV1RawDataRawDataIdPreviewPostBody,
   RawDataCreate,
   TaskRecommendationUpdate,
@@ -61,12 +55,10 @@ import {
   archiveSessionApiV1SessionsSessionIdArchivePost,
   clearMessagesApiV1SessionsSessionIdMessagesDelete,
   createConnectionApiV1DatabaseConnectionsPost,
-  createDataSourceApiV1DataSourcesPost,
   // RawData
   createRawDataApiV1RawDataPost,
   createSessionApiV1SessionsPost,
   deleteConnectionApiV1DatabaseConnectionsConnectionIdDelete,
-  deleteDataSourceApiV1DataSourcesDataSourceIdDelete,
   deleteFileApiV1FilesFileIdDelete,
   deleteSessionApiV1SessionsSessionIdDelete,
   generateRecommendationsApiV1SessionsSessionIdRecommendationsPost,
@@ -74,9 +66,6 @@ import {
   getConnectionTableSchemaApiV1DatabaseConnectionsConnectionIdSchemaGet,
   getConnectionTablesApiV1DatabaseConnectionsConnectionIdTablesGet,
   getCurrentUserInfoApiV1AuthMeGet,
-  // Data Sources
-  getDataSourceApiV1DataSourcesDataSourceIdGet,
-  getDataSourcesApiV1DataSourcesGet,
   // Files
   getFilePreviewApiV1FilesFileIdPreviewGet,
   getFilesApiV1FilesGet,
@@ -90,9 +79,7 @@ import {
   getSessionsApiV1SessionsGet,
   // Auth
   loginApiV1AuthLoginPost,
-  previewDataSourceApiV1DataSourcesDataSourceIdPreviewPost,
   previewRawDataApiV1RawDataRawDataIdPreviewPost,
-  refreshDataSourceSchemaApiV1DataSourcesDataSourceIdRefreshSchemaPost,
   registerApiV1AuthRegisterPost,
   updateRecommendationApiV1SessionsSessionIdRecommendationsRecommendationIdPut,
   uploadFileApiV1FilesUploadPost,
@@ -119,75 +106,6 @@ export const useCurrentUser = () => {
   });
 };
 
-// ==================== Data Source Hooks ====================
-
-export const useDataSources = (params?: GetDataSourcesApiV1DataSourcesGetParams) => {
-  return useQuery<AxiosResponse<BaseResponsePageResponseDataSourceResponse>, Error>({
-    queryKey: ['dataSources', params],
-    queryFn: () => getDataSourcesApiV1DataSourcesGet(params),
-  });
-};
-
-export const useDataSourceDetail = (dataSourceId?: string) => {
-  return useQuery<AxiosResponse<BaseResponseDataSourceResponse>, Error>({
-    queryKey: ['dataSource', dataSourceId],
-    queryFn: () => getDataSourceApiV1DataSourcesDataSourceIdGet(dataSourceId as string),
-    enabled: !!dataSourceId,
-  });
-};
-
-export const useCreateDataSource = () => {
-  const queryClient = useQueryClient();
-  return useMutation<AxiosResponse<BaseResponseDataSourceResponse>, Error, DataSourceCreate>({
-    mutationFn: (data) => createDataSourceApiV1DataSourcesPost(data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['dataSources'] });
-    },
-  });
-};
-
-export const useDeleteDataSource = () => {
-  const queryClient = useQueryClient();
-  return useMutation<AxiosResponse<BaseResponseNoneType>, Error, string>({
-    mutationFn: (id) => deleteDataSourceApiV1DataSourcesDataSourceIdDelete(id),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['dataSources'] });
-    },
-  });
-};
-
-export const useSyncDataSourceSchema = () => {
-  const queryClient = useQueryClient();
-  return useMutation<AxiosResponse<BaseResponseDataSourceResponse>, Error, string>({
-    mutationFn: (id) => refreshDataSourceSchemaApiV1DataSourcesDataSourceIdRefreshSchemaPost(id),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['dataSources'] });
-    },
-  });
-};
-
-export const useDataSourcePreview = (
-  dataSourceId?: string,
-  body: PreviewDataSourceApiV1DataSourcesDataSourceIdPreviewPostBody = {}
-) => {
-  return useQuery<AxiosResponse<BaseResponseDataSourcePreviewResponse>, Error>({
-    queryKey: ['data-source-preview', dataSourceId, body],
-    queryFn: () => previewDataSourceApiV1DataSourcesDataSourceIdPreviewPost(dataSourceId as string, body),
-    enabled: !!dataSourceId,
-  });
-};
-
-export const useRawDataPreview = (
-  rawDataId?: string,
-  body: PreviewRawDataApiV1RawDataRawDataIdPreviewPostBody = {}
-) => {
-  return useQuery<AxiosResponse<BaseResponseRawDataPreviewResponse>, Error>({
-    queryKey: ['rawDataPreview', rawDataId, body],
-    queryFn: () => previewRawDataApiV1RawDataRawDataIdPreviewPost(rawDataId as string, body),
-    enabled: !!rawDataId,
-  });
-};
-
 // ==================== RawData Hooks ====================
 
 export const useRawDataList = (params?: GetRawDataListApiV1RawDataGetParams) => {
@@ -207,6 +125,17 @@ export const useCreateRawData = () => {
   });
 };
 
+export const useRawDataPreview = (
+  rawDataId?: string,
+  body: PreviewRawDataApiV1RawDataRawDataIdPreviewPostBody = {}
+) => {
+  return useQuery<AxiosResponse<BaseResponseRawDataPreviewResponse>, Error>({
+    queryKey: ['rawDataPreview', rawDataId, body],
+    queryFn: () => previewRawDataApiV1RawDataRawDataIdPreviewPost(rawDataId as string, body),
+    enabled: !!rawDataId,
+  });
+};
+
 // ==================== File Hooks ====================
 
 export const useFiles = () => {
@@ -222,7 +151,7 @@ export const useUploadFile = () => {
     mutationFn: (data) => uploadFileApiV1FilesUploadPost(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['files'] });
-      queryClient.invalidateQueries({ queryKey: ['dataSources'] });
+      queryClient.invalidateQueries({ queryKey: ['rawData'] });
     },
   });
 };
@@ -233,16 +162,7 @@ export const useDeleteFile = () => {
     mutationFn: (id) => deleteFileApiV1FilesFileIdDelete(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['files'] });
-    },
-  });
-};
-
-export const useDeleteDbConnection = () => {
-  const queryClient = useQueryClient();
-  return useMutation<AxiosResponse<BaseResponseNoneType>, Error, string>({
-    mutationFn: (id) => deleteConnectionApiV1DatabaseConnectionsConnectionIdDelete(id),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['db-connections'] });
+      queryClient.invalidateQueries({ queryKey: ['rawData'] });
     },
   });
 };
@@ -275,7 +195,17 @@ export const useCreateDbConnection = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['db-connections'] });
       queryClient.invalidateQueries({ queryKey: ['rawData'] });
-      queryClient.invalidateQueries({ queryKey: ['dataSources'] });
+    },
+  });
+};
+
+export const useDeleteDbConnection = () => {
+  const queryClient = useQueryClient();
+  return useMutation<AxiosResponse<BaseResponseNoneType>, Error, string>({
+    mutationFn: (id) => deleteConnectionApiV1DatabaseConnectionsConnectionIdDelete(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['db-connections'] });
+      queryClient.invalidateQueries({ queryKey: ['rawData'] });
     },
   });
 };

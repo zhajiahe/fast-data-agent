@@ -72,11 +72,11 @@ export interface ToolCall {
 
 /**
  * 本地消息类型（用于 UI 状态管理）
- * id 支持 number（后端消息）或 string（临时工具消息，使用 tool_call_id）
+ * id 支持 string（UUID）或临时 ID（前缀 temp- 或 streaming）
  */
 export interface LocalMessage {
-  id: number | string;
-  session_id: number;
+  id: string;
+  session_id: string;
   seq?: number; // 消息序号（会话内递增，用于排序）
   message_type: 'human' | 'ai' | 'tool' | 'system';
   content: string;

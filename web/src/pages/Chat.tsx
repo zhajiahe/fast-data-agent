@@ -4,7 +4,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate, useParams } from 'react-router-dom';
 import {
-  type AnalysisSessionDetail,
   generateFollowupRecommendationsApiV1SessionsSessionIdRecommendationsFollowupPost,
   useClearMessages,
   useMessages,
@@ -68,7 +67,7 @@ export const Chat = () => {
   } = useMessages(sessionId, { page_size: 100 });
   const clearMessagesMutation = useClearMessages();
 
-  const currentSession: AnalysisSessionDetail | null = sessionResponse?.data.data || null;
+  const currentSession = sessionResponse?.data.data || null;
 
   // 添加消息到本地（防止重复）
   const addMessage = useCallback((message: LocalMessage) => {
@@ -121,7 +120,7 @@ export const Chat = () => {
   const apiMessagesItems = messagesResponse?.data.data?.items;
 
   // 追踪上一次同步的 sessionId，避免重复同步
-  const lastSyncedSessionRef = useRef<number | null>(null);
+  const lastSyncedSessionRef = useRef<string | null>(null);
 
   // 会话切换时重置状态
   useEffect(() => {
@@ -134,7 +133,7 @@ export const Chat = () => {
   // 将 API 消息转换为本地格式的工具函数
   const convertApiMessages = useCallback((items: typeof apiMessagesItems): LocalMessage[] => {
     if (!items) return [];
-    const converted = items.map((m) => ({
+    const converted: LocalMessage[] = items.map((m) => ({
       id: m.id,
       session_id: m.session_id,
       seq: m.seq,
@@ -350,7 +349,7 @@ export const Chat = () => {
 
       // 添加用户消息到本地
       const userMessage: LocalMessage = {
-        id: Date.now(),
+        id: `temp-${Date.now()}`,
         session_id: sessionId,
         message_type: 'human',
         content,
@@ -411,10 +410,10 @@ export const Chat = () => {
             </Button>
             <div>
               <h1 className="font-semibold truncate max-w-[300px]">{currentSession?.name || t('chat.loading')}</h1>
-              {currentSession?.data_sources && currentSession.data_sources.length > 0 && (
+              {currentSession?.raw_data_list && currentSession.raw_data_list.length > 0 && (
                 <div className="flex items-center gap-1 text-xs text-muted-foreground">
                   <Database className="h-3 w-3" />
-                  {currentSession.data_sources.map((ds) => ds.name).join(', ')}
+                  {currentSession.raw_data_list.map((rd) => rd.name).join(', ')}
                 </div>
               )}
             </div>
@@ -466,7 +465,7 @@ export const Chat = () => {
                 {streamingText && (
                   <ChatMessage
                     message={{
-                      id: -1,
+                      id: 'streaming',
                       session_id: sessionId,
                       message_type: 'ai',
                       content: streamingText,

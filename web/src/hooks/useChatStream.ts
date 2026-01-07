@@ -7,7 +7,7 @@ import type { LocalMessage, SSEEvent, ToolCallState } from '@/types';
 import { storage } from '@/utils/storage';
 
 interface UseChatStreamOptions {
-  sessionId: number;
+  sessionId: string;
   /** 消息回调，添加消息到列表 */
   onMessage: (message: LocalMessage) => void;
   onError: (error: string) => void;

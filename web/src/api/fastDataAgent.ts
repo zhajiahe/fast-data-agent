@@ -16,11 +16,6 @@ import type {
  */
 export type AnalysisSessionCreateDescription = string | null;
 
-/**
- * 关联的数据源ID（可选）
- */
-export type AnalysisSessionCreateDataSourceId = string | null;
-
 export type AnalysisSessionCreateConfigAnyOf = { [key: string]: unknown };
 
 /**
@@ -40,21 +35,16 @@ export interface AnalysisSessionCreate {
   name: string;
   /** 会话描述 */
   description?: AnalysisSessionCreateDescription;
-  /** 关联的数据源ID（可选） */
-  data_source_id?: AnalysisSessionCreateDataSourceId;
   /** 会话配置 */
   config?: AnalysisSessionCreateConfig;
+  /** 关联的数据对象ID列表 */
+  raw_data_ids?: string[];
 }
 
 /**
  * 会话描述
  */
 export type AnalysisSessionDetailDescription = string | null;
-
-/**
- * 关联的数据源ID
- */
-export type AnalysisSessionDetailDataSourceId = string | null;
 
 export type AnalysisSessionDetailConfigAnyOf = { [key: string]: unknown };
 
@@ -74,12 +64,7 @@ export type AnalysisSessionDetailCreateTime = string | null;
 export type AnalysisSessionDetailUpdateTime = string | null;
 
 /**
- * 关联的数据源详情
- */
-export type AnalysisSessionDetailDataSource = DataSourceResponse | null;
-
-/**
- * 分析会话详情（包含完整数据源信息）
+ * 分析会话详情（包含完整 RawData 信息）
  */
 export interface AnalysisSessionDetail {
   /**
@@ -94,8 +79,6 @@ export interface AnalysisSessionDetail {
   id: string;
   /** 所属用户ID */
   user_id: string;
-  /** 关联的数据源ID */
-  data_source_id?: AnalysisSessionDetailDataSourceId;
   /** 会话配置 */
   config?: AnalysisSessionDetailConfig;
   /** 会话状态 */
@@ -106,19 +89,14 @@ export interface AnalysisSessionDetail {
   create_time?: AnalysisSessionDetailCreateTime;
   /** 更新时间 */
   update_time?: AnalysisSessionDetailUpdateTime;
-  /** 关联的数据源详情 */
-  data_source?: AnalysisSessionDetailDataSource;
+  /** 关联的数据对象 */
+  raw_data_list?: RawDataBrief[];
 }
 
 /**
  * 会话描述
  */
 export type AnalysisSessionResponseDescription = string | null;
-
-/**
- * 关联的数据源ID
- */
-export type AnalysisSessionResponseDataSourceId = string | null;
 
 export type AnalysisSessionResponseConfigAnyOf = { [key: string]: unknown };
 
@@ -153,8 +131,6 @@ export interface AnalysisSessionResponse {
   id: string;
   /** 所属用户ID */
   user_id: string;
-  /** 关联的数据源ID */
-  data_source_id?: AnalysisSessionResponseDataSourceId;
   /** 会话配置 */
   config?: AnalysisSessionResponseConfig;
   /** 会话状态 */
@@ -165,6 +141,8 @@ export interface AnalysisSessionResponse {
   create_time?: AnalysisSessionResponseCreateTime;
   /** 更新时间 */
   update_time?: AnalysisSessionResponseUpdateTime;
+  /** 关联的数据对象 */
+  raw_data_list?: RawDataBrief[];
 }
 
 /**
@@ -177,17 +155,17 @@ export type AnalysisSessionUpdateName = string | null;
  */
 export type AnalysisSessionUpdateDescription = string | null;
 
-/**
- * 关联的数据源ID（可选）
- */
-export type AnalysisSessionUpdateDataSourceId = string | null;
-
 export type AnalysisSessionUpdateConfigAnyOf = { [key: string]: unknown };
 
 /**
  * 会话配置
  */
 export type AnalysisSessionUpdateConfig = AnalysisSessionUpdateConfigAnyOf | null;
+
+/**
+ * 更新关联的数据对象ID列表
+ */
+export type AnalysisSessionUpdateRawDataIds = string[] | null;
 
 /**
  * 更新分析会话请求
@@ -197,10 +175,10 @@ export interface AnalysisSessionUpdate {
   name?: AnalysisSessionUpdateName;
   /** 会话描述 */
   description?: AnalysisSessionUpdateDescription;
-  /** 关联的数据源ID（可选） */
-  data_source_id?: AnalysisSessionUpdateDataSourceId;
   /** 会话配置 */
   config?: AnalysisSessionUpdateConfig;
+  /** 更新关联的数据对象ID列表 */
+  raw_data_ids?: AnalysisSessionUpdateRawDataIds;
 }
 
 /**
@@ -260,28 +238,40 @@ export interface BaseResponseBatchCreateFromConnectionResponse {
   err?: BaseResponseBatchCreateFromConnectionResponseErr;
 }
 
-export type BaseResponseDataSourcePreviewResponseData = DataSourcePreviewResponse | null;
+export type BaseResponseBatchDeleteResultData = BatchDeleteResult | null;
 
-export type BaseResponseDataSourcePreviewResponseErr = DataSourcePreviewResponse | null;
+export type BaseResponseBatchDeleteResultErr = BatchDeleteResult | null;
 
-export interface BaseResponseDataSourcePreviewResponse {
+export interface BaseResponseBatchDeleteResult {
   success: boolean;
   code: number;
   msg: string;
-  data?: BaseResponseDataSourcePreviewResponseData;
-  err?: BaseResponseDataSourcePreviewResponseErr;
+  data?: BaseResponseBatchDeleteResultData;
+  err?: BaseResponseBatchDeleteResultErr;
 }
 
-export type BaseResponseDataSourceResponseData = DataSourceResponse | null;
+export type BaseResponseBatchMessagesResponseData = BatchMessagesResponse | null;
 
-export type BaseResponseDataSourceResponseErr = DataSourceResponse | null;
+export type BaseResponseBatchMessagesResponseErr = BatchMessagesResponse | null;
 
-export interface BaseResponseDataSourceResponse {
+export interface BaseResponseBatchMessagesResponse {
   success: boolean;
   code: number;
   msg: string;
-  data?: BaseResponseDataSourceResponseData;
-  err?: BaseResponseDataSourceResponseErr;
+  data?: BaseResponseBatchMessagesResponseData;
+  err?: BaseResponseBatchMessagesResponseErr;
+}
+
+export type BaseResponseCascadeDeleteResultData = CascadeDeleteResult | null;
+
+export type BaseResponseCascadeDeleteResultErr = CascadeDeleteResult | null;
+
+export interface BaseResponseCascadeDeleteResult {
+  success: boolean;
+  code: number;
+  msg: string;
+  data?: BaseResponseCascadeDeleteResultData;
+  err?: BaseResponseCascadeDeleteResultErr;
 }
 
 export type BaseResponseDatabaseConnectionResponseData = DatabaseConnectionResponse | null;
@@ -388,18 +378,6 @@ export interface BaseResponsePageResponseChatMessageResponse {
   err?: BaseResponsePageResponseChatMessageResponseErr;
 }
 
-export type BaseResponsePageResponseDataSourceResponseData = PageResponseDataSourceResponse | null;
-
-export type BaseResponsePageResponseDataSourceResponseErr = PageResponseDataSourceResponse | null;
-
-export interface BaseResponsePageResponseDataSourceResponse {
-  success: boolean;
-  code: number;
-  msg: string;
-  data?: BaseResponsePageResponseDataSourceResponseData;
-  err?: BaseResponsePageResponseDataSourceResponseErr;
-}
-
 export type BaseResponsePageResponseDatabaseConnectionResponseData = PageResponseDatabaseConnectionResponse | null;
 
 export type BaseResponsePageResponseDatabaseConnectionResponseErr = PageResponseDatabaseConnectionResponse | null;
@@ -484,28 +462,16 @@ export interface BaseResponseRawDataResponse {
   err?: BaseResponseRawDataResponseErr;
 }
 
-export type BaseResponseSuggestMappingsResponseData = SuggestMappingsResponse | null;
+export type BaseResponseSystemStatsData = SystemStats | null;
 
-export type BaseResponseSuggestMappingsResponseErr = SuggestMappingsResponse | null;
+export type BaseResponseSystemStatsErr = SystemStats | null;
 
-export interface BaseResponseSuggestMappingsResponse {
+export interface BaseResponseSystemStats {
   success: boolean;
   code: number;
   msg: string;
-  data?: BaseResponseSuggestMappingsResponseData;
-  err?: BaseResponseSuggestMappingsResponseErr;
-}
-
-export type BaseResponseSuggestTargetFieldsResponseData = SuggestTargetFieldsResponse | null;
-
-export type BaseResponseSuggestTargetFieldsResponseErr = SuggestTargetFieldsResponse | null;
-
-export interface BaseResponseSuggestTargetFieldsResponse {
-  success: boolean;
-  code: number;
-  msg: string;
-  data?: BaseResponseSuggestTargetFieldsResponseData;
-  err?: BaseResponseSuggestTargetFieldsResponseErr;
+  data?: BaseResponseSystemStatsData;
+  err?: BaseResponseSystemStatsErr;
 }
 
 export type BaseResponseTaskRecommendationResponseData = TaskRecommendationResponse | null;
@@ -554,6 +520,18 @@ export interface BaseResponseUploadedFileWithRawDataResponse {
   msg: string;
   data?: BaseResponseUploadedFileWithRawDataResponseData;
   err?: BaseResponseUploadedFileWithRawDataResponseErr;
+}
+
+export type BaseResponseUserResourceDetailData = UserResourceDetail | null;
+
+export type BaseResponseUserResourceDetailErr = UserResourceDetail | null;
+
+export interface BaseResponseUserResourceDetail {
+  success: boolean;
+  code: number;
+  msg: string;
+  data?: BaseResponseUserResourceDetailData;
+  err?: BaseResponseUserResourceDetailErr;
 }
 
 export type BaseResponseUserResponseData = UserResponse | null;
@@ -675,6 +653,59 @@ export interface BatchCreateResult {
   error_message?: BatchCreateResultErrorMessage;
 }
 
+/**
+ * 批量删除请求
+ */
+export interface BatchDeleteRequest {
+  /**
+   * 要删除的用户ID列表
+   * @minItems 1
+   */
+  user_ids: string[];
+}
+
+export type BatchDeleteResultDetailsItem = { [key: string]: unknown };
+
+/**
+ * 批量删除结果
+ */
+export interface BatchDeleteResult {
+  /** 成功删除数 */
+  success_count: number;
+  /** 失败数 */
+  failed_count: number;
+  /** 跳过数（如当前用户） */
+  skipped_count: number;
+  /** 详细结果 */
+  details?: BatchDeleteResultDetailsItem[];
+}
+
+/**
+ * 批量获取消息请求
+ */
+export interface BatchMessagesRequest {
+  /**
+   * 会话ID列表
+   * @minItems 1
+   * @maxItems 100
+   */
+  session_ids: string[];
+  /**
+   * 每个会话的消息数量上限
+   * @minimum 1
+   * @maximum 500
+   */
+  page_size?: number;
+}
+
+/**
+ * 批量获取消息响应
+ */
+export interface BatchMessagesResponse {
+  /** 各会话的消息列表 */
+  items?: SessionMessages[];
+}
+
 export interface BodyUploadFileApiV1FilesUploadPost {
   /** 要上传的文件 */
   file: Blob;
@@ -682,6 +713,30 @@ export interface BodyUploadFileApiV1FilesUploadPost {
 
 export interface BodyUploadSessionFileApiV1SessionsSessionIdFilesUploadPost {
   file: Blob;
+}
+
+/**
+ * 级联删除结果
+ */
+export interface CascadeDeleteResult {
+  /** 用户ID */
+  user_id: string;
+  /** 用户名 */
+  username: string;
+  /** 删除的会话数 */
+  deleted_sessions: number;
+  /** 删除的消息数 */
+  deleted_messages: number;
+  /** 删除的数据对象数 */
+  deleted_raw_data: number;
+  /** 删除的数据库连接数 */
+  deleted_connections: number;
+  /** 删除的文件数 */
+  deleted_files: number;
+  /** 沙箱是否已清理 */
+  sandbox_cleaned: boolean;
+  /** MinIO文件删除数 */
+  minio_files_deleted: number;
 }
 
 /**
@@ -790,191 +845,6 @@ export interface ColumnSchema {
   user_type_override?: ColumnSchemaUserTypeOverride;
   /** 列注释 */
   comment?: ColumnSchemaComment;
-}
-
-/**
- * 数据源分类
- */
-export type DataSourceCategory = typeof DataSourceCategory[keyof typeof DataSourceCategory];
-
-
-// eslint-disable-next-line @typescript-eslint/no-redeclare
-export const DataSourceCategory = {
-  fact: 'fact',
-  dimension: 'dimension',
-  event: 'event',
-  other: 'other',
-} as const;
-
-/**
- * 数据源描述
- */
-export type DataSourceCreateDescription = string | null;
-
-/**
- * 数据源分类
- */
-export type DataSourceCreateCategory = DataSourceCategory | null;
-
-/**
- * 创建数据源请求
- */
-export interface DataSourceCreate {
-  /**
-   * 数据源名称
-   * @minLength 1
-   * @maxLength 100
-   */
-  name: string;
-  /** 数据源描述 */
-  description?: DataSourceCreateDescription;
-  /** 数据源分类 */
-  category?: DataSourceCreateCategory;
-  /** 目标字段定义 */
-  target_fields?: TargetField[];
-  /** 数据对象字段映射 */
-  raw_mappings?: FieldMapping[];
-}
-
-/**
- * 数据源预览请求（合并后的数据）
- */
-export interface DataSourcePreviewRequest {
-  /**
-   * 预览行数
-   * @minimum 1
-   * @maximum 1000
-   */
-  limit?: number;
-}
-
-export type DataSourcePreviewResponseRowsItem = { [key: string]: unknown };
-
-/**
- * 各 Raw 源的行数统计
- */
-export type DataSourcePreviewResponseSourceStats = {[key: string]: number};
-
-/**
- * 数据源预览响应
- */
-export interface DataSourcePreviewResponse {
-  /** 字段定义 */
-  columns?: TargetField[];
-  /** 合并后的数据行 */
-  rows?: DataSourcePreviewResponseRowsItem[];
-  /** 各 Raw 源的行数统计 */
-  source_stats?: DataSourcePreviewResponseSourceStats;
-  /** 预览时间 */
-  preview_at: string;
-}
-
-/**
- * 数据源描述
- */
-export type DataSourceResponseDescription = string | null;
-
-/**
- * 数据源分类
- */
-export type DataSourceResponseCategory = DataSourceCategory | null;
-
-/**
- * 目标字段定义
- */
-export type DataSourceResponseTargetFields = TargetField[] | null;
-
-export type DataSourceResponseSchemaCacheAnyOf = { [key: string]: unknown };
-
-/**
- * 表结构缓存
- */
-export type DataSourceResponseSchemaCache = DataSourceResponseSchemaCacheAnyOf | null;
-
-/**
- * 数据对象映射
- */
-export type DataSourceResponseRawMappings = RawMappingResponse[] | null;
-
-/**
- * 创建时间
- */
-export type DataSourceResponseCreateTime = string | null;
-
-/**
- * 更新时间
- */
-export type DataSourceResponseUpdateTime = string | null;
-
-/**
- * 数据源响应
- */
-export interface DataSourceResponse {
-  /**
-   * 数据源名称
-   * @minLength 1
-   * @maxLength 100
-   */
-  name: string;
-  /** 数据源描述 */
-  description?: DataSourceResponseDescription;
-  /** 数据源分类 */
-  category?: DataSourceResponseCategory;
-  /** 数据源ID */
-  id: string;
-  /** 所属用户ID */
-  user_id: string;
-  /** 目标字段定义 */
-  target_fields?: DataSourceResponseTargetFields;
-  /** 表结构缓存 */
-  schema_cache?: DataSourceResponseSchemaCache;
-  /** 数据对象映射 */
-  raw_mappings?: DataSourceResponseRawMappings;
-  /** 创建时间 */
-  create_time?: DataSourceResponseCreateTime;
-  /** 更新时间 */
-  update_time?: DataSourceResponseUpdateTime;
-}
-
-/**
- * 数据源名称
- */
-export type DataSourceUpdateName = string | null;
-
-/**
- * 数据源描述
- */
-export type DataSourceUpdateDescription = string | null;
-
-/**
- * 数据源分类
- */
-export type DataSourceUpdateCategory = DataSourceCategory | null;
-
-/**
- * 目标字段定义
- */
-export type DataSourceUpdateTargetFields = TargetField[] | null;
-
-/**
- * 数据对象字段映射
- */
-export type DataSourceUpdateRawMappings = FieldMapping[] | null;
-
-/**
- * 更新数据源请求
- */
-export interface DataSourceUpdate {
-  /** 数据源名称 */
-  name?: DataSourceUpdateName;
-  /** 数据源描述 */
-  description?: DataSourceUpdateDescription;
-  /** 数据源分类 */
-  category?: DataSourceUpdateCategory;
-  /** 目标字段定义 */
-  target_fields?: DataSourceUpdateTargetFields;
-  /** 数据对象字段映射 */
-  raw_mappings?: DataSourceUpdateRawMappings;
 }
 
 export type DatabaseConnectionConfigExtraParamsAnyOf = { [key: string]: unknown };
@@ -1297,47 +1167,6 @@ export const DatabaseType = {
   postgresql: 'postgresql',
 } as const;
 
-/**
- * 字段映射: {target_field: source_field_or_null}
- */
-export type FieldMappingMappings = {[key: string]: string | null};
-
-/**
- * 单个 Raw 的字段映射
- */
-export interface FieldMapping {
-  /** 数据对象ID */
-  raw_data_id: string;
-  /** 字段映射: {target_field: source_field_or_null} */
-  mappings: FieldMappingMappings;
-  /** 优先级（数值越大优先级越高） */
-  priority?: number;
-  /** 是否启用 */
-  is_enabled?: boolean;
-}
-
-/**
- * 单个字段映射建议
- */
-export interface FieldMappingSuggestionResponse {
-  /** 目标字段名 */
-  target_field: string;
-  /** 推荐的源字段名 */
-  source_field: string;
-  /** 来源 RawData ID */
-  raw_data_id: string;
-  /** 来源 RawData 名称 */
-  raw_data_name: string;
-  /**
-   * 匹配置信度 (0-1)
-   * @minimum 0
-   * @maximum 1
-   */
-  confidence: number;
-  /** 推荐理由 */
-  reason: string;
-}
-
 export type FilePreviewResponseColumnsItem = { [key: string]: unknown };
 
 export type FilePreviewResponseDataItem = { [key: string]: unknown };
@@ -1355,7 +1184,7 @@ export interface FilePreviewResponse {
 }
 
 /**
- * 文件类型
+ * 文件类型枚举
  */
 export type FileType = typeof FileType[keyof typeof FileType];
 
@@ -1456,17 +1285,6 @@ export interface PageResponseChatMessageResponse {
   items?: ChatMessageResponse[];
 }
 
-export interface PageResponseDataSourceResponse {
-  /** 当前页码 */
-  page_num?: number;
-  /** 每页数量 */
-  page_size?: number;
-  /** 总记录数 */
-  total?: number;
-  /** 分页数据 */
-  items?: DataSourceResponse[];
-}
-
 export interface PageResponseDatabaseConnectionResponse {
   /** 当前页码 */
   page_num?: number;
@@ -1538,6 +1356,18 @@ export interface PasswordChange {
    * @maxLength 128
    */
   new_password: string;
+}
+
+export type RawDataBriefAlias = string | null;
+
+/**
+ * RawData 简要信息
+ */
+export interface RawDataBrief {
+  id: string;
+  name: string;
+  raw_type: string;
+  alias?: RawDataBriefAlias;
 }
 
 /**
@@ -1816,34 +1646,6 @@ export interface RawDataUpdate {
 }
 
 /**
- * 数据对象名称
- */
-export type RawMappingResponseRawDataName = string | null;
-
-/**
- * 字段映射
- */
-export type RawMappingResponseFieldMappings = {[key: string]: string | null};
-
-/**
- * Raw 映射响应
- */
-export interface RawMappingResponse {
-  /** 映射ID */
-  id: string;
-  /** 数据对象ID */
-  raw_data_id: string;
-  /** 数据对象名称 */
-  raw_data_name?: RawMappingResponseRawDataName;
-  /** 字段映射 */
-  field_mappings?: RawMappingResponseFieldMappings;
-  /** 优先级 */
-  priority?: number;
-  /** 是否启用 */
-  is_enabled?: boolean;
-}
-
-/**
  * 刷新令牌请求
  */
 export interface RefreshTokenRequest {
@@ -1852,65 +1654,53 @@ export interface RefreshTokenRequest {
 }
 
 /**
- * 字段映射建议请求
+ * 重置密码请求
  */
-export interface SuggestMappingsRequest {
+export interface ResetPasswordRequest {
   /**
-   * 目标字段列表
-   * @minItems 1
+   * 新密码
+   * @minLength 6
+   * @maxLength 128
    */
-  target_fields: TargetField[];
-  /**
-   * 数据对象ID列表
-   * @minItems 1
-   */
-  raw_data_ids: string[];
+  new_password: string;
 }
 
 /**
- * 字段映射建议响应
+ * 单个会话的消息列表
  */
-export interface SuggestMappingsResponse {
-  /** 字段映射建议列表 */
-  suggestions?: FieldMappingSuggestionResponse[];
+export interface SessionMessages {
+  /** 会话ID */
+  session_id: string;
+  /** 消息列表 */
+  messages?: ChatMessageResponse[];
+  /** 消息总数 */
+  total?: number;
 }
 
 /**
- * 从数据对象推断目标字段请求
+ * 系统统计信息
  */
-export interface SuggestTargetFieldsRequest {
-  /**
-   * 数据对象ID列表
-   * @minItems 1
-   */
-  raw_data_ids: string[];
-}
-
-/**
- * 推断目标字段响应
- */
-export interface SuggestTargetFieldsResponse {
-  /** 推荐的目标字段列表 */
-  fields?: SuggestedTargetField[];
-}
-
-/**
- * 字段描述
- */
-export type SuggestedTargetFieldDescription = string | null;
-
-/**
- * 推荐的目标字段
- */
-export interface SuggestedTargetField {
-  /** 字段名 */
-  name: string;
-  /** 数据类型 */
-  data_type: string;
-  /** 字段描述 */
-  description?: SuggestedTargetFieldDescription;
-  /** 出现在多少个数据源中 */
-  source_count?: number;
+export interface SystemStats {
+  /** 总用户数 */
+  total_users: number;
+  /** 活跃用户数 */
+  active_users: number;
+  /** 总会话数 */
+  total_sessions: number;
+  /** 总消息数 */
+  total_messages: number;
+  /** 总数据对象数 */
+  total_raw_data: number;
+  /** 总数据库连接数 */
+  total_connections: number;
+  /** 总上传文件数 */
+  total_files: number;
+  /** 今日新增用户 */
+  users_today: number;
+  /** 今日新增会话 */
+  sessions_today: number;
+  /** 今日新增消息 */
+  messages_today: number;
 }
 
 /**
@@ -1960,27 +1750,6 @@ export interface TableSelection {
   custom_name?: TableSelectionCustomName;
 }
 
-/**
- * 字段描述
- */
-export type TargetFieldDescription = string | null;
-
-/**
- * 目标字段定义
- */
-export interface TargetField {
-  /**
-   * 字段名
-   * @minLength 1
-   * @maxLength 100
-   */
-  name: string;
-  /** 数据类型 */
-  data_type: string;
-  /** 字段描述 */
-  description?: TargetFieldDescription;
-}
-
 export type TaskRecommendationResponseDescription = string | null;
 
 export type TaskRecommendationResponseTriggerMessageId = string | null;
@@ -2015,7 +1784,11 @@ export interface TaskRecommendationUpdate {
  */
 export interface Token {
   id: string;
+  username: string;
   nickname: string;
+  email: string;
+  is_active: boolean;
+  is_superuser: boolean;
   access_token: string;
   refresh_token: string;
   token_type?: string;
@@ -2070,6 +1843,7 @@ export interface UploadedFileResponse {
   original_name: string;
   /** MinIO对象存储Key */
   object_key: string;
+  /** 文件类型 */
   file_type: FileType;
   /** 文件大小(字节) */
   file_size: number;
@@ -2145,6 +1919,7 @@ export interface UploadedFileWithRawDataResponse {
   original_name: string;
   /** MinIO对象存储Key */
   object_key: string;
+  /** 文件类型 */
   file_type: FileType;
   /** 文件大小(字节) */
   file_size: number;
@@ -2198,6 +1973,56 @@ export interface UserCreate {
   is_superuser?: boolean;
 }
 
+export type UserResourceDetailSessionsItem = { [key: string]: unknown };
+
+export type UserResourceDetailRawDataItem = { [key: string]: unknown };
+
+export type UserResourceDetailConnectionsItem = { [key: string]: unknown };
+
+export type UserResourceDetailFilesItem = { [key: string]: unknown };
+
+/**
+ * 用户资源详情
+ */
+export interface UserResourceDetail {
+  /** 用户信息 */
+  user: UserResponse;
+  /** 资源统计 */
+  resources: UserResourceStats;
+  /** 会话列表 */
+  sessions?: UserResourceDetailSessionsItem[];
+  /** 数据对象列表 */
+  raw_data?: UserResourceDetailRawDataItem[];
+  /** 数据库连接列表 */
+  connections?: UserResourceDetailConnectionsItem[];
+  /** 文件列表 */
+  files?: UserResourceDetailFilesItem[];
+}
+
+/**
+ * 用户资源统计
+ */
+export interface UserResourceStats {
+  /** 用户ID */
+  user_id: string;
+  /** 用户名 */
+  username: string;
+  /** 昵称 */
+  nickname: string;
+  /** 会话数 */
+  sessions_count: number;
+  /** 消息数 */
+  messages_count: number;
+  /** 数据对象数 */
+  raw_data_count: number;
+  /** 数据库连接数 */
+  connections_count: number;
+  /** 上传文件数 */
+  files_count: number;
+  /** 文件总大小(bytes) */
+  total_file_size: number;
+}
+
 /**
  * 创建时间
  */
@@ -2236,6 +2061,22 @@ export interface UserResponse {
   create_time?: UserResponseCreateTime;
   /** 更新时间 */
   update_time?: UserResponseUpdateTime;
+}
+
+/**
+ * 用户角色更新请求
+ */
+export interface UserRoleRequest {
+  /** 是否超级管理员 */
+  is_superuser: boolean;
+}
+
+/**
+ * 用户状态切换请求
+ */
+export interface UserToggleRequest {
+  /** 是否激活 */
+  is_active: boolean;
 }
 
 /**
@@ -2333,21 +2174,6 @@ status?: string | null;
 };
 
 export type PreviewRawDataApiV1RawDataRawDataIdPreviewPostBody = RawDataPreviewRequest | null;
-
-export type GetDataSourcesApiV1DataSourcesGetParams = {
-/**
- * @minimum 1
- */
-page_num?: number;
-/**
- * @minimum 1
- */
-page_size?: number;
-keyword?: string | null;
-category?: DataSourceCategory | null;
-};
-
-export type PreviewDataSourceApiV1DataSourcesDataSourceIdPreviewPostBody = DataSourcePreviewRequest | null;
 
 export type GetFilesApiV1FilesGetParams = {
 /**
@@ -2816,132 +2642,6 @@ export const syncRawDataApiV1RawDataRawDataIdSyncPost = <TData = AxiosResponse<B
   }
 
 /**
- * 获取数据源列表（分页）
- * @summary Get Data Sources
- */
-export const getDataSourcesApiV1DataSourcesGet = <TData = AxiosResponse<BaseResponsePageResponseDataSourceResponse>>(
-    params?: GetDataSourcesApiV1DataSourcesGetParams, options?: AxiosRequestConfig
- ): Promise<TData> => {
-    return axios.get(
-      `/api/v1/data-sources`,{
-    ...options,
-        params: {...params, ...options?.params},}
-    );
-  }
-
-/**
- * 创建数据源
- * @summary Create Data Source
- */
-export const createDataSourceApiV1DataSourcesPost = <TData = AxiosResponse<BaseResponseDataSourceResponse>>(
-    dataSourceCreate: DataSourceCreate, options?: AxiosRequestConfig
- ): Promise<TData> => {
-    return axios.post(
-      `/api/v1/data-sources`,
-      dataSourceCreate,options
-    );
-  }
-
-/**
- * 获取单个数据源详情（包含映射信息）
- * @summary Get Data Source
- */
-export const getDataSourceApiV1DataSourcesDataSourceIdGet = <TData = AxiosResponse<BaseResponseDataSourceResponse>>(
-    dataSourceId: string, options?: AxiosRequestConfig
- ): Promise<TData> => {
-    return axios.get(
-      `/api/v1/data-sources/${dataSourceId}`,options
-    );
-  }
-
-/**
- * 更新数据源
- * @summary Update Data Source
- */
-export const updateDataSourceApiV1DataSourcesDataSourceIdPut = <TData = AxiosResponse<BaseResponseDataSourceResponse>>(
-    dataSourceId: string,
-    dataSourceUpdate: DataSourceUpdate, options?: AxiosRequestConfig
- ): Promise<TData> => {
-    return axios.put(
-      `/api/v1/data-sources/${dataSourceId}`,
-      dataSourceUpdate,options
-    );
-  }
-
-/**
- * 删除数据源
- * @summary Delete Data Source
- */
-export const deleteDataSourceApiV1DataSourcesDataSourceIdDelete = <TData = AxiosResponse<BaseResponseNoneType>>(
-    dataSourceId: string, options?: AxiosRequestConfig
- ): Promise<TData> => {
-    return axios.delete(
-      `/api/v1/data-sources/${dataSourceId}`,options
-    );
-  }
-
-/**
- * 预览数据源（合并后的数据）
-
-根据字段映射，从各 RawData 获取数据并合并展示
- * @summary Preview Data Source
- */
-export const previewDataSourceApiV1DataSourcesDataSourceIdPreviewPost = <TData = AxiosResponse<BaseResponseDataSourcePreviewResponse>>(
-    dataSourceId: string,
-    previewDataSourceApiV1DataSourcesDataSourceIdPreviewPostBody: PreviewDataSourceApiV1DataSourcesDataSourceIdPreviewPostBody, options?: AxiosRequestConfig
- ): Promise<TData> => {
-    return axios.post(
-      `/api/v1/data-sources/${dataSourceId}/preview`,
-      previewDataSourceApiV1DataSourcesDataSourceIdPreviewPostBody,options
-    );
-  }
-
-/**
- * 智能字段映射建议
-
-根据目标字段和数据对象的列信息，推荐最佳的字段映射关系。
-基于字段名相似度、同义词匹配和数据类型兼容性进行匹配。
- * @summary Suggest Field Mappings
- */
-export const suggestFieldMappingsApiV1DataSourcesSuggestMappingsPost = <TData = AxiosResponse<BaseResponseSuggestMappingsResponse>>(
-    suggestMappingsRequest: SuggestMappingsRequest, options?: AxiosRequestConfig
- ): Promise<TData> => {
-    return axios.post(
-      `/api/v1/data-sources/suggest-mappings`,
-      suggestMappingsRequest,options
-    );
-  }
-
-/**
- * 从数据对象推断目标字段
-
-分析多个 RawData 的列结构，合并推断出最佳的目标字段定义。
- * @summary Suggest Target Fields
- */
-export const suggestTargetFieldsApiV1DataSourcesSuggestTargetFieldsPost = <TData = AxiosResponse<BaseResponseSuggestTargetFieldsResponse>>(
-    suggestTargetFieldsRequest: SuggestTargetFieldsRequest, options?: AxiosRequestConfig
- ): Promise<TData> => {
-    return axios.post(
-      `/api/v1/data-sources/suggest-target-fields`,
-      suggestTargetFieldsRequest,options
-    );
-  }
-
-/**
- * 刷新数据源 Schema
-
-重新从各 RawData 获取列信息并更新 schema_cache
- * @summary Refresh Data Source Schema
- */
-export const refreshDataSourceSchemaApiV1DataSourcesDataSourceIdRefreshSchemaPost = <TData = AxiosResponse<BaseResponseDataSourceResponse>>(
-    dataSourceId: string, options?: AxiosRequestConfig
- ): Promise<TData> => {
-    return axios.post(
-      `/api/v1/data-sources/${dataSourceId}/refresh-schema`,undefined,options
-    );
-  }
-
-/**
  * 获取文件列表（分页）
  * @summary Get Files
  */
@@ -3057,7 +2757,7 @@ export const createSessionApiV1SessionsPost = <TData = AxiosResponse<BaseRespons
   }
 
 /**
- * 获取单个会话详情（包含数据源信息）
+ * 获取单个会话详情（包含数据对象信息）
  * @summary Get Session
  */
 export const getSessionApiV1SessionsSessionIdGet = <TData = AxiosResponse<BaseResponseAnalysisSessionDetail>>(
@@ -3252,6 +2952,31 @@ export const clearMessagesApiV1SessionsSessionIdMessagesDelete = <TData = AxiosR
   }
 
 /**
+ * 批量获取多个会话的消息
+
+用于一次性获取多个会话的消息，避免 N+1 查询问题。
+比如图表工作台需要获取所有会话的消息来提取图表。
+
+**性能优化**：
+- 单次数据库查询获取所有消息
+- 最多支持 100 个会话
+- 每个会话最多返回 page_size 条消息
+
+**权限**：
+- 仅返回属于当前用户的会话消息
+- 不属于当前用户的会话会被静默忽略
+ * @summary Get Messages Batch
+ */
+export const getMessagesBatchApiV1MessagesBatchPost = <TData = AxiosResponse<BaseResponseBatchMessagesResponse>>(
+    batchMessagesRequest: BatchMessagesRequest, options?: AxiosRequestConfig
+ ): Promise<TData> => {
+    return axios.post(
+      `/api/v1/messages/batch`,
+      batchMessagesRequest,options
+    );
+  }
+
+/**
  * 获取会话的推荐列表（分页）
  * @summary Get Recommendations
  */
@@ -3269,7 +2994,7 @@ export const getRecommendationsApiV1SessionsSessionIdRecommendationsGet = <TData
 /**
  * 生成初始任务推荐
 
-基于会话关联的数据源 Schema 生成分析任务推荐
+基于会话关联的数据对象 Schema 生成分析任务推荐
  * @summary Generate Recommendations
  */
 export const generateRecommendationsApiV1SessionsSessionIdRecommendationsPost = <TData = AxiosResponse<BaseResponseListTaskRecommendationResponse>>(
@@ -3328,6 +3053,131 @@ export const updateRecommendationApiV1SessionsSessionIdRecommendationsRecommenda
     );
   }
 
+/**
+ * 获取系统统计信息
+
+需要超级管理员权限
+ * @summary Get System Stats
+ */
+export const getSystemStatsApiV1AdminStatsGet = <TData = AxiosResponse<BaseResponseSystemStats>>(
+     options?: AxiosRequestConfig
+ ): Promise<TData> => {
+    return axios.get(
+      `/api/v1/admin/stats`,options
+    );
+  }
+
+/**
+ * 切换用户激活状态
+
+需要超级管理员权限
+ * @summary Toggle User Status
+ */
+export const toggleUserStatusApiV1AdminUsersUserIdTogglePatch = <TData = AxiosResponse<BaseResponseUserResponse>>(
+    userId: string,
+    userToggleRequest: UserToggleRequest, options?: AxiosRequestConfig
+ ): Promise<TData> => {
+    return axios.patch(
+      `/api/v1/admin/users/${userId}/toggle`,
+      userToggleRequest,options
+    );
+  }
+
+/**
+ * 更新用户角色
+
+需要超级管理员权限
+ * @summary Update User Role
+ */
+export const updateUserRoleApiV1AdminUsersUserIdRolePatch = <TData = AxiosResponse<BaseResponseUserResponse>>(
+    userId: string,
+    userRoleRequest: UserRoleRequest, options?: AxiosRequestConfig
+ ): Promise<TData> => {
+    return axios.patch(
+      `/api/v1/admin/users/${userId}/role`,
+      userRoleRequest,options
+    );
+  }
+
+/**
+ * 重置用户密码
+
+需要超级管理员权限
+ * @summary Reset User Password
+ */
+export const resetUserPasswordApiV1AdminUsersUserIdResetPasswordPost = <TData = AxiosResponse<BaseResponseNoneType>>(
+    userId: string,
+    resetPasswordRequest: ResetPasswordRequest, options?: AxiosRequestConfig
+ ): Promise<TData> => {
+    return axios.post(
+      `/api/v1/admin/users/${userId}/reset-password`,
+      resetPasswordRequest,options
+    );
+  }
+
+/**
+ * 获取用户所有资源详情
+
+包括会话、数据对象、数据库连接、文件等
+
+需要超级管理员权限
+ * @summary Get User Resources
+ */
+export const getUserResourcesApiV1AdminUsersUserIdResourcesGet = <TData = AxiosResponse<BaseResponseUserResourceDetail>>(
+    userId: string, options?: AxiosRequestConfig
+ ): Promise<TData> => {
+    return axios.get(
+      `/api/v1/admin/users/${userId}/resources`,options
+    );
+  }
+
+/**
+ * 批量删除用户（级联删除所有关联资源）
+
+删除内容包括：
+- 用户的所有会话和消息
+- 用户的所有原始数据对象
+- 用户的所有数据库连接
+- 用户的所有上传文件（包括 MinIO 存储）
+- 用户的沙箱工作目录
+
+注意：
+- 不能删除当前登录的管理员账号
+- 删除操作为软删除，可以通过数据库恢复
+
+需要超级管理员权限
+ * @summary Batch Delete Users
+ */
+export const batchDeleteUsersApiV1AdminUsersBatchDeletePost = <TData = AxiosResponse<BaseResponseBatchDeleteResult>>(
+    batchDeleteRequest: BatchDeleteRequest, options?: AxiosRequestConfig
+ ): Promise<TData> => {
+    return axios.post(
+      `/api/v1/admin/users/batch-delete`,
+      batchDeleteRequest,options
+    );
+  }
+
+/**
+ * 级联删除单个用户及其所有关联资源
+
+删除内容包括：
+- 用户的所有会话和消息
+- 用户的所有原始数据对象
+- 用户的所有数据库连接
+- 用户的所有上传文件（包括 MinIO 存储）
+- 用户的沙箱工作目录
+
+需要超级管理员权限
+ * @summary Cascade Delete User
+ */
+export const cascadeDeleteUserApiV1AdminUsersUserIdCascadeDelete = <TData = AxiosResponse<BaseResponseCascadeDeleteResult>>(
+    userId: string, options?: AxiosRequestConfig
+ ): Promise<TData> => {
+    return axios.delete(
+      `/api/v1/admin/users/${userId}/cascade`,options
+    );
+  }
+
 export type RootGetResult = AxiosResponse<unknown>
 export type HealthCheckHealthGetResult = AxiosResponse<unknown>
 export type LoginApiV1AuthLoginPostResult = AxiosResponse<BaseResponseToken>
@@ -3358,15 +3208,6 @@ export type BatchCreateRawDataApiV1RawDataBatchFromConnectionPostResult = AxiosR
 export type UpdateRawDataColumnsApiV1RawDataRawDataIdColumnsPutResult = AxiosResponse<BaseResponseRawDataResponse>
 export type PreviewRawDataApiV1RawDataRawDataIdPreviewPostResult = AxiosResponse<BaseResponseRawDataPreviewResponse>
 export type SyncRawDataApiV1RawDataRawDataIdSyncPostResult = AxiosResponse<BaseResponseRawDataResponse>
-export type GetDataSourcesApiV1DataSourcesGetResult = AxiosResponse<BaseResponsePageResponseDataSourceResponse>
-export type CreateDataSourceApiV1DataSourcesPostResult = AxiosResponse<BaseResponseDataSourceResponse>
-export type GetDataSourceApiV1DataSourcesDataSourceIdGetResult = AxiosResponse<BaseResponseDataSourceResponse>
-export type UpdateDataSourceApiV1DataSourcesDataSourceIdPutResult = AxiosResponse<BaseResponseDataSourceResponse>
-export type DeleteDataSourceApiV1DataSourcesDataSourceIdDeleteResult = AxiosResponse<BaseResponseNoneType>
-export type PreviewDataSourceApiV1DataSourcesDataSourceIdPreviewPostResult = AxiosResponse<BaseResponseDataSourcePreviewResponse>
-export type SuggestFieldMappingsApiV1DataSourcesSuggestMappingsPostResult = AxiosResponse<BaseResponseSuggestMappingsResponse>
-export type SuggestTargetFieldsApiV1DataSourcesSuggestTargetFieldsPostResult = AxiosResponse<BaseResponseSuggestTargetFieldsResponse>
-export type RefreshDataSourceSchemaApiV1DataSourcesDataSourceIdRefreshSchemaPostResult = AxiosResponse<BaseResponseDataSourceResponse>
 export type GetFilesApiV1FilesGetResult = AxiosResponse<BaseResponsePageResponseUploadedFileResponse>
 export type GetFileApiV1FilesFileIdGetResult = AxiosResponse<BaseResponseUploadedFileResponse>
 export type DeleteFileApiV1FilesFileIdDeleteResult = AxiosResponse<BaseResponseNoneType>
@@ -3385,8 +3226,16 @@ export type DownloadSessionFileApiV1SessionsSessionIdFilesFilenameGetResult = Ax
 export type ChatApiV1SessionsSessionIdChatPostResult = AxiosResponse<void>
 export type GetMessagesApiV1SessionsSessionIdMessagesGetResult = AxiosResponse<BaseResponsePageResponseChatMessageResponse>
 export type ClearMessagesApiV1SessionsSessionIdMessagesDeleteResult = AxiosResponse<BaseResponseInt>
+export type GetMessagesBatchApiV1MessagesBatchPostResult = AxiosResponse<BaseResponseBatchMessagesResponse>
 export type GetRecommendationsApiV1SessionsSessionIdRecommendationsGetResult = AxiosResponse<BaseResponsePageResponseTaskRecommendationResponse>
 export type GenerateRecommendationsApiV1SessionsSessionIdRecommendationsPostResult = AxiosResponse<BaseResponseListTaskRecommendationResponse>
 export type DismissAllRecommendationsApiV1SessionsSessionIdRecommendationsDeleteResult = AxiosResponse<BaseResponseNoneType>
 export type GenerateFollowupRecommendationsApiV1SessionsSessionIdRecommendationsFollowupPostResult = AxiosResponse<BaseResponseListTaskRecommendationResponse>
 export type UpdateRecommendationApiV1SessionsSessionIdRecommendationsRecommendationIdPutResult = AxiosResponse<BaseResponseTaskRecommendationResponse>
+export type GetSystemStatsApiV1AdminStatsGetResult = AxiosResponse<BaseResponseSystemStats>
+export type ToggleUserStatusApiV1AdminUsersUserIdTogglePatchResult = AxiosResponse<BaseResponseUserResponse>
+export type UpdateUserRoleApiV1AdminUsersUserIdRolePatchResult = AxiosResponse<BaseResponseUserResponse>
+export type ResetUserPasswordApiV1AdminUsersUserIdResetPasswordPostResult = AxiosResponse<BaseResponseNoneType>
+export type GetUserResourcesApiV1AdminUsersUserIdResourcesGetResult = AxiosResponse<BaseResponseUserResourceDetail>
+export type BatchDeleteUsersApiV1AdminUsersBatchDeletePostResult = AxiosResponse<BaseResponseBatchDeleteResult>
+export type CascadeDeleteUserApiV1AdminUsersUserIdCascadeDeleteResult = AxiosResponse<BaseResponseCascadeDeleteResult>

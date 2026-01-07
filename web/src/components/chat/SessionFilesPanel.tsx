@@ -2,7 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Download, File, FileCode, FileImage, FileText, FolderOpen, Loader2, RefreshCw, Upload } from 'lucide-react';
 import { useCallback, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { listSessionFilesApiV1SessionsSessionIdFilesGet } from '@/api/fastDataAgent';
+import { listSessionFilesApiV1SessionsSessionIdFilesGet } from '@/api';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useToast } from '@/hooks/use-toast';

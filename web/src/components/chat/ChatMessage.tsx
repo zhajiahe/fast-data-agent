@@ -39,8 +39,8 @@ interface ToolCall {
 }
 
 interface LocalMessage {
-  id: number | string; // 支持数字（持久化消息）和字符串（临时工具消息）
-  session_id: number;
+  id: string; // UUID 或临时 ID
+  session_id: string;
   message_type: string;
   content: string;
   tool_call_id?: string;
