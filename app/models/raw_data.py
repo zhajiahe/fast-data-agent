@@ -79,10 +79,6 @@ class RawData(Base, BaseTableMixin):
     uploaded_file: Mapped["UploadedFile | None"] = relationship(  # type: ignore  # noqa: F821
         "UploadedFile", back_populates="raw_data"
     )
-    # 多对多：RawData <-> DataSource 通过 DataSourceRawMapping 关联
-    data_source_mappings: Mapped[list["DataSourceRawMapping"]] = relationship(  # type: ignore  # noqa: F821
-        "DataSourceRawMapping", back_populates="raw_data", cascade="all, delete-orphan"
-    )
 
     def __repr__(self) -> str:
         return f"<RawData(id={self.id}, name={self.name}, type={self.raw_type})>"

@@ -201,3 +201,26 @@ class RawDataRepository(BaseRepository[RawData]):
         )
         result = await self.db.execute(query)
         return list(result.scalars().all())
+
+    async def has_session_references(self, raw_data_id: uuid.UUID) -> bool:
+        """
+        检查是否有会话引用该数据对象
+
+        Args:
+            raw_data_id: 数据对象 ID
+
+        Returns:
+            是否存在引用
+        """
+        from app.models.session import SessionRawData
+
+        query = (
+            select(func.count())
+            .select_from(SessionRawData)
+            .where(
+                SessionRawData.raw_data_id == raw_data_id,
+                SessionRawData.deleted == 0,
+            )
+        )
+        result = await self.db.execute(query)
+        return (result.scalar() or 0) > 0

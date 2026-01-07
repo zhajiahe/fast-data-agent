@@ -8,7 +8,6 @@ import uuid
 from datetime import datetime
 from typing import Any
 
-from app.repositories.data_source import DataSourceRawMappingRepository
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.exceptions import BadRequestException, NotFoundException
@@ -32,7 +31,6 @@ class RawDataService:
         self.repo = RawDataRepository(db)
         self.connection_repo = DatabaseConnectionRepository(db)
         self.file_repo = UploadedFileRepository(db)
-        self.mapping_repo = DataSourceRawMappingRepository(db)
 
     async def get_raw_data(self, raw_data_id: uuid.UUID, user_id: uuid.UUID) -> RawData:
         """
@@ -323,13 +321,14 @@ class RawDataService:
 
         Raises:
             NotFoundException: 数据对象不存在
+            BadRequestException: 有会话正在使用该数据对象
         """
         # 验证权限
         await self.get_raw_data(raw_data_id, user_id)
 
-        # 检查是否有 DataSource 引用此 RawData
-        if await self.mapping_repo.exists_by_raw_data(raw_data_id):
-            raise BadRequestException(msg="有数据源正在使用该数据对象，请先解除映射后再删除")
+        # 检查是否有会话引用此 RawData
+        if await self.repo.has_session_references(raw_data_id):
+            raise BadRequestException(msg="有会话正在使用该数据对象，请先删除相关会话后再删除")
 
         success = await self.repo.delete(raw_data_id, soft_delete=True)
         if not success:
