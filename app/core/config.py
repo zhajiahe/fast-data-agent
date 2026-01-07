@@ -45,12 +45,10 @@ class Settings(BaseSettings):
             if self.SECRET_KEY in _INSECURE_SECRET_KEYS:
                 raise ValueError(
                     "生产环境禁止使用默认 SECRET_KEY，请设置安全的随机密钥。"
-                    "可使用: python -c \"import secrets; print(secrets.token_urlsafe(32))\""
+                    '可使用: python -c "import secrets; print(secrets.token_urlsafe(32))"'
                 )
             if self.REFRESH_SECRET_KEY in _INSECURE_SECRET_KEYS:
-                raise ValueError(
-                    "生产环境禁止使用默认 REFRESH_SECRET_KEY，请设置安全的随机密钥。"
-                )
+                raise ValueError("生产环境禁止使用默认 REFRESH_SECRET_KEY，请设置安全的随机密钥。")
             if self.DEBUG:
                 raise ValueError("生产环境禁止开启 DEBUG 模式")
         return self

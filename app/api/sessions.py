@@ -131,7 +131,9 @@ async def create_session(
     """创建会话"""
     service = AnalysisSessionService(db)
     session, raw_data_list = await service.create_session(current_user.id, data)
-    return BaseResponse(success=True, code=201, msg="创建会话成功", data=_build_session_response(session, raw_data_list))
+    return BaseResponse(
+        success=True, code=201, msg="创建会话成功", data=_build_session_response(session, raw_data_list)
+    )
 
 
 @router.put("/{session_id}", response_model=BaseResponse[AnalysisSessionResponse])
@@ -144,7 +146,9 @@ async def update_session(
     """更新会话"""
     service = AnalysisSessionService(db)
     session, raw_data_list = await service.update_session(session_id, current_user.id, data)
-    return BaseResponse(success=True, code=200, msg="更新会话成功", data=_build_session_response(session, raw_data_list))
+    return BaseResponse(
+        success=True, code=200, msg="更新会话成功", data=_build_session_response(session, raw_data_list)
+    )
 
 
 @router.delete("/{session_id}", response_model=BaseResponse[None])

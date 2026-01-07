@@ -147,4 +147,3 @@ class MessageConverter:
             data["status"] = getattr(message, "status", None)
 
         return data
-

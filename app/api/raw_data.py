@@ -245,10 +245,7 @@ async def preview_raw_data(
             if rows and not columns:
                 first = rows[0]
                 if isinstance(first, dict):
-                    columns = [
-                        ColumnSchema(name=k, data_type="unknown", nullable=True)
-                        for k in first.keys()
-                    ]
+                    columns = [ColumnSchema(name=k, data_type="unknown", nullable=True) for k in first.keys()]
         else:
             rows = []
         total_rows = uploaded_file.row_count

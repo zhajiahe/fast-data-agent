@@ -10,7 +10,7 @@ from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from app.models.session import AnalysisSession, SessionRawData
+from app.models.session import AnalysisSession
 from app.repositories.base import BaseRepository
 
 
@@ -134,4 +134,3 @@ class AnalysisSessionRepository(BaseRepository[AnalysisSession]):
         )
         result = await self.db.execute(query)
         return list(result.scalars().all())
-

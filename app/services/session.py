@@ -162,8 +162,7 @@ class AnalysisSessionService:
             result = response.json()
             if result.get("success"):
                 logger.info(
-                    f"Session DuckDB initialized: session_id={session_id}, "
-                    f"views={result.get('views_created', [])}"
+                    f"Session DuckDB initialized: session_id={session_id}, views={result.get('views_created', [])}"
                 )
             else:
                 logger.warning(f"Failed to init session DuckDB: {result}")

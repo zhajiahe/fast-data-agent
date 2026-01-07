@@ -11,7 +11,8 @@
 
 import uuid
 import warnings
-from collections.abc import AsyncGenerator
+from collections.abc import AsyncGenerator, Callable
+from contextlib import AbstractAsyncContextManager
 from typing import Any
 
 from langchain.agents import create_agent
@@ -26,7 +27,6 @@ from app.models.message import ChatMessage
 from app.models.raw_data import RawData
 from app.models.session import AnalysisSession
 from app.repositories.message import ChatMessageRepository
-from app.repositories.raw_data import RawDataRepository
 from app.repositories.session import AnalysisSessionRepository
 from app.utils.tools import (
     ChatContext,
@@ -38,6 +38,9 @@ from app.utils.tools import (
     list_local_files,
     quick_analysis,
 )
+
+# 会话工厂类型：返回可以作为异步上下文管理器使用的 AsyncSession
+SessionFactory = Callable[[], AbstractAsyncContextManager[AsyncSession]]
 
 # 过滤 LangGraph 内部序列化时的 Pydantic 警告
 # 这是由于 context_schema 在序列化时与内部状态模式不完全匹配导致的，不影响功能
@@ -52,13 +55,31 @@ warnings.filterwarnings(
 
 
 class ChatService:
-    """聊天服务 - 基于 LangGraph ReAct Agent"""
+    """聊天服务 - 基于 LangGraph ReAct Agent
 
-    def __init__(self, db: AsyncSession):
-        self.db = db
-        self.raw_data_repo = RawDataRepository(db)
-        self.message_repo = ChatMessageRepository(db)
-        self.session_repo = AnalysisSessionRepository(db)
+    支持两种模式：
+    1. 普通模式：传入 db 会话，使用共享会话（适用于短请求）
+    2. 流式模式：传入 db_factory 会话工厂，每个数据库操作使用独立会话（适用于流式响应）
+    """
+
+    def __init__(
+        self,
+        db: AsyncSession | None = None,
+        *,
+        db_factory: SessionFactory | None = None,
+    ):
+        """
+        初始化聊天服务
+
+        Args:
+            db: 数据库会话（传统模式，会话在外部管理）
+            db_factory: 会话工厂函数（流式模式，每次操作使用新会话）
+
+        Note:
+            如果同时提供 db 和 db_factory，优先使用 db_factory（流式模式）
+        """
+        self._db = db
+        self._db_factory = db_factory
         self.tools = [
             list_local_files,
             quick_analysis,
@@ -66,6 +87,15 @@ class ChatService:
             execute_sql,
             execute_python,
         ]
+
+    def _get_shared_db(self) -> AsyncSession:
+        """获取共享数据库会话（仅用于传统模式）
+
+        此方法仅在未配置 db_factory 时调用，返回构造时传入的共享会话
+        """
+        if self._db is not None:
+            return self._db
+        raise RuntimeError("ChatService 未配置数据库会话")
 
     def _get_llm(self, *, temperature: float = 0.0):
         """获取 LLM 实例（每次新建，避免全局共享状态）"""
@@ -182,7 +212,7 @@ class ChatService:
 {data_info}
 
 ## 可用 VIEW（SQL 表名）
-{', '.join(view_names) if view_names else '暂无'}
+{", ".join(view_names) if view_names else "暂无"}
 
 ## 当前会话文件
 {local_files_info}
@@ -265,9 +295,21 @@ class ChatService:
         Returns:
             (消息列表, 总数)
         """
-        messages = await self.message_repo.get_by_session(session_id, skip=skip, limit=limit)
-        total = await self.message_repo.count_by_session(session_id)
-        return messages, total
+        if self._db_factory is not None:
+            # 流式模式：使用短生命周期会话
+            async with self._db_factory() as db:
+                repo = ChatMessageRepository(db)
+                messages = await repo.get_by_session(session_id, skip=skip, limit=limit)
+                total = await repo.count_by_session(session_id)
+                await db.commit()
+                return messages, total
+        else:
+            # 传统模式：使用共享会话
+            db = self._get_shared_db()
+            repo = ChatMessageRepository(db)
+            messages = await repo.get_by_session(session_id, skip=skip, limit=limit)
+            total = await repo.count_by_session(session_id)
+            return messages, total
 
     async def get_history_as_langchain(
         self,
@@ -285,8 +327,77 @@ class ChatService:
         Returns:
             LangChain 消息列表
         """
-        messages = await self.message_repo.get_by_session(session_id, limit=limit)
-        return self.message_repo.to_langchain_messages(messages)
+        if self._db_factory is not None:
+            # 流式模式：使用短生命周期会话
+            async with self._db_factory() as db:
+                repo = ChatMessageRepository(db)
+                messages = await repo.get_by_session(session_id, limit=limit)
+                await db.commit()
+                return repo.to_langchain_messages(messages)
+        else:
+            # 传统模式：使用共享会话
+            db = self._get_shared_db()
+            repo = ChatMessageRepository(db)
+            messages = await repo.get_by_session(session_id, limit=limit)
+            return repo.to_langchain_messages(messages)
+
+    async def _save_user_message(
+        self,
+        session_id: uuid.UUID,
+        user_message: HumanMessage,
+        user_id: uuid.UUID,
+    ) -> None:
+        """保存用户消息（使用独立的短事务）"""
+        if self._db_factory is not None:
+            async with self._db_factory() as db:
+                repo = ChatMessageRepository(db)
+                await repo.save_langchain_message(session_id, user_message, user_id)
+                await db.commit()
+        else:
+            db = self._get_shared_db()
+            repo = ChatMessageRepository(db)
+            await repo.save_langchain_message(session_id, user_message, user_id)
+
+    async def _save_response_messages(
+        self,
+        session_id: uuid.UUID,
+        messages_to_save: list[BaseMessage],
+        user_id: uuid.UUID,
+    ) -> None:
+        """保存 AI 响应消息并更新会话计数（使用独立的短事务）"""
+        if self._db_factory is not None:
+            async with self._db_factory() as db:
+                message_repo = ChatMessageRepository(db)
+                session_repo = AnalysisSessionRepository(db)
+
+                logger.debug(f"保存 {len(messages_to_save)} 条消息")
+                await message_repo.save_langchain_messages(session_id, messages_to_save, user_id)
+
+                # 更新会话消息计数
+                try:
+                    msg_count = await message_repo.count_by_session(session_id)
+                    session_obj = await session_repo.get_by_id(session_id)
+                    if session_obj:
+                        await session_repo.update(session_obj, {"message_count": msg_count})
+                except Exception as update_err:
+                    logger.warning(f"更新会话消息计数失败: {update_err}")
+
+                await db.commit()
+        else:
+            db = self._get_shared_db()
+            message_repo = ChatMessageRepository(db)
+            session_repo = AnalysisSessionRepository(db)
+
+            logger.debug(f"保存 {len(messages_to_save)} 条消息")
+            await message_repo.save_langchain_messages(session_id, messages_to_save, user_id)
+
+            try:
+                msg_count = await message_repo.count_by_session(session_id)
+                session_obj = await session_repo.get_by_id(session_id)
+                if session_obj:
+                    await session_repo.update(session_obj, {"message_count": msg_count})
+            except Exception as update_err:
+                logger.warning(f"更新会话消息计数失败: {update_err}")
 
     async def chat(
         self,
@@ -303,6 +414,10 @@ class ChatService:
         - "messages": LLM token 流，直接 yield (message, metadata) 用于实时显示
         - "values": 完整状态快照，用于获取最终消息（不 yield，仅内部使用）
 
+        数据库事务策略：
+        - 每个数据库操作使用独立的短生命周期事务
+        - 避免在流式处理期间长时间占用数据库连接
+
         Args:
             content: 用户消息内容
             session: 分析会话
@@ -316,10 +431,10 @@ class ChatService:
         if raw_data_list is None:
             raw_data_list = []
 
-        # 创建 Agent
+        # 创建 Agent（无需数据库）
         agent = await self._create_agent(raw_data_list, session.user_id, session.id)
 
-        # 构建上下文
+        # 构建上下文（无需数据库）
         raw_data_contexts = self._build_raw_data_context(raw_data_list)
         context = ChatContext(
             user_id=str(session.user_id),
@@ -328,13 +443,13 @@ class ChatService:
         )
         logger.debug(f"上下文: {context}")
 
-        # 获取历史消息
+        # 获取历史消息（使用短事务）
         history = await self.get_history_as_langchain(session.id, limit=50)
 
-        # 保存用户消息
+        # 保存用户消息（使用短事务）
         user_message = HumanMessage(content=content)
         if save_messages:
-            await self.message_repo.save_langchain_message(session.id, user_message, session.user_id)
+            await self._save_user_message(session.id, user_message, session.user_id)
 
         # 初始状态，包含历史消息
         initial_state = {
@@ -347,7 +462,7 @@ class ChatService:
         final_messages: list[BaseMessage] = []
 
         try:
-            # 使用多模式流式传输：
+            # Agent 流式处理：无数据库连接，只处理 LLM 交互
             # - "messages": LLM token 流
             # - "updates": 状态更新（包含工具调用和结果）
             # - "values": 完整状态快照（用于获取最终消息）
@@ -369,7 +484,7 @@ class ChatService:
                     all_messages = chunk.get("messages", [])
                     final_messages = all_messages[history_count:]
 
-            # 保存响应消息（从完整状态中获取，无需手动聚合 token）
+            # 保存响应消息（使用短事务，在流结束后执行）
             if save_messages and final_messages:
                 # 过滤规则：
                 # 1. 排除 HumanMessage（用户消息在发送时已保存）
@@ -385,21 +500,7 @@ class ChatService:
                     )
                 ]
                 if messages_to_save:
-                    logger.debug(f"保存 {len(messages_to_save)} 条消息")
-                    await self.message_repo.save_langchain_messages(session.id, messages_to_save, session.user_id)
-
-                    # 同步更新会话的消息计数，确保列表页显示正确
-                    try:
-                        msg_count = await self.message_repo.count_by_session(session.id)
-                        session_obj = await self.session_repo.get_by_id(session.id)
-                        if session_obj:
-                            await self.session_repo.update(session_obj, {"message_count": msg_count})
-                    except Exception as update_err:
-                        logger.warning(f"更新会话消息计数失败: {update_err}")
-
-                    # 统一 commit，确保消息保存和计数更新在同一事务中
-                    # 避免部分成功导致数据不一致
-                    await self.db.commit()
+                    await self._save_response_messages(session.id, messages_to_save, session.user_id)
 
         except Exception as e:
             logger.exception("聊天流处理失败: {}", e)

@@ -21,9 +21,7 @@ class SessionRawData(Base, BaseTableMixin):
     """
 
     __tablename__ = "session_raw_data"
-    __table_args__ = (
-        UniqueConstraint("session_id", "raw_data_id", name="uq_session_raw_data"),
-    )
+    __table_args__ = (UniqueConstraint("session_id", "raw_data_id", name="uq_session_raw_data"),)
 
     session_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True),

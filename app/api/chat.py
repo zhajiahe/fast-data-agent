@@ -15,12 +15,13 @@ SSE 数据流协议 (兼容 @ai-sdk/react useChat):
 参考: https://ai-sdk.dev/docs/ai-sdk-ui/stream-protocol
 """
 
+import asyncio
 import json
 import uuid
 from collections.abc import AsyncGenerator
 from typing import Any
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Request
 from fastapi.responses import StreamingResponse
 from langchain_core.messages import AIMessageChunk, ToolMessageChunk
 from loguru import logger
@@ -199,15 +200,66 @@ def _chat_message_to_response(msg: ChatMessage) -> ChatMessageResponse:
     )
 
 
+# ==================== 错误信息脱敏 ====================
+
+# 敏感关键词列表，用于识别需要脱敏的错误信息
+_SENSITIVE_KEYWORDS = frozenset(
+    [
+        "password",
+        "secret",
+        "key",
+        "token",
+        "credential",
+        "api_key",
+        "access_key",
+        "private",
+        "auth",
+        "/home/",
+        "/root/",
+        "/app/",
+        "/var/",
+        "traceback",
+        'file "',
+        "line ",
+    ]
+)
+
+
+def _sanitize_error_message(error_msg: str) -> str:
+    """
+    脱敏错误信息，移除可能泄露敏感信息的内容
+
+    Args:
+        error_msg: 原始错误信息
+
+    Returns:
+        脱敏后的错误信息
+    """
+    error_lower = error_msg.lower()
+
+    # 检查是否包含敏感关键词
+    for keyword in _SENSITIVE_KEYWORDS:
+        if keyword in error_lower:
+            # 记录原始错误到日志（供调试）
+            logger.warning(f"Sanitized error message containing '{keyword}': {error_msg[:200]}")
+            return "处理请求时发生内部错误，请稍后重试"
+
+    # 限制错误信息长度，避免泄露过多细节
+    max_length = 200
+    if len(error_msg) > max_length:
+        return error_msg[:max_length] + "..."
+
+    return error_msg
+
+
 # ==================== SSE 流式响应 ====================
 
 
 async def _stream_chat_response(
-    chat_service: ChatService,
     content: str,
     session_id: uuid.UUID,
     user_id: uuid.UUID,
-    db: Any,
+    request: Request | None = None,
 ) -> AsyncGenerator[str, None]:
     """生成兼容 Vercel AI SDK 的 SSE 流式响应
 
@@ -223,28 +275,60 @@ async def _stream_chat_response(
     流模式分工：
     - messages 模式：处理 LLM token 流（文本增量）
     - updates 模式：仅处理工具调用结果（避免与 messages 模式重复）
+
+    客户端断开检测：
+    - 使用 request.is_disconnected() 检测客户端是否断开
+    - 断开后停止处理并记录日志
+
+    数据库事务策略：
+    - 使用短生命周期的数据库会话，避免长时间占用连接
+    - 每个数据库操作使用独立事务
     """
     from langchain_core.messages import ToolMessage
 
-    session_service = AnalysisSessionService(db)
-    session, raw_data_list = await session_service.get_session_with_raw_data(session_id, user_id)
+    from app.core.database import AsyncSessionLocal
+
+    # 使用短生命周期的数据库会话获取初始数据
+    async with AsyncSessionLocal() as db:
+        session_service = AnalysisSessionService(db)
+        session, raw_data_list = await session_service.get_session_with_raw_data(session_id, user_id)
+        await db.commit()  # 提交读取事务
+    # 数据库会话在这里已关闭，后续操作使用会话工厂
+
+    # 创建 ChatService，使用会话工厂模式（每个数据库操作使用独立的短事务）
+    chat_service = ChatService(db_factory=AsyncSessionLocal)
 
     builder = VercelStreamBuilder()
     sent_tool_outputs: set[str] = set()  # 跟踪已发送的工具输出，避免重复
     sent_tool_inputs: set[str] = set()  # 跟踪已发送的工具输入，避免重复
+    is_disconnected = False
+
+    async def check_disconnect() -> bool:
+        """检查客户端是否断开连接"""
+        if request is not None:
+            return await request.is_disconnected()
+        return False
 
     try:
         yield builder.message_start()
         yield builder.start_step()
 
         async for chunk in chat_service.chat(content, session, raw_data_list):
+            # 定期检查客户端是否断开（每处理一个 chunk 检查一次）
+            if await check_disconnect():
+                is_disconnected = True
+                logger.info(f"Client disconnected during chat stream: session_id={session_id}")
+                break
+
             # 错误处理
             if isinstance(chunk, dict) and "error" in chunk:
                 error_info = chunk.get("error", {})
                 error_msg = (
                     error_info.get("message", "Unknown error") if isinstance(error_info, dict) else str(error_info)
                 )
-                yield builder.error(error_msg)
+                # 脱敏错误信息
+                safe_error_msg = _sanitize_error_message(error_msg)
+                yield builder.error(safe_error_msg)
                 continue
 
             # messages 模式：处理 LLM token 流
@@ -339,6 +423,10 @@ async def _stream_chat_response(
 
                                 yield builder.tool_output_available(tool_call_id, output, artifact, tool_name)
 
+        # 如果客户端断开，不发送结束消息
+        if is_disconnected:
+            return
+
         # 结束文本块
         if builder.text_started:
             yield builder.text_end()
@@ -346,11 +434,22 @@ async def _stream_chat_response(
         yield builder.finish_step()
         yield builder.finish()
 
+    except asyncio.CancelledError:
+        # 任务被取消（通常是因为客户端断开）
+        logger.info(f"Chat stream cancelled: session_id={session_id}")
+        return
+
     except Exception as e:
-        yield builder.error(str(e))
+        # 脱敏错误信息
+        error_msg = str(e)
+        safe_error_msg = _sanitize_error_message(error_msg)
+        # 记录完整错误到日志
+        logger.exception(f"Chat stream error: session_id={session_id}")
+        yield builder.error(safe_error_msg)
 
     finally:
-        yield builder.done()
+        if not is_disconnected:
+            yield builder.done()
 
 
 # ==================== API 端点 ====================
@@ -358,6 +457,7 @@ async def _stream_chat_response(
 
 @router.post("/chat", response_class=StreamingResponse)
 async def chat(
+    request: Request,
     session_id: uuid.UUID,
     data: ChatMessageCreate,
     current_user: CurrentUser,
@@ -413,14 +513,23 @@ async def chat(
     ```
 
     参考: https://ai-sdk.dev/docs/ai-sdk-ui/stream-protocol
+
+    ## 客户端断开处理
+
+    服务端会检测客户端断开，并优雅地停止流处理，避免资源浪费。
+
+    数据库事务策略：
+    - 验证会话权限后立即释放数据库连接
+    - 流式响应中使用独立的短生命周期事务
+    - 避免长时间占用数据库连接池
     """
+    # 验证会话权限（使用请求级别的数据库会话）
     session_service = AnalysisSessionService(db)
     await session_service.get_session(session_id, current_user.id)
-
-    chat_service = ChatService(db)
+    # 请求级别的 db 会话在这里不再需要，流式响应会使用独立的会话工厂
 
     return StreamingResponse(
-        _stream_chat_response(chat_service, data.content, session_id, current_user.id, db),
+        _stream_chat_response(data.content, session_id, current_user.id, request),
         media_type="text/event-stream",
         headers={
             "Cache-Control": "no-cache",
@@ -530,9 +639,7 @@ async def get_messages_batch(
     message_repo = ChatMessageRepository(db)
 
     # 验证会话权限：只获取属于当前用户的会话
-    valid_sessions = await session_repo.get_by_ids_and_user(
-        request.session_ids, current_user.id
-    )
+    valid_sessions = await session_repo.get_by_ids_and_user(request.session_ids, current_user.id)
     valid_session_ids = [s.id for s in valid_sessions]
 
     if not valid_session_ids:
