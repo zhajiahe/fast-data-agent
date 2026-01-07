@@ -186,54 +186,13 @@ def test_raw_data(
 
 
 @pytest.fixture(scope="function")
-def test_data_source(
+def test_session(
     client: TestClient, auth_headers: dict[str, str], test_raw_data: dict[str, Any]
 ) -> Generator[dict[str, Any], None, None]:
     """
-    创建测试用的数据源
+    创建测试用的会话（关联 RawData）
     """
-    response = client.post(
-        "/api/v1/data-sources",
-        headers=auth_headers,
-        json={
-            "name": "Test Data Source",
-            "description": "测试数据源",
-            "category": "fact",
-            "target_fields": [
-                {"name": "id", "data_type": "integer", "description": "ID"},
-                {"name": "name", "data_type": "string", "description": "名称"},
-                {"name": "value", "data_type": "integer", "description": "值"},
-            ],
-            "raw_mappings": [
-                {
-                    "raw_data_id": test_raw_data["id"],
-                    "mappings": {"id": "id", "name": "name", "value": "value"},
-                    "priority": 0,
-                    "is_enabled": True,
-                }
-            ],
-        },
-    )
-
-    data = response.json().get("data", {})
-    yield data
-
-    # 清理：删除数据源
-    if data.get("id"):
-        client.delete(
-            f"/api/v1/data-sources/{data['id']}",
-            headers=auth_headers,
-        )
-
-
-@pytest.fixture(scope="function")
-def test_session(
-    client: TestClient, auth_headers: dict[str, str], test_data_source: dict[str, Any]
-) -> Generator[dict[str, Any], None, None]:
-    """
-    创建测试用的会话（单数据源）
-    """
-    data_source_id = test_data_source.get("id")
+    raw_data_id = test_raw_data.get("id")
 
     response = client.post(
         "/api/v1/sessions",
@@ -241,7 +200,7 @@ def test_session(
         json={
             "name": "Test Session",
             "description": "测试会话",
-            "data_source_id": data_source_id,  # 单个数据源
+            "raw_data_ids": [raw_data_id],  # 直接关联 RawData
         },
     )
 

@@ -46,16 +46,12 @@ scripts/              # 工具脚本
 - 支持：MySQL, PostgreSQL
 - 包含：加密的连接凭证、连接测试
 
-### RawData（原始数据）
-- 类型：`database`（库表）或 `file`（文件）
+### RawData（数据对象）
+- 类型：`database_table`（库表）或 `file`（文件）
 - 包含：Schema 缓存、字段元数据、预览数据
 
-### DataSource（数据源）
-- 组合多个 RawData + 字段映射规则
-- 提供统一的分析视图
-
 ### AnalysisSession（分析会话）
-- 关联单个数据源
+- 通过 SessionRawData 关联多个 RawData
 - 包含：消息列表、任务推荐
 
 ### ChatMessage（对话消息）
@@ -103,11 +99,11 @@ make check            # lint + format + type-check
 
 # 前端开发
 cd web && pnpm dev    # 启动前端 (port: 5173)
-cd web && bash deploy.sh  # 构建生产版本
+cd web && pnpm build  # 构建生产版本
 
 # 沙盒管理
 make sandbox-build    # 构建镜像
-make sandbox-start    # 启动沙盒 (port: 8080)
+make sandbox-start    # 启动沙盒 (port: 8888)
 make sandbox-restart  # 重启沙盒
 make sandbox-status   # 查看状态
 
@@ -156,6 +152,5 @@ make reset            # 重置资源（数据库、MinIO、沙盒）
 
 - JWT 双令牌：access_token (30分钟) + refresh_token (7天)
 - 密码使用 AES 加密存储
-- 数据源密码需要加密
 - SQL 执行在沙盒中隔离运行
 - 沙盒启动命令：`make sandbox-start`

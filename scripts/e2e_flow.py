@@ -5,10 +5,9 @@
 步骤：
 1. 注册 & 登录
 2. 上传 CSV / JSON / Parquet 文件 → 自动创建 RawData
-3. 创建 DataSource（使用自动创建的 RawData）
-4. 创建 Analysis Session
-5. 生成任务推荐（初始）
-6. Chat 对话（流式 SSE），验证可读数据并总结
+3. 创建 Analysis Session（关联 RawData）
+4. 生成任务推荐（初始）
+5. Chat 对话（流式 SSE），验证可读数据并总结
 
 运行：
     python scripts/e2e_flow.py --base-url http://localhost:8000/api/v1
@@ -19,7 +18,6 @@ import asyncio
 import json
 import uuid
 from io import BytesIO
-from typing import Any
 
 import httpx
 import pandas as pd
@@ -76,7 +74,7 @@ async def main(base_url: str) -> None:
             ("sample.json", json.dumps([{"id": 1, "name": "Foo"}, {"id": 2, "name": "Bar"}]).encode(), "application/json"),
             ("sample.parquet", _make_parquet_bytes(), "application/octet-stream"),
         ]
-        raw_ids: list[int] = []
+        raw_ids: list[str] = []
         for name, content, mime in uploads:
             files = {"file": (name, content, mime)}
             r = await client.post("/files/upload", headers=headers, files=files)
@@ -95,40 +93,14 @@ async def main(base_url: str) -> None:
             _log("文件上传", False, "没有自动创建的 RawData，停止")
             return
 
-        # 4. 创建 DataSource（使用第一个自动创建的 RawData）
-        ds_payload = {
-            "name": f"ds_e2e_{uid}",
-            "description": "e2e data source",
-            "category": "fact",
-            "target_fields": [
-                {"name": "id", "data_type": "integer", "description": "ID"},
-                {"name": "name", "data_type": "string", "description": "Name"},
-                {"name": "value", "data_type": "integer", "description": "Value"},
-            ],
-            "raw_mappings": [
-                {
-                    "raw_data_id": raw_ids[0],
-                    "mappings": {"id": "id", "name": "name", "value": "value"},
-                    "priority": 0,
-                    "is_enabled": True,
-                }
-            ],
-        }
-        r = await client.post("/data-sources", headers=headers, json=ds_payload)
-        if not (r.status_code in (200, 201) and r.json().get("success")):
-            _log("创建 DataSource", False, r.text)
-            return
-        data_source_id = r.json()["data"]["id"]
-        _log("创建 DataSource", True, f"id={data_source_id}")
-
-        # 5. 创建 Session
+        # 4. 创建 Session（直接关联 RawData，无需创建 DataSource）
         r = await client.post(
             "/sessions",
             headers=headers,
             json={
                 "name": f"session_e2e_{uid}",
                 "description": "e2e session",
-                "data_source_id": data_source_id,
+                "raw_data_ids": raw_ids,  # 直接使用 RawData IDs
             },
         )
         if not (r.status_code in (200, 201) and r.json().get("success")):
@@ -137,33 +109,31 @@ async def main(base_url: str) -> None:
         session_id = r.json()["data"]["id"]
         _log("创建 Session", True, f"id={session_id}")
 
-        # 5.1 校验会话详情，确保绑定数据源
+        # 4.1 校验会话详情
         r = await client.get(f"/sessions/{session_id}", headers=headers)
         if not (r.status_code == 200 and r.json().get("success")):
             _log("校验 Session 详情", False, r.text)
             return
-        # 检查 data_source_id（单数）或 data_source 对象
         session_data = r.json().get("data", {})
-        ds_id = session_data.get("data_source_id")
-        ds_obj = session_data.get("data_source")
-        if not ds_id and not ds_obj:
-            _log("校验 Session 详情", False, "data_source_id 为空")
+        raw_data_list = session_data.get("raw_data_list", [])
+        if not raw_data_list:
+            _log("校验 Session 详情", False, "raw_data_list 为空")
             return
-        _log("校验 Session 详情", True, f"data_source_id={ds_id}")
+        _log("校验 Session 详情", True, f"raw_data_count={len(raw_data_list)}")
 
-        # 6. 生成初始推荐
+        # 5. 生成初始推荐
         r = await client.post(f"/sessions/{session_id}/recommendations", headers=headers, json={"max_count": 5})
         ok = r.status_code in (200, 201) and r.json().get("success")
         _log("生成任务推荐", ok, r.text if not ok else "")
 
-        # 7. 查询推荐列表
+        # 6. 查询推荐列表
         r = await client.get(f"/sessions/{session_id}/recommendations", headers=headers)
         ok = r.status_code == 200 and r.json().get("success")
         items = r.json().get("data", {}).get("items", []) if ok else []
         _log("查询推荐列表", ok, f"count={len(items)}" if ok else r.text)
 
-        # 8. Chat 对话（流式）- 测试 quick_analysis 工具
-        chat_prompt = "分析当前数据源的概况, 查看前10行，可视化图表"
+        # 7. Chat 对话（流式）- 测试 quick_analysis 工具
+        chat_prompt = "分析当前数据的概况, 查看前10行，可视化图表"
         print(f"\n{'='*60}")
         print(f"📝 用户输入: {chat_prompt}")
         print(f"{'='*60}\n")
@@ -172,14 +142,13 @@ async def main(base_url: str) -> None:
             got_text = False
             got_tool = False
             answer_parts: list[str] = []
-            current_text_id: str | None = None
 
             async with client.stream(
                 "POST",
                 f"/sessions/{session_id}/chat",
                 headers={**headers, "Accept": "text/event-stream"},
                 json={"content": chat_prompt},
-                timeout=120.0,  # 增加超时时间
+                timeout=120.0,
             ) as resp:
                 if resp.status_code != 200:
                     _log("Chat 对话", False, f"status={resp.status_code}, body={await resp.aread()}")
@@ -187,7 +156,7 @@ async def main(base_url: str) -> None:
                     async for line in resp.aiter_lines():
                         if not line.startswith("data: "):
                             continue
-                        payload = line[len("data: ") :]
+                        payload = line[len("data: "):]
                         if payload.strip() == "[DONE]":
                             print("\n📍 [DONE] 流结束")
                             break
@@ -198,26 +167,12 @@ async def main(base_url: str) -> None:
 
                         evt_type = obj.get("type")
 
-                        # 消息开始
                         if evt_type == "start":
                             msg_id = obj.get("messageId", "")
                             print(f"📍 [start] 消息开始: {msg_id}")
 
-                        # 步骤控制
-                        elif evt_type == "start-step":
-                            print(f"\n📍 [start-step] 新步骤开始")
-
-                        elif evt_type == "finish-step":
-                            print(f"📍 [finish-step] 步骤结束")
-
-                        elif evt_type == "finish":
-                            print(f"📍 [finish] 消息完成")
-
-                        # 文本流
                         elif evt_type == "text-start":
-                            text_id = obj.get("id", "")
-                            current_text_id = text_id
-                            print(f"\n📍 [text-start] 文本开始: {text_id}")
+                            print(f"\n📍 [text-start] 文本开始")
                             print("💬 AI 回复: ", end="", flush=True)
 
                         elif evt_type == "text-delta":
@@ -228,81 +183,30 @@ async def main(base_url: str) -> None:
                                 print(delta, end="", flush=True)
 
                         elif evt_type == "text-end":
-                            text_id = obj.get("id", "")
-                            print(f"\n📍 [text-end] 文本结束: {text_id}")
-                            current_text_id = None
+                            print(f"\n📍 [text-end] 文本结束")
 
-                        # 工具调用
                         elif evt_type == "tool-input-start":
-                            tool_call_id = obj.get("toolCallId", "")
                             tool_name = obj.get("toolName", "")
-                            print(f"\n🔧 [tool-input-start] 工具调用开始")
-                            print(f"   工具: {tool_name}")
-                            print(f"   ID: {tool_call_id}")
-
-                        elif evt_type == "tool-input-available":
-                            tool_call_id = obj.get("toolCallId", "")
-                            tool_name = obj.get("toolName", "")
-                            tool_input = obj.get("input", {})
-                            print(f"\n🔧 [tool-input-available] 工具参数就绪")
-                            print(f"   工具: {tool_name}")
-                            print(f"   ID: {tool_call_id}")
-                            input_str = json.dumps(tool_input, ensure_ascii=False, indent=2)
-                            if len(input_str) > 500:
-                                input_str = input_str[:500] + "...(截断)"
-                            print(f"   参数: {input_str}")
+                            print(f"\n🔧 [tool-input-start] 工具: {tool_name}")
 
                         elif evt_type == "tool-output-available":
-                            tool_call_id = obj.get("toolCallId", "")
                             tool_name = obj.get("toolName", "")
-                            output = obj.get("output", {})
-                            artifact = obj.get("artifact", {})
                             got_tool = True
+                            print(f"\n✅ [tool-output-available] 工具完成: {tool_name}")
 
-                            print(f"\n✅ [tool-output-available] 工具执行完成")
-                            print(f"   工具: {tool_name}")
-                            print(f"   ID: {tool_call_id}")
-
-                            # 显示 output (给 LLM 的内容)
-                            if output:
-                                output_str = json.dumps(output, ensure_ascii=False, indent=2) if isinstance(output, dict) else str(output)
-                                if len(output_str) > 800:
-                                    output_str = output_str[:800] + "...(截断)"
-                                print(f"   输出 (LLM): {output_str}")
-
-                            # 显示 artifact 类型 (给前端的数据)
-                            if artifact:
-                                artifact_type = artifact.get("type", "unknown") if isinstance(artifact, dict) else "raw"
-                                print(f"   Artifact 类型: {artifact_type}")
-
-                        # 流式状态
-                        elif evt_type == "stream-status":
-                            status = obj.get("status", "")
-                            print(f"📍 [stream-status] {status}")
-
-                        # 错误
                         elif evt_type == "error":
                             error_text = obj.get("errorText", obj.get("error", "未知错误"))
                             print(f"\n❌ [error] 错误: {error_text}")
                             _log("Chat 对话", False, f"error={error_text}")
                             return
 
-                        # 其他事件
-                        else:
-                            if evt_type:
-                                print(f"📍 [{evt_type}] {json.dumps(obj, ensure_ascii=False)[:200]}")
-
-                    # 最终结果
                     print(f"\n{'='*60}")
                     answer = "".join(answer_parts).strip()
                     if got_text:
-                        if "没有可用的数据源" in answer:
-                            _log("Chat 对话", False, "返回提示无数据源，预期应可用")
-                            return
                         preview = (answer[:200] + "...") if len(answer) > 200 else answer
                         _log("Chat 对话", True, f"\n{preview}")
                     elif got_tool:
-                        _log("Chat 对话", True, "收到工具输出事件（无文本增量）")
+                        _log("Chat 对话", True, "收到工具输出事件")
                     else:
                         _log("Chat 对话", False, "空响应")
 
@@ -312,9 +216,9 @@ async def main(base_url: str) -> None:
             traceback.print_exc()
             _log("Chat 对话", False, str(e))
 
-        # 9. 验证消息顺序 - 获取所有消息并检查 create_time
+        # 8. 验证消息顺序
         print(f"\n{'='*60}")
-        print("📋 验证消息顺序（按 API 返回顺序）")
+        print("📋 验证消息顺序")
         print(f"{'='*60}\n")
 
         r = await client.get(
@@ -326,58 +230,20 @@ async def main(base_url: str) -> None:
             messages = r.json().get("data", {}).get("items", [])
             print(f"共 {len(messages)} 条消息:\n")
 
-            # 检查时间戳和序号
-            timestamps = set()
             for i, msg in enumerate(messages):
                 msg_type = msg.get("message_type", "?")
-                content = msg.get("content", "")[:80]
-                create_time = msg.get("create_time", "")
-                msg_id = msg.get("id", "")
                 seq = msg.get("seq", "?")
-                tool_calls = msg.get("tool_calls", [])
-                tool_call_id = msg.get("tool_call_id", "")
-                name = msg.get("name", "")
-
-                timestamps.add(create_time)
-
-                # 格式化显示
+                content = msg.get("content", "")[:60].replace("\n", " ")
                 type_emoji = {"human": "👤", "ai": "🤖", "tool": "🔧", "system": "⚙️"}.get(msg_type, "❓")
+                print(f"{i+1:2}. {type_emoji} [{msg_type:6}] seq={seq}: {content}...")
 
-                print(f"{i+1:2}. {type_emoji} [{msg_type:6}] seq={seq}, create_time={create_time}")
-                print(f"    id={msg_id}")
-
-                if tool_calls:
-                    tool_names = [tc.get("name", "?") for tc in tool_calls]
-                    print(f"    tool_calls: {tool_names}")
-                if tool_call_id:
-                    print(f"    tool_call_id={tool_call_id}, name={name}")
-
-                # 显示内容摘要
-                if content:
-                    content_preview = content.replace("\n", " ")[:60]
-                    print(f"    内容: {content_preview}...")
-                print()
-
-            # 分析排序
-            print(f"{'='*60}")
-            print(f"📊 排序分析:")
-            print(f"   总消息数: {len(messages)}")
-            print(f"   唯一时间戳数: {len(timestamps)}")
-
-            # 检查 seq 是否递增
             seqs = [m.get("seq", 0) for m in messages]
-            is_seq_ordered = all(seqs[i] < seqs[i + 1] for i in range(len(seqs) - 1))
-
-            if is_seq_ordered:
-                print(f"   ✅ seq 序号递增，消息顺序正确！")
+            is_ordered = all(seqs[i] < seqs[i + 1] for i in range(len(seqs) - 1))
+            print(f"\n{'='*60}")
+            if is_ordered:
+                print("✅ seq 序号递增，消息顺序正确！")
             else:
-                print(f"   ❌ seq 序号未递增，排序可能有问题")
-                print(f"   seq 列表: {seqs}")
-
-            if len(timestamps) < len(messages):
-                print(f"   ℹ️ 发现 {len(messages) - len(timestamps)} 条消息共享相同时间戳")
-                print("   （使用 seq 字段保证排序稳定）")
-
+                print("❌ seq 序号未递增")
         else:
             _log("获取消息列表", False, r.text)
 
@@ -387,4 +253,3 @@ if __name__ == "__main__":
     parser.add_argument("--base-url", default="http://localhost:8000/api/v1", help="后端 API 基础地址")
     args = parser.parse_args()
     asyncio.run(main(args.base_url))
-
