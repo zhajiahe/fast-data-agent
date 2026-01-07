@@ -5,12 +5,22 @@
 """
 
 import uuid
+from enum import Enum
 
 from sqlalchemy import BigInteger, ForeignKey, Integer, String, Text
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base, BaseTableMixin
+
+
+class FileType(str, Enum):
+    """文件类型枚举"""
+
+    CSV = "csv"
+    EXCEL = "excel"
+    JSON = "json"
+    PARQUET = "parquet"
 
 
 class UploadedFile(Base, BaseTableMixin):

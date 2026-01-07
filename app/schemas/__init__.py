@@ -4,17 +4,6 @@ Pydantic Schema 模块
 用于 API 请求和响应的数据验证和序列化
 """
 
-from app.schemas.data_source import (
-    DataSourceCreate,
-    DataSourceListQuery,
-    DataSourcePreviewRequest,
-    DataSourcePreviewResponse,
-    DataSourceResponse,
-    DataSourceUpdate,
-    FieldMapping,
-    RawMappingResponse,
-    TargetField,
-)
 from app.schemas.database_connection import (
     DatabaseConnectionConfig,
     DatabaseConnectionCreate,
@@ -35,6 +24,14 @@ from app.schemas.raw_data import (
     RawDataPreviewResponse,
     RawDataResponse,
     RawDataUpdate,
+)
+from app.schemas.session import (
+    AnalysisSessionCreate,
+    AnalysisSessionDetail,
+    AnalysisSessionListQuery,
+    AnalysisSessionResponse,
+    AnalysisSessionUpdate,
+    RawDataBrief,
 )
 from app.schemas.user import (
     LoginRequest,
@@ -74,14 +71,11 @@ __all__ = [
     "RawDataPreviewResponse",
     "RawDataDatabaseTableConfig",
     "RawDataFileConfig",
-    # DataSource
-    "TargetField",
-    "FieldMapping",
-    "DataSourceCreate",
-    "DataSourceUpdate",
-    "DataSourceResponse",
-    "DataSourceListQuery",
-    "DataSourcePreviewRequest",
-    "DataSourcePreviewResponse",
-    "RawMappingResponse",
+    # Session
+    "AnalysisSessionCreate",
+    "AnalysisSessionUpdate",
+    "AnalysisSessionResponse",
+    "AnalysisSessionDetail",
+    "AnalysisSessionListQuery",
+    "RawDataBrief",
 ]

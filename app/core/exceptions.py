@@ -151,11 +151,11 @@ def register_exception_handlers(app: FastAPI) -> None:
     async def general_exception_handler(request: Request, exc: Exception) -> JSONResponse:
         """
         处理未捕获的异常
-        
+
         开发环境返回详细错误信息和堆栈，生产环境只返回通用错误消息
         """
         logger.exception(f"Unhandled exception: {exc}")
-        
+
         # 开发环境返回详细错误信息
         if settings.is_development:
             detail = {
@@ -166,7 +166,7 @@ def register_exception_handlers(app: FastAPI) -> None:
         else:
             # 生产环境隐藏内部错误细节
             detail = None
-        
+
         return create_error_response(
             code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             msg="服务器内部错误",

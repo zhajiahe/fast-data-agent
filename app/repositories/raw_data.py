@@ -172,3 +172,32 @@ class RawDataRepository(BaseRepository[RawData]):
         )
         result = await self.db.execute(query)
         return (result.scalar() or 0) > 0
+
+    async def get_by_ids_with_relations(self, ids: list[uuid.UUID], user_id: uuid.UUID) -> list[RawData]:
+        """
+        根据 ID 列表获取数据对象（包含关联的 connection 和 uploaded_file）
+
+        Args:
+            ids: ID 列表
+            user_id: 用户 ID
+
+        Returns:
+            数据对象列表
+        """
+        if not ids:
+            return []
+
+        query = (
+            select(RawData)
+            .options(
+                selectinload(RawData.connection),
+                selectinload(RawData.uploaded_file),
+            )
+            .where(
+                RawData.id.in_(ids),
+                RawData.user_id == user_id,
+                RawData.deleted == 0,
+            )
+        )
+        result = await self.db.execute(query)
+        return list(result.scalars().all())

@@ -73,27 +73,12 @@ class RawDataContext(BaseModel):
     table_name: str | None = None
 
 
-class DataSourceContext(BaseModel):
-    """数据源上下文信息"""
-
-    id: str  # UUID 字符串
-    name: str
-    description: str | None = None
-    category: str | None = None
-
-    # 关联的数据对象
-    raw_data_list: list[RawDataContext] = Field(default_factory=list)
-
-    # 目标字段定义
-    target_fields: list[dict[str, Any]] | None = None
-
-
 class ChatContext(BaseModel):
-    """聊天上下文 - 包含运行时配置和数据源信息"""
+    """聊天上下文 - 包含运行时配置和数据对象信息"""
 
     user_id: str  # UUID 字符串
     thread_id: str  # UUID 字符串
-    data_source: DataSourceContext | None = None
+    raw_data_list: list[RawDataContext] = Field(default_factory=list)
 
 
 # ==================== 错误处理工具 ====================
@@ -180,12 +165,12 @@ async def quick_analysis(
     快速分析数据，返回数据概览和统计摘要。
 
     支持两种模式：
-    1. 分析数据源 VIEW：file_name 为空时，分析当前会话绑定的数据源
+    1. 分析数据 VIEW：file_name 为空时，分析当前会话绑定的数据
     2. 分析会话文件：file_name 指定时，分析会话目录中的文件（如 sql_result_xxx.parquet）
 
     Args:
         file_name: 可选，要分析的会话文件名（如 'sql_result_abcd.parquet'）。
-                   留空则分析数据源 VIEW。
+                   留空则分析数据 VIEW。
 
     Returns:
         content: 格式化的分析摘要（给 LLM）
@@ -254,21 +239,17 @@ async def quick_analysis(
         }
         return "\n".join(content_lines), artifact
 
-    # 模式 2：分析数据源 VIEW
-    runtime.stream_writer("正在分析数据源...")
+    # 模式 2：分析数据 VIEW
+    runtime.stream_writer("正在分析数据...")
 
-    # 从 context 获取数据源
-    ds_ctx = ctx.data_source
-    if ds_ctx is None:
-        error_msg = "当前会话没有关联数据源"
-        return error_msg, {"type": "error", "error": error_msg}
-
-    if not ds_ctx.raw_data_list:
-        error_msg = f"数据源 {ds_ctx.name} 没有关联的数据对象"
+    # 从 context 获取数据对象列表
+    raw_data_list = ctx.raw_data_list
+    if not raw_data_list:
+        error_msg = "当前会话没有关联数据对象"
         return error_msg, {"type": "error", "error": error_msg}
 
     # 提取所有 RawData 的名称作为 VIEW 名称
-    view_names = [raw.name for raw in ds_ctx.raw_data_list]
+    view_names = [raw.name for raw in raw_data_list]
 
     response = await client.post(
         "/quick_analysis",
@@ -282,12 +263,12 @@ async def quick_analysis(
 
     if not result.get("success"):
         error_msg = result.get("error", "分析失败")
-        return f"数据源分析失败: {error_msg}", {"type": "error", "error": error_msg}
+        return f"数据分析失败: {error_msg}", {"type": "error", "error": error_msg}
 
     analysis = result.get("analysis", {})
 
     # 构建格式化的分析摘要（给 LLM）
-    content_lines = [f"## 数据源: {ds_ctx.name} (ID: {ds_ctx.id})"]
+    content_lines = ["## 数据分析结果"]
 
     # 处理多 VIEW 的情况
     views = analysis.get("views", [analysis])  # 单 VIEW 时 analysis 本身就是结果
@@ -342,8 +323,6 @@ async def quick_analysis(
     # artifact 包含完整分析结果
     artifact = {
         "type": "analysis",
-        "data_source_name": ds_ctx.name,
-        "data_source_id": ds_ctx.id,
         "available_views": view_names,
         **analysis,
     }
@@ -355,7 +334,7 @@ async def quick_analysis(
     response_format="content_and_artifact",
     description="""使用 DuckDB SQL 方言查询数据。
 **数据访问方式**：
-1. 数据源 VIEW：使用 RawData 名称（会话初始化时自动创建）
+1. 数据 VIEW：使用 RawData 名称（会话初始化时自动创建）
    - `SELECT * FROM "pg_orders" LIMIT 10`
    - `SELECT * FROM "sales_csv"`
 2. 会话目录文件：直接读取本地文件
@@ -400,9 +379,7 @@ async def execute_sql(
     result = response.json()
 
     # 从 context 获取可用 VIEW 列表
-    available_views: list[str] = []
-    if ctx.data_source and ctx.data_source.raw_data_list:
-        available_views = [raw.name for raw in ctx.data_source.raw_data_list]
+    available_views: list[str] = [raw.name for raw in ctx.raw_data_list]
 
     if result.get("success"):
         row_count = result.get("row_count", 0)

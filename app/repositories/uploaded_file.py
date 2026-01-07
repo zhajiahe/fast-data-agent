@@ -9,8 +9,7 @@ import uuid
 from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.data_source import FileType
-from app.models.uploaded_file import UploadedFile
+from app.models.uploaded_file import FileType, UploadedFile
 from app.repositories.base import BaseRepository
 
 

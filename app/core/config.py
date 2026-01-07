@@ -71,10 +71,10 @@ class Settings(BaseSettings):
     # 应用配置
     APP_NAME: str = "Fast Data Agent"
     DEBUG: bool = False
-    
+
     # 日志配置
     LOG_LEVEL: str = "INFO"  # DEBUG, INFO, WARNING, ERROR
-    
+
     # API 文档配置（生产环境可禁用）
     ENABLE_DOCS: bool = True  # 是否启用 /docs 和 /redoc
 

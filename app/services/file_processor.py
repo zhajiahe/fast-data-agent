@@ -11,7 +11,7 @@ import pandas as pd
 from loguru import logger
 
 from app.core.exceptions import BadRequestException
-from app.models.data_source import FileType
+from app.models.uploaded_file import FileType
 
 
 class FileProcessorService:

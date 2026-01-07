@@ -1,8 +1,8 @@
 """
-任务推荐服务 - 基于数据源 Schema 和对话上下文生成分析任务推荐
+任务推荐服务 - 基于数据对象 Schema 和对话上下文生成分析任务推荐
 
 核心功能：
-1. 初始任务推荐（基于数据源 Schema）
+1. 初始任务推荐（基于数据对象 Schema）
 2. 追问推荐（基于对话上下文）
 3. 推荐优先级排序
 4. 推荐持久化（保存到数据库）
@@ -19,7 +19,7 @@ from pydantic import BaseModel, Field, ValidationError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
-from app.models.data_source import DataSource
+from app.models.raw_data import RawData
 from app.models.recommendation import (
     RecommendationCategory,
     RecommendationSourceType,
@@ -125,30 +125,30 @@ class RecommendService:
     async def generate_initial_recommendations(
         self,
         session: AnalysisSession,
-        data_source: DataSource | None,
+        raw_data_list: list[RawData],
         max_count: int = 5,
     ) -> list[RecommendationItem]:
         """
         生成初始任务推荐
 
-        基于数据源的 Schema 信息，生成适合该数据集的分析任务推荐
+        基于数据对象的 Schema 信息，生成适合该数据集的分析任务推荐
 
         Args:
             session: 分析会话
-            data_source: 数据源（可选）
+            raw_data_list: 数据对象列表
             max_count: 最大推荐数量
 
         Returns:
             推荐任务列表
         """
         # 收集 Schema 信息
-        schema_info = self._collect_schema_info(data_source)
-        logger.debug(f"收集到 {len(schema_info)} 个数据源的 Schema 信息")
+        schema_info = self._collect_schema_info(raw_data_list)
+        logger.debug(f"收集到 {len(schema_info)} 个数据对象的 Schema 信息")
 
         if not schema_info:
-            # 如果没有 Schema 信息，尝试使用数据源名称生成推荐
-            logger.warning("数据源没有 Schema 缓存，使用数据源名称生成推荐")
-            return self._get_recommendations_without_schema(data_source)
+            # 如果没有 Schema 信息，尝试使用数据对象名称生成推荐
+            logger.warning("数据对象没有 Schema 缓存，使用数据对象名称生成推荐")
+            return self._get_recommendations_without_schema(raw_data_list)
 
         # 使用 LLM 生成推荐
         try:
@@ -172,7 +172,7 @@ class RecommendService:
     async def generate_followup_recommendations(
         self,
         session: AnalysisSession,
-        data_source: DataSource | None,
+        raw_data_list: list[RawData],
         conversation_context: str,
         last_result: dict | None = None,
         max_count: int = 3,
@@ -184,7 +184,7 @@ class RecommendService:
 
         Args:
             session: 分析会话
-            data_source: 数据源（可选）
+            raw_data_list: 数据对象列表
             conversation_context: 对话上下文
             last_result: 上一次分析结果
             max_count: 最大推荐数量
@@ -192,7 +192,7 @@ class RecommendService:
         Returns:
             推荐任务列表
         """
-        schema_info = self._collect_schema_info(data_source)
+        schema_info = self._collect_schema_info(raw_data_list)
 
         try:
             recommendations = await self._generate_followup_with_llm(
@@ -213,61 +213,31 @@ class RecommendService:
 
         return self._get_generic_followup_recommendations()
 
-    def _collect_schema_info(self, data_source: DataSource | None) -> dict[str, Any]:
+    def _collect_schema_info(self, raw_data_list: list[RawData]) -> dict[str, Any]:
         """
-        收集数据源 Schema 信息
+        收集数据对象的 Schema 信息
 
-        优先级：
-        1. schema_cache（如果已缓存）
-        2. target_fields（统一字段定义）
-        3. raw_mappings -> raw_data -> column_types（数据对象列信息）
+        从 RawData 列表中提取 schema 信息供 LLM 使用
         """
-        if not data_source:
+        if not raw_data_list:
             return {}
 
-        schema_info: dict[str, Any] = {
-            "name": data_source.name,
-            "category": data_source.category,
-            "description": data_source.description,
-        }
+        schema_info: dict[str, Any] = {}
 
-        # 优先使用 schema_cache
-        if data_source.schema_cache:
-            schema_info["tables"] = data_source.schema_cache.get("tables", [])
-            return {data_source.name: schema_info}
+        for raw in raw_data_list:
+            raw_schema: dict[str, Any] = {
+                "name": raw.name,
+                "raw_type": raw.raw_type,
+            }
 
-        # 使用 target_fields（统一字段定义）
-        if data_source.target_fields:
-            schema_info["target_fields"] = data_source.target_fields
+            # 获取列结构信息
+            if raw.columns_schema:
+                # columns_schema 格式: [{name, data_type, nullable, user_type_override}]
+                raw_schema["columns"] = raw.columns_schema
 
-        # 收集 raw_data 的列信息
-        raw_data_schemas: list[dict[str, Any]] = []
-        if data_source.raw_mappings:
-            for mapping in data_source.raw_mappings:
-                raw = mapping.raw_data
-                if not raw:
-                    continue
+            schema_info[raw.name] = raw_schema
 
-                raw_schema: dict[str, Any] = {
-                    "name": raw.name,
-                    "raw_type": raw.raw_type,
-                }
-
-                # 获取列结构信息
-                if raw.columns_schema:
-                    # columns_schema 格式: [{name, data_type, nullable, user_type_override}]
-                    raw_schema["columns"] = raw.columns_schema
-
-                raw_data_schemas.append(raw_schema)
-
-        if raw_data_schemas:
-            schema_info["raw_data"] = raw_data_schemas
-
-        # 只有收集到有效信息才返回
-        if schema_info.get("target_fields") or schema_info.get("raw_data") or schema_info.get("tables"):
-            return {data_source.name: schema_info}
-
-        return {}
+        return schema_info
 
     async def _generate_with_llm(
         self,
@@ -341,26 +311,24 @@ class RecommendService:
         """基于规则生成推荐"""
         recommendations = []
 
-        # 分析 Schema 中的表和列
-        all_tables = []
+        # 分析 Schema 中的列
         has_time_column = False
         has_numeric_column = False
         has_category_column = False
+        table_count = len(schema_info)
 
-        for _ds_name, ds_info in schema_info.items():
-            for table in ds_info.get("tables", []):
-                all_tables.append(table.get("name", "unknown"))
-                for col in table.get("columns", []):
-                    col_type = col.get("data_type", "").lower()
-                    col_name = col.get("name", "").lower()
+        for _raw_name, raw_info in schema_info.items():
+            for col in raw_info.get("columns", []):
+                col_type = col.get("data_type", "").lower()
+                col_name = col.get("name", "").lower()
 
-                    if any(t in col_type for t in ["timestamp", "date", "time"]):
-                        has_time_column = True
-                    if any(t in col_type for t in ["int", "float", "decimal", "numeric"]):
-                        has_numeric_column = True
-                    if any(t in col_type for t in ["varchar", "text", "char"]):
-                        if any(k in col_name for k in ["type", "category", "status", "level"]):
-                            has_category_column = True
+                if any(t in col_type for t in ["timestamp", "date", "time"]):
+                    has_time_column = True
+                if any(t in col_type for t in ["int", "float", "decimal", "numeric"]):
+                    has_numeric_column = True
+                if any(t in col_type for t in ["varchar", "text", "char"]):
+                    if any(k in col_name for k in ["type", "category", "status", "level"]):
+                        has_category_column = True
 
         # 基于发现生成推荐
         priority = 0
@@ -369,7 +337,7 @@ class RecommendService:
         recommendations.append(
             RecommendationItem(
                 title="查看数据概览",
-                description=f"分析 {len(all_tables)} 个数据表的基本信息和统计",
+                description=f"分析 {table_count} 个数据表的基本信息和统计",
                 category=RecommendationCategory.OVERVIEW.value,
                 priority=priority,
                 source_type=RecommendationSourceType.INITIAL.value,
@@ -426,17 +394,17 @@ class RecommendService:
 
         return recommendations[:max_count]
 
-    def _get_recommendations_without_schema(self, data_source: DataSource | None) -> list[RecommendationItem]:
-        """当数据源没有 Schema 时，基于数据源信息生成推荐"""
+    def _get_recommendations_without_schema(self, raw_data_list: list[RawData]) -> list[RecommendationItem]:
+        """当数据对象没有 Schema 时，基于数据对象信息生成推荐"""
         recommendations = []
         priority = 0
 
-        # 获取数据源名称
-        ds_name = data_source.name if data_source else "数据"
+        # 获取数据对象名称
+        raw_names = ", ".join(r.name for r in raw_data_list) if raw_data_list else "数据"
 
         recommendations.append(
             RecommendationItem(
-                title=f"快速分析 {ds_name}",
+                title=f"快速分析 {raw_names[:30]}",
                 description="获取数据的基本结构、行数、列信息和统计摘要",
                 category=RecommendationCategory.OVERVIEW.value,
                 priority=priority,
@@ -537,7 +505,7 @@ class RecommendService:
     async def generate_and_save_initial(
         self,
         session: AnalysisSession,
-        data_source: DataSource | None,
+        raw_data_list: list[RawData],
         user_id: uuid.UUID,
         max_count: int = 5,
         *,
@@ -548,7 +516,7 @@ class RecommendService:
 
         Args:
             session: 分析会话
-            data_source: 数据源（可选）
+            raw_data_list: 数据对象列表
             user_id: 用户 ID
             max_count: 最大推荐数量
             force_regenerate: 是否强制重新生成
@@ -564,7 +532,7 @@ class RecommendService:
         try:
             items = await self.generate_initial_recommendations(
                 session=session,
-                data_source=data_source,
+                raw_data_list=raw_data_list,
                 max_count=max_count,
             )
         except Exception as e:
@@ -581,7 +549,7 @@ class RecommendService:
     async def generate_and_save_followup(
         self,
         session: AnalysisSession,
-        data_source: DataSource | None,
+        raw_data_list: list[RawData],
         conversation_context: str,
         user_id: uuid.UUID,
         *,
@@ -594,7 +562,7 @@ class RecommendService:
 
         Args:
             session: 分析会话
-            data_source: 数据源（可选）
+            raw_data_list: 数据对象列表
             conversation_context: 对话上下文
             user_id: 用户 ID
             last_result: 上次分析结果
@@ -608,7 +576,7 @@ class RecommendService:
         try:
             items = await self.generate_followup_recommendations(
                 session=session,
-                data_source=data_source,
+                raw_data_list=raw_data_list,
                 conversation_context=conversation_context,
                 last_result=last_result,
                 max_count=max_count,

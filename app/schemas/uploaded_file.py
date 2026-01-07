@@ -8,7 +8,7 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 
-from app.models.data_source import FileType
+from app.models.uploaded_file import FileType
 
 
 class UploadedFileResponse(BaseModel):

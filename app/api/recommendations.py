@@ -76,14 +76,14 @@ async def generate_recommendations(
     """
     生成初始任务推荐
 
-    基于会话关联的数据源 Schema 生成分析任务推荐
+    基于会话关联的数据对象 Schema 生成分析任务推荐
     """
     if data is None:
         data = GenerateRecommendationsRequest()
 
     # 验证会话权限并获取会话信息
     session_service = AnalysisSessionService(db)
-    session, data_source = await session_service.get_session_with_data_source(session_id, current_user.id)
+    session, raw_data_list = await session_service.get_session_with_raw_data(session_id, current_user.id)
 
     repo = TaskRecommendationRepository(db)
 
@@ -95,7 +95,7 @@ async def generate_recommendations(
     recommend_service = RecommendService(db)
     recommendation_items = await recommend_service.generate_initial_recommendations(
         session=session,
-        data_source=data_source,
+        raw_data_list=raw_data_list,
         max_count=data.max_count,
     )
 
@@ -134,7 +134,7 @@ async def generate_followup_recommendations(
     """
     # 验证会话权限并获取会话信息
     session_service = AnalysisSessionService(db)
-    session, data_source = await session_service.get_session_with_data_source(session_id, current_user.id)
+    session, raw_data_list = await session_service.get_session_with_raw_data(session_id, current_user.id)
 
     repo = TaskRecommendationRepository(db)
 
@@ -145,7 +145,7 @@ async def generate_followup_recommendations(
     recommend_service = RecommendService(db)
     recommendation_items = await recommend_service.generate_followup_recommendations(
         session=session,
-        data_source=data_source,
+        raw_data_list=raw_data_list,
         conversation_context=data.conversation_context,
         last_result=data.last_result,
         max_count=data.max_count,

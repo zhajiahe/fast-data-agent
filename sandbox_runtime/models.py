@@ -4,8 +4,6 @@
 包含所有请求/响应模型
 """
 
-from typing import Any
-
 from pydantic import BaseModel, Field
 
 
@@ -93,26 +91,7 @@ class RawDataConfig(BaseModel):
     custom_sql: str | None = None
 
 
-class FieldMapping(BaseModel):
-    """字段映射配置"""
-
-    raw_data_id: str
-    raw_data_name: str
-    mappings: dict[str, str]  # target_field -> source_column
-
-
-class DataSourceConfig(BaseModel):
-    """数据源配置"""
-
-    id: str
-    name: str
-    raw_data_list: list[RawDataConfig] = []
-    target_fields: list[dict[str, Any]] | None = None
-    raw_mappings: list[FieldMapping] = []
-
-
 class InitSessionRequest(BaseModel):
-    """会话初始化请求"""
+    """会话初始化请求 - 简化版"""
 
-    data_source: DataSourceConfig | None = None
-
+    raw_data_list: list[RawDataConfig] = Field(default_factory=list)

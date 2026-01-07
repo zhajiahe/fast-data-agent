@@ -107,22 +107,3 @@ class AnalysisSessionRepository(BaseRepository[AnalysisSession]):
         result = await self.db.execute(query)
         return list(result.scalars().all())
 
-    async def exists_by_data_source(self, data_source_id: uuid.UUID) -> bool:
-        """
-        检查是否有会话引用指定的数据源
-
-        Args:
-            data_source_id: 数据源 ID
-
-        Returns:
-            是否存在引用
-        """
-        from sqlalchemy import func
-
-        query = select(func.count()).select_from(AnalysisSession).where(
-            AnalysisSession.data_source_id == data_source_id,
-            AnalysisSession.deleted == 0,
-        )
-        result = await self.db.execute(query)
-        count = result.scalar() or 0
-        return count > 0

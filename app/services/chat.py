@@ -22,15 +22,14 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
 from app.core.encryption import decrypt_str
-from app.models.data_source import DataSource
 from app.models.message import ChatMessage
+from app.models.raw_data import RawData
 from app.models.session import AnalysisSession
-from app.repositories.data_source import DataSourceRepository
 from app.repositories.message import ChatMessageRepository
+from app.repositories.raw_data import RawDataRepository
 from app.repositories.session import AnalysisSessionRepository
 from app.utils.tools import (
     ChatContext,
-    DataSourceContext,
     RawDataContext,
     execute_python,
     execute_sql,
@@ -57,7 +56,7 @@ class ChatService:
 
     def __init__(self, db: AsyncSession):
         self.db = db
-        self.data_source_repo = DataSourceRepository(db)
+        self.raw_data_repo = RawDataRepository(db)
         self.message_repo = ChatMessageRepository(db)
         self.session_repo = AnalysisSessionRepository(db)
         self.tools = [
@@ -80,64 +79,35 @@ class ChatService:
             streaming=settings.LLM_STREAMING,  # 可通过 LLM_STREAMING 环境变量控制
         )
 
-    def _format_data_source(self, data_source: DataSource | None) -> str:
-        """格式化数据源信息供 LLM 使用"""
-        if not data_source:
-            return "当前没有可用的数据源。"
+    def _format_raw_data_list(self, raw_data_list: list[RawData]) -> str:
+        """格式化数据对象列表供 LLM 使用"""
+        if not raw_data_list:
+            return "当前没有可用的数据。"
 
-        ds = data_source
-        lines = [f"**数据源: {ds.name}** (ID: {ds.id})"]
+        lines = ["**可用数据：**"]
 
-        if ds.category:
-            lines.append(f"- 分类: {ds.category}")
-        if ds.description:
-            lines.append(f"- 描述: {ds.description}")
+        for raw in raw_data_list:
+            lines.append(f'\n### VIEW: `"{raw.name}"`')
 
-        # 目标字段
-        if ds.target_fields:
-            field_names = [f.get("name", "") for f in ds.target_fields[:5]]
-            info = ", ".join(field_names)
-            if len(ds.target_fields) > 5:
-                info += f" 等共 {len(ds.target_fields)} 个字段"
-            lines.append(f"- 字段: {info}")
+            if raw.description:
+                lines.append(f"- 描述: {raw.description}")
 
-        # 提取 VIEW 名称（RawData 名称）
-        view_names: list[str] = []
-        has_field_mappings = False
-        if ds.raw_mappings:
-            for mapping in ds.raw_mappings:
-                if mapping.raw_data:
-                    view_names.append(mapping.raw_data.name)
-                if mapping.field_mappings:
-                    has_field_mappings = True
+            if raw.raw_type == "database_table":
+                db_type = raw.connection.db_type if raw.connection else "unknown"
+                lines.append(f"- 类型: 数据库表 ({db_type})")
+                if raw.table_name:
+                    schema = raw.schema_name or "public"
+                    lines.append(f"- 源表: {schema}.{raw.table_name}")
+            elif raw.raw_type == "file":
+                file_type = raw.uploaded_file.file_type if raw.uploaded_file else "unknown"
+                lines.append(f"- 类型: 文件 ({file_type})")
 
-        if view_names:
-            lines.append("\n**可用 VIEW（SQL 表名）:**")
-            # 如果有字段映射，DataSource 名称也可作为统一 VIEW
-            if has_field_mappings and ds.target_fields:
-                target_field_names = ", ".join(f.get("name", "") for f in ds.target_fields[:5])
-                lines.append(f'- `"{ds.name}"` ← **统一视图**（字段: {target_field_names}）')
-
-            # 显示每个 RawData VIEW 的列信息
-            for mapping in ds.raw_mappings:
-                raw = mapping.raw_data
-                if not raw:
-                    continue
-                view_line = f'- `"{raw.name}"`'
-
-                # 获取列信息
-                if raw.columns_schema:
-                    # columns_schema 格式: [{name, data_type, ...}]
-                    col_info = ", ".join(f"{c.get('name')}({c.get('data_type', '?')})" for c in raw.columns_schema[:6])
-                    if len(raw.columns_schema) > 6:
-                        col_info += f" ...共{len(raw.columns_schema)}列"
-                    view_line += f"\n  列: {col_info}"
-                else:
-                    view_line += " (列信息未同步)"
-
-                lines.append(view_line)
-        else:
-            lines.append("\n⚠️ 没有可用的 VIEW，请先配置数据源映射。")
+            # 列信息
+            if raw.columns_schema:
+                col_info = ", ".join(f"{c.get('name')}({c.get('data_type', '?')})" for c in raw.columns_schema[:6])
+                if len(raw.columns_schema) > 6:
+                    col_info += f" ...共{len(raw.columns_schema)}列"
+                lines.append(f"- 列: {col_info}")
 
         return "\n".join(lines)
 
@@ -184,18 +154,20 @@ class ChatService:
 
     async def _get_system_prompt(
         self,
-        data_source: DataSource | None,
+        raw_data_list: list[RawData],
         user_id: Any,
         session_id: Any,
     ) -> str:
         """构建系统提示词"""
-        data_source_info = self._format_data_source(data_source)
+        data_info = self._format_raw_data_list(raw_data_list)
 
         # 获取会话文件列表
         local_files = await self._get_local_files(user_id, session_id)
         local_files_info = self._format_local_files(local_files)
 
-        return f"""你是专业的数据分析助手，可以分析用户上传的文件或配置的数据源。
+        view_names = [f'"{raw.name}"' for raw in raw_data_list]
+
+        return f"""你是专业的数据分析助手，可以分析用户的数据。
 
 ## 可用工具
 | 工具 | 用途 |
@@ -206,27 +178,30 @@ class ChatService:
 | execute_python | 复杂数据处理和自定义分析 |
 | list_local_files | 查看会话中已生成的文件 |
 
-## 数据源
-{data_source_info}
+## 数据
+{data_info}
+
+## 可用 VIEW（SQL 表名）
+{', '.join(view_names) if view_names else '暂无'}
 
 ## 当前会话文件
 {local_files_info}
 
 ## 数据访问规则 ⚠️
-1. **访问数据源**：使用 VIEW 名称（见上方"可用 VIEW"），如 `SELECT * FROM "view_name"`
-2. **读取 SQL 结果**：execute_sql 返回的 result_file 可用于后续分析，如 `SELECT * FROM 'sql_result_xxx.parquet'`
+1. **访问数据**：使用 VIEW 名称，如 `SELECT * FROM "view_name"`
+2. **读取 SQL 结果**：execute_sql 返回的 result_file 可用于后续分析
 3. **分析文件**：quick_analysis(file_name='xxx.parquet') 可分析会话中的文件
 4. **generate_chart**：先用 execute_sql 查询数据，再用返回的 parquet 文件绘图
 
 ## 要点
-- SQL 表名使用 VIEW 名称（非数据源名称），VIEW 名称需用双引号包裹
+- VIEW 名称需用双引号包裹
 - SQL 查询大数据量时使用 LIMIT
 - 使用中文交流
 """
 
-    async def _create_agent(self, data_source: DataSource | None, user_id: Any, session_id: Any):
+    async def _create_agent(self, raw_data_list: list[RawData], user_id: Any, session_id: Any):
         """创建 ReAct Agent"""
-        system_prompt = await self._get_system_prompt(data_source, user_id, session_id)
+        system_prompt = await self._get_system_prompt(raw_data_list, user_id, session_id)
         return create_agent(
             model=self._get_llm(),
             tools=self.tools,
@@ -234,63 +209,43 @@ class ChatService:
             context_schema=ChatContext,
         )
 
-    def _build_data_source_context(self, data_source: DataSource | None) -> DataSourceContext | None:
-        """将 DataSource 模型转换为 DataSourceContext"""
-        if not data_source:
-            return None
+    def _build_raw_data_context(self, raw_data_list: list[RawData]) -> list[RawDataContext]:
+        """构建 RawData 上下文列表"""
+        contexts: list[RawDataContext] = []
 
-        ds = data_source
-        # 构建数据对象上下文列表
-        raw_data_list: list[RawDataContext] = []
-        if ds.raw_mappings:
-            for mapping in ds.raw_mappings:
-                raw = mapping.raw_data
-                if not raw:
-                    continue
+        for raw in raw_data_list:
+            ctx_data: dict[str, Any] = {
+                "id": str(raw.id),
+                "name": raw.name,
+                "raw_type": raw.raw_type,
+            }
 
-                raw_ctx_data: dict[str, Any] = {
-                    "id": str(raw.id),  # UUID 转为字符串
-                    "name": raw.name,
-                    "raw_type": raw.raw_type,
-                }
+            if raw.raw_type == "file" and raw.uploaded_file:
+                ctx_data.update(
+                    {
+                        "file_type": raw.uploaded_file.file_type,
+                        "object_key": raw.uploaded_file.object_key,
+                        "bucket_name": raw.uploaded_file.bucket_name,
+                    }
+                )
+            elif raw.raw_type == "database_table" and raw.connection:
+                ctx_data.update(
+                    {
+                        "connection_id": str(raw.connection_id) if raw.connection_id else None,
+                        "db_type": raw.connection.db_type,
+                        "host": raw.connection.host,
+                        "port": raw.connection.port,
+                        "database": raw.connection.database,
+                        "username": raw.connection.username,
+                        "password": decrypt_str(raw.connection.password, allow_plaintext=True),
+                        "schema_name": raw.schema_name,
+                        "table_name": raw.table_name,
+                    }
+                )
 
-                if raw.raw_type == "file" and raw.uploaded_file:
-                    raw_ctx_data.update(
-                        {
-                            "file_type": raw.uploaded_file.file_type,
-                            "object_key": raw.uploaded_file.object_key,
-                            "bucket_name": raw.uploaded_file.bucket_name,
-                        }
-                    )
-                elif raw.raw_type == "database_table" and raw.connection:
-                    raw_ctx_data.update(
-                        {
-                            "connection_id": str(raw.connection_id) if raw.connection_id else None,  # UUID 转为字符串
-                            "db_type": raw.connection.db_type,
-                            "host": raw.connection.host,
-                            "port": raw.connection.port,
-                            "database": raw.connection.database,
-                            "username": raw.connection.username,
-                            # 使用解密后的密码，避免将密文透传到 Agent
-                            "password": decrypt_str(raw.connection.password, allow_plaintext=True),
-                            "schema_name": raw.schema_name,
-                            "table_name": raw.table_name,
-                        }
-                    )
+            contexts.append(RawDataContext(**ctx_data))
 
-                raw_data_list.append(RawDataContext(**raw_ctx_data))
-
-        # 构建数据源上下文
-        ctx_data: dict[str, Any] = {
-            "id": str(ds.id),  # UUID 转为字符串
-            "name": ds.name,
-            "description": ds.description,
-            "category": ds.category,
-            "raw_data_list": raw_data_list,
-            "target_fields": ds.target_fields,
-        }
-
-        return DataSourceContext(**ctx_data)
+        return contexts
 
     async def get_history(
         self,
@@ -355,24 +310,21 @@ class ChatService:
         Yields:
             流式 (message, metadata) 元组，或 error dict
         """
-        # 获取会话关联的数据源
-        data_source: DataSource | None = None
-        if session.data_source_id:
-            data_sources = await self.data_source_repo.get_by_ids([session.data_source_id], session.user_id)
-            if data_sources:
-                data_source = data_sources[0]
+        # 获取会话关联的 RawData
+        raw_data_list: list[RawData] = []
+        if session.raw_data_links:
+            raw_data_ids = [link.raw_data_id for link in session.raw_data_links if link.is_enabled]
+            raw_data_list = await self.raw_data_repo.get_by_ids_with_relations(raw_data_ids, session.user_id)
 
         # 创建 Agent
-        agent = await self._create_agent(data_source, session.user_id, session.id)
+        agent = await self._create_agent(raw_data_list, session.user_id, session.id)
 
-        # 构建数据源上下文
-        ds_context = self._build_data_source_context(data_source)
-
-        # 创建上下文
+        # 构建上下文
+        raw_data_contexts = self._build_raw_data_context(raw_data_list)
         context = ChatContext(
-            user_id=str(session.user_id),  # UUID 转为字符串
-            thread_id=str(session.id),  # UUID 转为字符串
-            data_source=ds_context,
+            user_id=str(session.user_id),
+            thread_id=str(session.id),
+            raw_data_list=raw_data_contexts,
         )
         logger.debug(f"上下文: {context}")
 

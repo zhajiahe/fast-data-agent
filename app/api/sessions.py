@@ -10,18 +10,58 @@ from fastapi.responses import StreamingResponse
 
 from app.core.deps import CurrentUser, DBSession
 from app.models.base import BasePageQuery, BaseResponse, PageResponse
-from app.schemas.data_source import DataSourceResponse
 from app.schemas.session import (
     AnalysisSessionCreate,
     AnalysisSessionDetail,
     AnalysisSessionListQuery,
     AnalysisSessionResponse,
     AnalysisSessionUpdate,
+    RawDataBrief,
 )
 from app.services.session import AnalysisSessionService
 from app.utils.tools import get_sandbox_client
 
 router = APIRouter(prefix="/sessions", tags=["sessions"])
+
+
+def _build_session_response(session: Any, raw_data_list: list[Any] | None = None) -> AnalysisSessionResponse:
+    """构建会话响应，包含 RawData 列表"""
+    raw_data_briefs = []
+    if raw_data_list:
+        raw_data_briefs = [
+            RawDataBrief(
+                id=raw.id,
+                name=raw.name,
+                raw_type=raw.raw_type,
+                alias=raw.name,
+            )
+            for raw in raw_data_list
+        ]
+    elif session.raw_data_links:
+        # 从关联中提取
+        raw_data_briefs = [
+            RawDataBrief(
+                id=link.raw_data_id,
+                name=link.alias or "",
+                raw_type="unknown",  # 简单模式下没有完整信息
+                alias=link.alias,
+            )
+            for link in session.raw_data_links
+            if link.is_enabled
+        ]
+
+    return AnalysisSessionResponse(
+        id=session.id,
+        user_id=session.user_id,
+        name=session.name,
+        description=session.description,
+        config=session.config,
+        status=session.status,
+        message_count=session.message_count,
+        create_time=session.create_time,
+        update_time=session.update_time,
+        raw_data_list=raw_data_briefs,
+    )
 
 
 @router.get("", response_model=BaseResponse[PageResponse[AnalysisSessionResponse]])
@@ -39,7 +79,7 @@ async def get_sessions(
         page_num=page_query.page_num,
         page_size=page_query.page_size,
     )
-    data_list = [AnalysisSessionResponse.model_validate(item) for item in items]
+    data_list = [_build_session_response(item) for item in items]
     return BaseResponse[PageResponse[AnalysisSessionResponse]](
         success=True,
         code=200,
@@ -56,23 +96,32 @@ async def get_session(
     current_user: CurrentUser,
     db: DBSession,
 ):
-    """获取单个会话详情（包含数据源信息）"""
+    """获取单个会话详情（包含数据对象信息）"""
     service = AnalysisSessionService(db)
-    session, data_source = await service.get_session_with_data_source(session_id, current_user.id)
+    session, raw_data_list = await service.get_session_with_raw_data(session_id, current_user.id)
 
     # 构建响应
+    raw_data_briefs = [
+        RawDataBrief(
+            id=raw.id,
+            name=raw.name,
+            raw_type=raw.raw_type,
+            alias=raw.name,
+        )
+        for raw in raw_data_list
+    ]
+
     response = AnalysisSessionDetail(
         id=session.id,
         user_id=session.user_id,
         name=session.name,
         description=session.description,
-        data_source_id=session.data_source_id,
         config=session.config,
         status=session.status,
         message_count=session.message_count,
         create_time=session.create_time,
         update_time=session.update_time,
-        data_source=DataSourceResponse.model_validate(data_source) if data_source else None,
+        raw_data_list=raw_data_briefs,
     )
 
     return BaseResponse[AnalysisSessionDetail](success=True, code=200, msg="获取会话成功", data=response)
@@ -87,7 +136,7 @@ async def create_session(
     """创建会话"""
     service = AnalysisSessionService(db)
     item = await service.create_session(current_user.id, data)
-    return BaseResponse(success=True, code=201, msg="创建会话成功", data=AnalysisSessionResponse.model_validate(item))
+    return BaseResponse(success=True, code=201, msg="创建会话成功", data=_build_session_response(item))
 
 
 @router.put("/{session_id}", response_model=BaseResponse[AnalysisSessionResponse])
@@ -100,7 +149,7 @@ async def update_session(
     """更新会话"""
     service = AnalysisSessionService(db)
     item = await service.update_session(session_id, current_user.id, data)
-    return BaseResponse(success=True, code=200, msg="更新会话成功", data=AnalysisSessionResponse.model_validate(item))
+    return BaseResponse(success=True, code=200, msg="更新会话成功", data=_build_session_response(item))
 
 
 @router.delete("/{session_id}", response_model=BaseResponse[None])
@@ -124,7 +173,7 @@ async def archive_session(
     """归档会话"""
     service = AnalysisSessionService(db)
     item = await service.archive_session(session_id, current_user.id)
-    return BaseResponse(success=True, code=200, msg="会话已归档", data=AnalysisSessionResponse.model_validate(item))
+    return BaseResponse(success=True, code=200, msg="会话已归档", data=_build_session_response(item))
 
 
 # ==================== 会话文件管理 ====================

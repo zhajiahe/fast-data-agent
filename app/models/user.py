@@ -6,7 +6,6 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.models.base import Base, BaseTableMixin
 
 if TYPE_CHECKING:
-    from app.models.data_source import DataSource
     from app.models.database_connection import DatabaseConnection
     from app.models.raw_data import RawData
     from app.models.session import AnalysisSession
@@ -26,20 +25,15 @@ class User(Base, BaseTableMixin):
     is_superuser: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, comment="是否超级管理员")
 
     # 关系
-    data_sources: Mapped[list["DataSource"]] = relationship(
-        "DataSource", back_populates="user", cascade="all, delete-orphan"
-    )
     uploaded_files: Mapped[list["UploadedFile"]] = relationship(
         "UploadedFile", back_populates="user", cascade="all, delete-orphan"
     )
     analysis_sessions: Mapped[list["AnalysisSession"]] = relationship(
         "AnalysisSession", back_populates="user", cascade="all, delete-orphan"
     )
-    # 新增：数据库连接
     database_connections: Mapped[list["DatabaseConnection"]] = relationship(
         "DatabaseConnection", back_populates="user", cascade="all, delete-orphan"
     )
-    # 新增：数据对象
     raw_data_list: Mapped[list["RawData"]] = relationship(
         "RawData", back_populates="user", cascade="all, delete-orphan"
     )

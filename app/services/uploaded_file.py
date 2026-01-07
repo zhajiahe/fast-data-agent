@@ -12,8 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import settings
 from app.core.exceptions import BadRequestException, NotFoundException
 from app.core.minio import minio_client
-from app.models.data_source import FileType
-from app.models.uploaded_file import UploadedFile
+from app.models.uploaded_file import FileType, UploadedFile
 from app.repositories.raw_data import RawDataRepository
 from app.repositories.uploaded_file import UploadedFileRepository
 from app.schemas.uploaded_file import FileListQuery, FilePreviewResponse
