@@ -174,7 +174,7 @@ class TestFileDelete:
     """文件删除测试"""
 
     def test_delete_file(self, client: TestClient, auth_headers: dict):
-        """测试删除文件"""
+        """测试删除文件（需要先删除自动创建的 RawData）"""
         # 先上传一个文件
         csv_content = b"id,name\n1,test"
         files = {"file": ("to_delete.csv", csv_content, "text/csv")}
@@ -184,7 +184,15 @@ class TestFileDelete:
             headers=auth_headers,
             files=files,
         )
-        file_id = upload_response.json()["data"]["id"]
+        file_data = upload_response.json()["data"]
+        file_id = file_data["id"]
+        # auto_raw_data 是嵌套对象，需要获取其 id
+        auto_raw_data = file_data.get("auto_raw_data")
+        auto_raw_data_id = auto_raw_data.get("id") if auto_raw_data else None
+
+        # 如果自动创建了 RawData，先删除它
+        if auto_raw_data_id:
+            client.delete(f"/api/v1/raw-data/{auto_raw_data_id}", headers=auth_headers)
 
         # 删除文件
         response = client.delete(f"/api/v1/files/{file_id}", headers=auth_headers)

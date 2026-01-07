@@ -233,7 +233,10 @@ class AnalysisSessionService:
             NotFoundException: 会话不存在
             BadRequestException: 数据验证失败
         """
-        session = await self.get_session(session_id, user_id)
+        # 使用 eager loading 获取会话（包含 raw_data_links）
+        session = await self.repo.get_with_raw_data_links(session_id, user_id)
+        if not session:
+            raise NotFoundException(msg="会话不存在")
 
         # 构建更新数据
         update_data: dict[str, Any] = {}
@@ -259,7 +262,7 @@ class AnalysisSessionService:
 
         # 如果数据对象变更，重新创建关联
         if raw_data_changed:
-            # 删除旧关联
+            # 删除旧关联（session.raw_data_links 已 eager load）
             for link in session.raw_data_links:
                 await self.db.delete(link)
 
@@ -278,7 +281,10 @@ class AnalysisSessionService:
             return session, new_raw_data_list
 
         # 没有变更时，获取当前关联的数据对象
-        _, existing_raw_data_list = await self.get_session_with_raw_data(session_id, user_id)
+        existing_raw_data_list: list[RawData] = []
+        if session.raw_data_links:
+            raw_data_ids = [link.raw_data_id for link in session.raw_data_links if link.is_enabled]
+            existing_raw_data_list = await self.raw_data_repo.get_by_ids_with_relations(raw_data_ids, user_id)
         return session, existing_raw_data_list
 
     async def delete_session(self, session_id: uuid.UUID, user_id: uuid.UUID) -> None:

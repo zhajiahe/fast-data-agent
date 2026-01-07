@@ -206,20 +206,24 @@ class RawDataRepository(BaseRepository[RawData]):
         """
         检查是否有会话引用该数据对象
 
+        只检查未删除的会话中的引用，软删除的会话不计入。
+
         Args:
             raw_data_id: 数据对象 ID
 
         Returns:
             是否存在引用
         """
-        from app.models.session import SessionRawData
+        from app.models.session import AnalysisSession, SessionRawData
 
         query = (
             select(func.count())
             .select_from(SessionRawData)
+            .join(AnalysisSession, SessionRawData.session_id == AnalysisSession.id)
             .where(
                 SessionRawData.raw_data_id == raw_data_id,
                 SessionRawData.deleted == 0,
+                AnalysisSession.deleted == 0,  # 排除软删除的会话
             )
         )
         result = await self.db.execute(query)
