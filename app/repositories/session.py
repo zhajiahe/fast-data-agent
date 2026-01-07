@@ -8,8 +8,9 @@ import uuid
 
 from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
-from app.models.session import AnalysisSession
+from app.models.session import AnalysisSession, SessionRawData
 from app.repositories.base import BaseRepository
 
 
@@ -18,6 +19,33 @@ class AnalysisSessionRepository(BaseRepository[AnalysisSession]):
 
     def __init__(self, db: AsyncSession):
         super().__init__(AnalysisSession, db)
+
+    async def get_with_raw_data_links(
+        self,
+        session_id: uuid.UUID,
+        user_id: uuid.UUID,
+    ) -> AnalysisSession | None:
+        """
+        获取会话及其关联的 SessionRawData（Eager load）
+
+        Args:
+            session_id: 会话 ID
+            user_id: 用户 ID
+
+        Returns:
+            会话实例或 None
+        """
+        query = (
+            select(AnalysisSession)
+            .options(selectinload(AnalysisSession.raw_data_links))
+            .where(
+                AnalysisSession.id == session_id,
+                AnalysisSession.user_id == user_id,
+                AnalysisSession.deleted == 0,
+            )
+        )
+        result = await self.db.execute(query)
+        return result.scalar_one_or_none()
 
     async def search(
         self,

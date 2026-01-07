@@ -292,6 +292,7 @@ class ChatService:
         self,
         content: str,
         session: AnalysisSession,
+        raw_data_list: list[RawData] | None = None,
         *,
         save_messages: bool = True,
     ) -> AsyncGenerator[dict[str, Any] | tuple[Any, Any], None]:
@@ -305,16 +306,15 @@ class ChatService:
         Args:
             content: 用户消息内容
             session: 分析会话
+            raw_data_list: 已加载的数据对象列表（可选，如果不提供则自动加载）
             save_messages: 是否保存消息到数据库
 
         Yields:
             流式 (message, metadata) 元组，或 error dict
         """
-        # 获取会话关联的 RawData
-        raw_data_list: list[RawData] = []
-        if session.raw_data_links:
-            raw_data_ids = [link.raw_data_id for link in session.raw_data_links if link.is_enabled]
-            raw_data_list = await self.raw_data_repo.get_by_ids_with_relations(raw_data_ids, session.user_id)
+        # 使用传入的 raw_data_list，如果没有则保持为空
+        if raw_data_list is None:
+            raw_data_list = []
 
         # 创建 Agent
         agent = await self._create_agent(raw_data_list, session.user_id, session.id)

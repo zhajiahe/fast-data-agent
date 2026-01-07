@@ -25,7 +25,13 @@ router = APIRouter(prefix="/sessions", tags=["sessions"])
 
 
 def _build_session_response(session: Any, raw_data_list: list[Any] | None = None) -> AnalysisSessionResponse:
-    """构建会话响应，包含 RawData 列表"""
+    """
+    构建会话响应
+
+    Args:
+        session: 会话实例
+        raw_data_list: 可选的 RawData 列表（如果提供则使用，否则返回空列表）
+    """
     raw_data_briefs = []
     if raw_data_list:
         raw_data_briefs = [
@@ -37,18 +43,7 @@ def _build_session_response(session: Any, raw_data_list: list[Any] | None = None
             )
             for raw in raw_data_list
         ]
-    elif session.raw_data_links:
-        # 从关联中提取
-        raw_data_briefs = [
-            RawDataBrief(
-                id=link.raw_data_id,
-                name=link.alias or "",
-                raw_type="unknown",  # 简单模式下没有完整信息
-                alias=link.alias,
-            )
-            for link in session.raw_data_links
-            if link.is_enabled
-        ]
+    # 注意：不再尝试访问 session.raw_data_links，避免惰性加载问题
 
     return AnalysisSessionResponse(
         id=session.id,
@@ -135,8 +130,8 @@ async def create_session(
 ):
     """创建会话"""
     service = AnalysisSessionService(db)
-    item = await service.create_session(current_user.id, data)
-    return BaseResponse(success=True, code=201, msg="创建会话成功", data=_build_session_response(item))
+    session, raw_data_list = await service.create_session(current_user.id, data)
+    return BaseResponse(success=True, code=201, msg="创建会话成功", data=_build_session_response(session, raw_data_list))
 
 
 @router.put("/{session_id}", response_model=BaseResponse[AnalysisSessionResponse])
@@ -148,8 +143,8 @@ async def update_session(
 ):
     """更新会话"""
     service = AnalysisSessionService(db)
-    item = await service.update_session(session_id, current_user.id, data)
-    return BaseResponse(success=True, code=200, msg="更新会话成功", data=_build_session_response(item))
+    session, raw_data_list = await service.update_session(session_id, current_user.id, data)
+    return BaseResponse(success=True, code=200, msg="更新会话成功", data=_build_session_response(session, raw_data_list))
 
 
 @router.delete("/{session_id}", response_model=BaseResponse[None])

@@ -227,7 +227,7 @@ async def _stream_chat_response(
     from langchain_core.messages import ToolMessage
 
     session_service = AnalysisSessionService(db)
-    session = await session_service.get_session(session_id, user_id)
+    session, raw_data_list = await session_service.get_session_with_raw_data(session_id, user_id)
 
     builder = VercelStreamBuilder()
     sent_tool_outputs: set[str] = set()  # 跟踪已发送的工具输出，避免重复
@@ -237,7 +237,7 @@ async def _stream_chat_response(
         yield builder.message_start()
         yield builder.start_step()
 
-        async for chunk in chat_service.chat(content, session):
+        async for chunk in chat_service.chat(content, session, raw_data_list):
             # 错误处理
             if isinstance(chunk, dict) and "error" in chunk:
                 error_info = chunk.get("error", {})

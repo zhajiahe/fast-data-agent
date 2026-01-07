@@ -82,7 +82,7 @@ class AnalysisSessionService:
         self,
         user_id: uuid.UUID,
         data: AnalysisSessionCreate,
-    ) -> AnalysisSession:
+    ) -> tuple[AnalysisSession, list[RawData]]:
         """
         创建会话
 
@@ -91,7 +91,7 @@ class AnalysisSessionService:
             data: 创建数据
 
         Returns:
-            创建的会话实例
+            (创建的会话实例, 关联的数据对象列表)
 
         Raises:
             BadRequestException: 数据验证失败
@@ -126,7 +126,7 @@ class AnalysisSessionService:
         # 初始化沙盒 DuckDB
         await self._init_session_duckdb(user_id, session.id, raw_data_list)
 
-        return session
+        return session, raw_data_list
 
     async def _init_session_duckdb(
         self,
@@ -217,7 +217,7 @@ class AnalysisSessionService:
         session_id: uuid.UUID,
         user_id: uuid.UUID,
         data: AnalysisSessionUpdate,
-    ) -> AnalysisSession:
+    ) -> tuple[AnalysisSession, list[RawData]]:
         """
         更新会话
 
@@ -227,7 +227,7 @@ class AnalysisSessionService:
             data: 更新数据
 
         Returns:
-            更新后的会话实例
+            (更新后的会话实例, 关联的数据对象列表)
 
         Raises:
             NotFoundException: 会话不存在
@@ -275,8 +275,11 @@ class AnalysisSessionService:
 
             # 重新初始化 DuckDB
             await self._init_session_duckdb(user_id, session_id, new_raw_data_list)
+            return session, new_raw_data_list
 
-        return session
+        # 没有变更时，获取当前关联的数据对象
+        _, existing_raw_data_list = await self.get_session_with_raw_data(session_id, user_id)
+        return session, existing_raw_data_list
 
     async def delete_session(self, session_id: uuid.UUID, user_id: uuid.UUID) -> None:
         """
@@ -339,7 +342,10 @@ class AnalysisSessionService:
         Returns:
             (会话实例, 数据对象列表)
         """
-        session = await self.get_session(session_id, user_id)
+        # 使用 eager load 获取会话及其关联
+        session = await self.repo.get_with_raw_data_links(session_id, user_id)
+        if not session:
+            raise NotFoundException(msg="会话不存在")
 
         raw_data_list: list[RawData] = []
         if session.raw_data_links:
