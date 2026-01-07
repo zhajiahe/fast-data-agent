@@ -1,6 +1,6 @@
 # Fast Data Agent - Docker Compose
-# 启动：docker compose up -d
-# 迁移：docker compose --profile migration up migrate
+# 开发环境启动：docker compose up -d
+# 数据库迁移：docker compose --profile migration up migrate
 
 services:
   # Nginx - 前端静态文件 + API 反向代理
@@ -16,18 +16,18 @@ services:
       - app
     restart: unless-stopped
 
+  # 后端 API 服务
   app:
     build:
       context: .
       target: development
     ports:
-      - "8000:8000"  # 开发时直接访问，生产环境通过 nginx 代理
+      - "8000:8000"
     environment:
-      # 环境配置 (development | production)
-      - ENVIRONMENT=${ENVIRONMENT:-development}
-      - DEBUG=${DEBUG:-true}
-      - LOG_LEVEL=${LOG_LEVEL:-INFO}
-      - ENABLE_DOCS=${ENABLE_DOCS:-true}
+      - ENVIRONMENT=development
+      - DEBUG=true
+      - LOG_LEVEL=INFO
+      - ENABLE_DOCS=true
       # 数据库配置
       - DATABASE_URL=postgresql+asyncpg://postgres:postgres123@postgres:5432/data_agent
       # MinIO 配置
@@ -38,11 +38,11 @@ services:
       - MINIO_SECURE=false
       # 沙盒配置
       - SANDBOX_URL=http://sandbox:8888
-      # AI/LLM 配置
+      # AI/LLM 配置（从 .env 文件读取）
       - OPENAI_API_KEY=${OPENAI_API_KEY:-}
       - OPENAI_API_BASE=${OPENAI_API_BASE:-}
       - LLM_MODEL=${LLM_MODEL:-google/gemini-2.0-flash-exp:free}
-      # JWT 配置（生产环境必须修改）
+      # JWT 密钥（开发环境默认值，生产需修改）
       - SECRET_KEY=${SECRET_KEY:-dev-secret-key}
       - REFRESH_SECRET_KEY=${REFRESH_SECRET_KEY:-dev-refresh-secret-key}
     volumes:
@@ -55,7 +55,9 @@ services:
         condition: service_healthy
       sandbox:
         condition: service_started
+    restart: unless-stopped
 
+  # PostgreSQL 数据库
   postgres:
     image: postgres:16-alpine
     ports:
@@ -71,7 +73,9 @@ services:
       interval: 5s
       timeout: 3s
       retries: 5
+    restart: unless-stopped
 
+  # MinIO 对象存储
   minio:
     image: minio/minio:latest
     ports:
@@ -88,7 +92,9 @@ services:
       interval: 5s
       timeout: 3s
       retries: 5
+    restart: unless-stopped
 
+  # MinIO 初始化（创建 bucket）
   minio-init:
     image: minio/mc:latest
     depends_on:
@@ -101,6 +107,7 @@ services:
       mc anonymous set download myminio/data-agent;
       "
 
+  # Python 沙盒执行环境
   sandbox:
     build: ./sandbox_runtime
     ports:
@@ -110,7 +117,9 @@ services:
         limits:
           cpus: '2'
           memory: 1G
+    restart: unless-stopped
 
+  # 数据库迁移服务（按需启用）
   migrate:
     build:
       context: .
