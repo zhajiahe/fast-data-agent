@@ -60,6 +60,7 @@ import {
   createSessionApiV1SessionsPost,
   deleteConnectionApiV1DatabaseConnectionsConnectionIdDelete,
   deleteFileApiV1FilesFileIdDelete,
+  deleteRawDataApiV1RawDataRawDataIdDelete,
   deleteSessionApiV1SessionsSessionIdDelete,
   generateRecommendationsApiV1SessionsSessionIdRecommendationsPost,
   getConnectionsApiV1DatabaseConnectionsGet,
@@ -133,6 +134,16 @@ export const useRawDataPreview = (
     queryKey: ['rawDataPreview', rawDataId, body],
     queryFn: () => previewRawDataApiV1RawDataRawDataIdPreviewPost(rawDataId as string, body),
     enabled: !!rawDataId,
+  });
+};
+
+export const useDeleteRawData = () => {
+  const queryClient = useQueryClient();
+  return useMutation<AxiosResponse<BaseResponseNoneType>, Error, string>({
+    mutationFn: (rawDataId) => deleteRawDataApiV1RawDataRawDataIdDelete(rawDataId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['rawData'] });
+    },
   });
 };
 

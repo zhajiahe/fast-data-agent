@@ -1,5 +1,6 @@
 import {
   Database,
+  Eye,
   FileSpreadsheet,
   HardDrive,
   HelpCircle,
@@ -15,11 +16,13 @@ import {
   useDbConnections,
   useDeleteDbConnection,
   useDeleteFile,
+  useDeleteRawData,
   useFiles,
   useRawDataList,
 } from '@/api';
 import { EmptyState } from '@/components/common';
 import { AddDatabaseDialog } from '@/components/data-source/AddDatabaseDialog';
+import { RawDataPreviewDialog } from '@/components/data-source/RawDataPreviewDialog';
 import { UploadFileDialog } from '@/components/data-source/UploadFileDialog';
 import {
   AlertDialog,
@@ -76,9 +79,15 @@ export const DataSources = () => {
   const [showAddDbDialog, setShowAddDbDialog] = useState(false);
   const [showUploadDialog, setShowUploadDialog] = useState(false);
 
+  // 数据对象预览状态
+  const [previewTarget, setPreviewTarget] = useState<{
+    id: string;
+    name: string;
+  } | null>(null);
+
   // 删除确认状态
   const [deleteTarget, setDeleteTarget] = useState<{
-    type: 'connection' | 'file';
+    type: 'connection' | 'file' | 'rawData';
     id: string;
     name: string;
   } | null>(null);
@@ -90,6 +99,7 @@ export const DataSources = () => {
 
   const deleteConnectionMutation = useDeleteDbConnection();
   const deleteFileMutation = useDeleteFile();
+  const deleteRawDataMutation = useDeleteRawData();
 
   // 数据提取
   const connections = connectionsRes?.data.data?.items || [];
@@ -138,6 +148,8 @@ export const DataSources = () => {
         await deleteConnectionMutation.mutateAsync(deleteTarget.id);
       } else if (deleteTarget.type === 'file') {
         await deleteFileMutation.mutateAsync(deleteTarget.id);
+      } else if (deleteTarget.type === 'rawData') {
+        await deleteRawDataMutation.mutateAsync(deleteTarget.id);
       }
       toast({ title: t('common.success'), description: `${deleteTarget.name} 已删除` });
     } catch (err: unknown) {
@@ -146,6 +158,11 @@ export const DataSources = () => {
     } finally {
       setDeleteTarget(null);
     }
+  };
+
+  // 处理预览
+  const handlePreview = (id: string, name: string) => {
+    setPreviewTarget({ id, name });
   };
 
   return (
@@ -285,9 +302,31 @@ export const DataSources = () => {
                             </div>
                           </div>
                         </div>
-                        <Badge variant={raw.status === 'ready' ? 'default' : 'secondary'}>
-                          {raw.status === 'ready' ? '就绪' : raw.status === 'syncing' ? '同步中' : raw.status}
-                        </Badge>
+                        <div className="flex items-center gap-2">
+                          <Badge variant={raw.status === 'ready' ? 'default' : 'secondary'}>
+                            {raw.status === 'ready' ? '就绪' : raw.status === 'syncing' ? '同步中' : raw.status}
+                          </Badge>
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="ghost" size="icon">
+                                <MoreHorizontal className="h-4 w-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuItem onClick={() => handlePreview(raw.id, raw.name)}>
+                                <Eye className="h-4 w-4 mr-2" />
+                                预览数据
+                              </DropdownMenuItem>
+                              <DropdownMenuItem
+                                className="text-destructive"
+                                onClick={() => setDeleteTarget({ type: 'rawData', id: raw.id, name: raw.name })}
+                              >
+                                <Trash2 className="h-4 w-4 mr-2" />
+                                {t('common.delete')}
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </div>
                       </div>
                     ))}
                   </div>
@@ -456,6 +495,12 @@ export const DataSources = () => {
       {/* 对话框 */}
       <AddDatabaseDialog open={showAddDbDialog} onOpenChange={setShowAddDbDialog} />
       <UploadFileDialog open={showUploadDialog} onOpenChange={setShowUploadDialog} />
+      <RawDataPreviewDialog
+        open={!!previewTarget}
+        onOpenChange={(open) => !open && setPreviewTarget(null)}
+        rawDataId={previewTarget?.id ?? null}
+        rawDataName={previewTarget?.name}
+      />
 
       {/* 删除确认对话框 */}
       <AlertDialog open={!!deleteTarget} onOpenChange={(open) => !open && setDeleteTarget(null)}>
