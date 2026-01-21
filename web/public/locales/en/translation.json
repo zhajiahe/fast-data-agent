@@ -33,6 +33,7 @@
     "subtitle": "Start your data analysis journey",
     "welcome": "Welcome back, {{name}}",
     "totalDataSources": "Data Sources",
+    "totalDataObjects": "Data Objects",
     "totalSessions": "Sessions",
     "chartsGenerated": "Charts",
     "active": "active",

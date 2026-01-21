@@ -33,6 +33,7 @@
     "subtitle": "开始您的数据分析之旅",
     "welcome": "欢迎回来，{{name}}",
     "totalDataSources": "数据源",
+    "totalDataObjects": "数据对象",
     "totalSessions": "分析会话",
     "chartsGenerated": "生成图表",
     "active": "个活跃",
