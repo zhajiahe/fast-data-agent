@@ -218,3 +218,6 @@ __marimo__/
 # sqlite
 *db
 logs/
+
+# 生成的模拟数据
+data/

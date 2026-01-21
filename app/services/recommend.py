@@ -34,8 +34,8 @@ from app.repositories.recommendation import TaskRecommendationRepository
 class RecommendationItem(BaseModel):
     """推荐项"""
 
-    title: str = Field(..., description="推荐任务标题")
-    description: str = Field(..., description="任务描述")
+    title: str = Field(..., description="推荐任务标题（中文）")
+    description: str = Field(..., description="任务描述（中文）")
     category: str = Field(default="other", description="分类")
     priority: int | None = Field(default=None, ge=0, description="优先级，0最高")
     source_type: str = Field(default="initial", description="推荐来源类型")
@@ -250,7 +250,9 @@ class RecommendService:
         session_context = self._format_session_context(session)
 
         system_prompt = """你是一个资深数据分析顾问。请严格按照 RecommendationResult 模型填充 recommendations 字段，
-并确保每个推荐都能帮助用户快速理解或深入分析数据。"""
+并确保每个推荐都能帮助用户快速理解或深入分析数据。
+
+重要：所有输出（包括 title 和 description）必须使用中文。"""
 
         user_prompt = f"""当前分析会话：
 {session_context}
@@ -258,7 +260,7 @@ class RecommendService:
 数据库 Schema 信息：
 {json.dumps(schema_info, ensure_ascii=False, indent=2)}
 
-请基于以上数据结构生成不超过 {max_count} 个高价值分析任务。"""
+请基于以上数据结构生成不超过 {max_count} 个高价值分析任务。请确保 title 和 description 都使用中文。"""
 
         result = await self._request_structured_recommendations(
             system_prompt=system_prompt,
@@ -279,7 +281,9 @@ class RecommendService:
         session_context = self._format_session_context(session)
 
         system_prompt = """你是一个资深数据分析顾问。请在 RecommendationResult 模型中补充 recommendations，
-用于引导用户基于当前上下文提出更深入的问题或分析任务。"""
+用于引导用户基于当前上下文提出更深入的问题或分析任务。
+
+重要：所有输出（包括 title 和 description）必须使用中文。"""
 
         context_parts = [
             f"会话信息：\n{session_context}",
@@ -290,7 +294,7 @@ class RecommendService:
         if schema_info:
             context_parts.append(f"可用数据：\n{json.dumps(schema_info, ensure_ascii=False, indent=2)}")
 
-        user_prompt = "\n\n".join(context_parts) + f"\n\n请生成不超过 {max_count} 个追问建议。"
+        user_prompt = "\n\n".join(context_parts) + f"\n\n请生成不超过 {max_count} 个追问建议。请确保 title 和 description 都使用中文。"
 
         result = await self._request_structured_recommendations(
             system_prompt=system_prompt,
