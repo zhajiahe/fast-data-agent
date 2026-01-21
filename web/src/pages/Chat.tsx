@@ -100,19 +100,32 @@ export const Chat = () => {
       const newItems = result.data?.data.data?.items;
       if (newItems) {
         setLocalMessages(convertApiMessages(newItems));
-      }
 
-      // 2. 后台生成后续问题推荐（非关键路径，不等待）
-      generateFollowupRecommendationsApiV1SessionsSessionIdRecommendationsFollowupPost(sessionId, {
-        conversation_context: `用户最新问题: ${input}`,
-        max_count: 3,
-      })
-        .then(() => {
-          queryClient.invalidateQueries({ queryKey: ['recommendations', sessionId] });
-        })
-        .catch((e) => {
-          console.warn('Failed to generate followup recommendations:', e);
-        });
+        // 2. 后台生成后续问题推荐（非关键路径，不等待）
+        // 从刷新后的消息中提取最近的对话上下文
+        const recentMessages = newItems.slice(-6); // 最近 6 条消息
+        const conversationContext = recentMessages
+          .map((m) => {
+            const role = m.message_type === 'human' ? '用户' : m.message_type === 'ai' ? 'AI' : '工具';
+            const content = m.content?.slice(0, 500) || ''; // 截取前 500 字符
+            return content ? `${role}: ${content}` : '';
+          })
+          .filter(Boolean)
+          .join('\n');
+
+        if (conversationContext) {
+          generateFollowupRecommendationsApiV1SessionsSessionIdRecommendationsFollowupPost(sessionId, {
+            conversation_context: conversationContext,
+            max_count: 3,
+          })
+            .then(() => {
+              queryClient.invalidateQueries({ queryKey: ['recommendations', sessionId] });
+            })
+            .catch((e) => {
+              console.warn('Failed to generate followup recommendations:', e);
+            });
+        }
+      }
     },
   });
 
